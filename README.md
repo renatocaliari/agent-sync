@@ -17,9 +17,9 @@ Supports: **opencode**, **claude-code**, **gemini-cli**, **pi.dev**, **qwen-code
 | **Multi-Agent** | Support for 5+ agents (opencode, claude, gemini, pi, qwen) |
 | **Centralized Skills** | All skills in `~/.agents/skills/` (source of truth) |
 | **Auto-Configuration** | Automatically configures agents to use global skills |
-| **Secrets Safe** | API keys never synced by default (secure by design) |
+| **Secrets Protection** | API keys automatically scrubbed and stored locally |
 | **GitHub-Based** | Private repository for sync |
-| **Conflict Resolution** | Auto-resolves duplicate skills across agents |
+| **Conflict Detection** | Detects duplicate skills across agents |
 
 ---
 

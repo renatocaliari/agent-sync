@@ -2,9 +2,12 @@
 
 import subprocess
 import shutil
+import json
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
+
+from .scrubber import SecretScrubber
 
 
 class SyncManager:
@@ -13,10 +16,31 @@ class SyncManager:
     DEFAULT_REPO_DIR = Path.home() / ".local" / "share" / "agent-sync" / "repo"
     STATE_FILE = Path.home() / ".local" / "state" / "agent-sync" / "sync-state.json"
     
+    # Config file patterns per agent (supports multiple extensions)
+    CONFIG_PATTERNS = {
+        "opencode": ["opencode.json", "opencode.jsonc"],
+        "claude-code": ["settings.json", "claude.json"],
+        "gemini-cli": ["settings.json"],
+        "pi.dev": ["settings.json", "models.json", "lsp-settings.json"],
+        "qwen-code": ["settings.json"],
+    }
+    
+    # Files to NEVER sync (sensitive or local-only)
+    EXCLUDE_PATTERNS = [
+        "*auth*.json",
+        "*accounts*.json",
+        "*overrides*.json*",
+        "*.lock",
+        ".DS_Store",
+        "package-lock.json",
+        "bun.lock",
+    ]
+    
     def __init__(self, config):
         self.config = config
         self.repo_dir = self.DEFAULT_REPO_DIR
         self.state_file = self.STATE_FILE
+        self.scrubber = SecretScrubber()
         
         # Ensure directories exist
         self.repo_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -335,10 +359,35 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
             sync_configs = sync_options.get("configs", True)
 
             # Copy configs to repo
-            if sync_configs and agent.config_path and agent.config_path.exists():
+            if sync_configs and agent.config_path.parent.exists():
                 agent_config_dir = self.repo_dir / "configs" / agent.name
                 agent_config_dir.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(agent.config_path, agent_config_dir)
+                
+                # Get config file patterns for this agent
+                patterns = self.CONFIG_PATTERNS.get(agent.name, ["*.json"])
+                
+                # Find all matching config files
+                for pattern in patterns:
+                    for config_file in agent.config_path.parent.glob(pattern):
+                        if config_file.is_file():
+                            # Skip excluded files
+                            if self._should_exclude(config_file.name):
+                                continue
+                            
+                            # Read and scrub secrets
+                            content = config_file.read_text()
+                            scrubbed_content, secrets = self.scrubber.scrub(
+                                content, 
+                                agent_name=agent.name
+                            )
+                            
+                            # Save scrubbed content
+                            dest = agent_config_dir / config_file.name
+                            dest.write_text(scrubbed_content)
+                            
+                            # Save secrets to .env (never synced)
+                            if secrets:
+                                self.scrubber.save_secrets(secrets)
         
         # Always sync global skills
         global_skills_dir = Path.home() / ".agents" / "skills"
@@ -353,6 +402,16 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                         shutil.copytree(skill_item, dest, dirs_exist_ok=True)
                     else:
                         shutil.copy2(skill_item, dest)
+    
+    def _should_exclude(self, filename: str) -> bool:
+        """Check if a file should be excluded from sync."""
+        import fnmatch
+        
+        for pattern in self.EXCLUDE_PATTERNS:
+            if fnmatch.fnmatch(filename, pattern):
+                return True
+        
+        return False
     
     def _apply_synced_configs(self) -> list[str]:
         """Apply synced configurations to local agent directories."""
