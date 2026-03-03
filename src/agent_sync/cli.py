@@ -48,10 +48,23 @@ def _check_and_notify():
     try:
         import requests
         
+        # Try with GITHUB_TOKEN if available (for private repos)
+        import os
+        headers = {}
+        token = os.environ.get("GITHUB_TOKEN")
+        if token:
+            headers["Authorization"] = f"token {token}"
+        
         response = requests.get(
             "https://api.github.com/repos/renatocaliari/agent-sync/releases/latest",
+            headers=headers,
             timeout=3,  # Fast timeout
         )
+        
+        # If 404, repo might be private or no releases yet
+        if response.status_code == 404:
+            return
+        
         response.raise_for_status()
         
         latest = response.json()["tag_name"].lstrip("v")
@@ -587,16 +600,32 @@ def export():
 def check_update():
     """Check for available updates."""
     import requests
+    import os
     
     console.print("[bold]🔍 Checking for updates...[/bold]\n")
     
     current = __version__
     
     try:
+        # Try with GITHUB_TOKEN if available (for private repos)
+        headers = {}
+        token = os.environ.get("GITHUB_TOKEN")
+        if token:
+            headers["Authorization"] = f"token {token}"
+        
         response = requests.get(
             "https://api.github.com/repos/renatocaliari/agent-sync/releases/latest",
+            headers=headers,
             timeout=5,
         )
+        
+        # If 404, repo is private or no releases yet
+        if response.status_code == 404:
+            console.print(f"[dim]Current version: v{current}[/dim]")
+            console.print("[yellow]⚠ Repository is private or no releases yet[/yellow]\n")
+            console.print("[dim]Tip: Set GITHUB_TOKEN env var to check updates for private repos[/dim]\n")
+            return
+        
         response.raise_for_status()
         
         latest = response.json()["tag_name"].lstrip("v")
@@ -613,7 +642,7 @@ def check_update():
             
     except requests.exceptions.RequestException:
         console.print(f"[dim]Current version: v{current}[/dim]")
-        console.print("[yellow]⚠ Could not check for updates (offline or no releases yet)\n[/yellow]")
+        console.print("[yellow]⚠ Could not check for updates (offline?)\n[/yellow]")
     except Exception as e:
         console.print(f"[dim]Current version: v{current}[/dim]")
         console.print(f"[yellow]⚠ Error checking updates: {e}\n[/yellow]")
