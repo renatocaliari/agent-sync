@@ -218,39 +218,48 @@ class GeminiCliAgent(BaseAgent):
 
 class PiDevAgent(BaseAgent):
     """Pi.dev agent integration.
-    
+
     Docs: https://github.com/badlogic/pi-mono
     Paths:
       - Config: ~/.pi/agent/settings.json
+      - Extensions: ~/.pi/agent/extensions/, ~/.pi/extensions/
       - Global Skills: ~/.pi/agent/skills/, ~/.agents/skills/
       - Project Skills: .pi/skills/, .agents/skills/
     """
-    
+
     name = "pi.dev"
     config_dir = Path.home() / ".pi" / "agent"  # ← Configs are in ~/.pi/agent/
     config_filename = "settings.json"
     skills_dir_name = "skills"
-    
+
     @property
     def config_path(self) -> Path:
         """Path to Pi.dev settings file."""
         return self.config_dir / self.config_filename
-    
+
     @property
     def skills_path(self) -> Path:
         """Path to Pi.dev global skills directory."""
         # Pi.dev uses multiple paths, we use the global one
         return Path.home() / ".pi" / "agent" / "skills"
-    
+
+    @property
+    def extensions_paths(self) -> list[Path]:
+        """Pi.dev extensions directories."""
+        return [
+            Path.home() / ".pi" / "agent" / "extensions",
+            Path.home() / ".pi" / "extensions",
+        ]
+
     @property
     def global_skills_path(self) -> Path:
         """Path to global ~/.agents/skills directory (also used by Pi)."""
         return GLOBAL_SKILLS_DIR
-    
+
     def _additional_skills_paths(self) -> list[Path]:
         """Pi.dev also uses ~/.agents/skills/."""
         return [GLOBAL_SKILLS_DIR]
-    
+
     def is_available(self) -> bool:
         """Check if Pi.dev is configured."""
         return self.config_path.exists()
