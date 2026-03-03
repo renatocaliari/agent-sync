@@ -312,7 +312,8 @@ class SkillsManager:
             
             # For Claude Code: create symlink in commands directory
             if agent.name == "claude-code":
-                target_dir = agent.commands_path if hasattr(agent, 'commands_path') else agent.skills_path
+                # Use the correct commands path (~/.claude/commands/)
+                target_dir = Path.home() / ".claude" / "commands"
                 target_dir.mkdir(parents=True, exist_ok=True)
                 
                 symlink_path = target_dir / "_global"
