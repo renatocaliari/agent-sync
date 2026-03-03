@@ -12,7 +12,6 @@ from typing import Optional
 from . import __version__
 from .sync import SyncManager
 from .config import Config
-from .secrets import SecretsManager
 
 console = Console()
 
@@ -533,67 +532,12 @@ def status():
 
 @main.group()
 def secrets():
-    """Manage secrets and environment variables."""
+    """Manage secrets and environment variables.
+    
+    Note: agent-sync does not scrub secrets. Config files are synced as-is.
+    ALWAYS use a private repository.
+    """
     pass
-
-
-@secrets.command()
-@click.option("--include-mcp", is_flag=True, help="Include MCP secrets")
-def enable(include_mcp: bool):
-    """Enable secrets synchronization."""
-    console.print("\n🔐 Enabling secrets sync...")
-    
-    secrets_mgr = SecretsManager()
-    try:
-        secrets_mgr.enable(include_mcp=include_mcp)
-        console.print("\n✅ Secrets sync enabled")
-        console.print("\n⚠️  Make sure your repository is PRIVATE!", style="yellow bold")
-    except Exception as e:
-        console.print(f"\n❌ Error: {e}", style="red")
-        raise click.Abort()
-
-
-@secrets.command()
-def disable():
-    """Disable secrets synchronization."""
-    console.print("\n🔓 Disabling secrets sync...")
-
-    secrets_mgr = SecretsManager()
-    try:
-        secrets_mgr.disable()
-        console.print("\n✅ Secrets sync disabled")
-    except Exception as e:
-        console.print(f"\n❌ Error: {e}", style="red")
-        raise click.Abort()
-
-
-@secrets.command()
-def export():
-    """Export secrets to a backup file."""
-    from datetime import datetime
-    
-    secrets_mgr = SecretsManager()
-    secrets = secrets_mgr.load_secrets()
-    
-    if not secrets:
-        console.print("\n[yellow]No secrets to export[/yellow]\n")
-        return
-    
-    # Create backup filename with timestamp
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_file = Path.home() / f".config/agent-sync/secrets_backup_{timestamp}.env"
-    backup_file.parent.mkdir(parents=True, exist_ok=True)
-    
-    with open(backup_file, "w") as f:
-        f.write("# Agent Sync Secrets Backup\n")
-        f.write(f"# Created: {datetime.now().isoformat()}\n")
-        f.write("# WARNING: Keep this file secure!\n\n")
-        for key, value in sorted(secrets.items()):
-            f.write(f"{key}={value}\n")
-    
-    console.print(f"\n[green]✓ Secrets exported to:[/green] {backup_file}")
-    console.print("\n[yellow]⚠️  Keep this backup file secure![/yellow]")
-    console.print("  • Contains sensitive credentials\n")
 
 
 @main.command("check-update")

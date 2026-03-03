@@ -81,29 +81,14 @@ agent-sync pull
 
 ---
 
-## 🔐 Security First
+## 🔐 Security
 
-**By default, agent-sync protects your secrets:**
+**Your config files may contain API keys and tokens.**
 
-```bash
-# Your configs are scrubbed before sync
-"Authorization": "Bearer {{env:AGENT_SYNC_TOKEN}}"  # ← Synced
-
-# Real token stored locally, never synced
-~/.config/agent-sync/.env  # ← Git-ignored
-```
-
-| Synced ✅ | Never Synced ❌ |
-|-----------|-----------------|
-| Config structure | API keys |
-| Skills | Auth tokens |
-| Settings | Passwords |
-| | MCP credentials |
-
-**Requirements:**
-- ✅ Private GitHub repository (free)
-- ✅ Secrets disabled by default
-- ✅ Auto-scrubbing enabled always
+- ⚠️ **ALWAYS use PRIVATE repository**
+- ⚠️ **Keep your repo private**
+- ✅ Config files are synced as-is
+- ✅ Each agent manages their own authentication
 
 ---
 
@@ -293,35 +278,6 @@ All agents also support `~/.agents/skills/` for shared skills.
 
 ## 🔧 Troubleshooting
 
-### Invalid Access Token / Token Expired
-
-If you see `Error: 401 invalid access token or token expired`:
-
-1. **Check your .env file:**
-   ```bash
-   cat ~/.config/agent-sync/.env
-   ```
-
-2. **Update the token:**
-   ```bash
-   # Edit the .env file
-   nano ~/.config/agent-sync/.env
-   
-   # Replace expired token with new one
-   AGENT_SYNC_GEMINI-CLI_BEARER_TOKEN_0=your-new-token-here
-   ```
-
-3. **Re-sync configs:**
-   ```bash
-   agent-sync push
-   ```
-
-4. **On other machines:**
-   ```bash
-   # Update .env with same token
-   agent-sync pull
-   ```
-
 ### Command Not Found
 
 ```bash
@@ -338,6 +294,19 @@ agent-sync skills list
 
 # Re-centralize if needed
 agent-sync skills centralize
+```
+
+### Config Not Syncing
+
+```bash
+# Check agent is enabled
+agent-sync agents
+
+# Enable agent if needed
+agent-sync enable opencode
+
+# Push changes
+agent-sync push
 ```
 
 ---
