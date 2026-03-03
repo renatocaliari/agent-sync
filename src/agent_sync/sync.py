@@ -389,6 +389,38 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                             elif ext_item.is_dir():
                                 dest = repo_ext_dir / ext_item.name
                                 shutil.copytree(ext_item, dest, dirs_exist_ok=True)
+            
+            # Copy Pi.dev prompts if agent is pi.dev
+            if agent.name == "pi.dev" and hasattr(agent, 'prompts_paths'):
+                for prompts_path in agent.prompts_paths:
+                    if prompts_path.exists():
+                        # Copy prompts to repo
+                        repo_prompts_dir = self.repo_dir / "configs" / agent.name / "prompts"
+                        repo_prompts_dir.mkdir(parents=True, exist_ok=True)
+                        
+                        for prompt_item in prompts_path.iterdir():
+                            if prompt_item.is_file():
+                                dest = repo_prompts_dir / prompt_item.name
+                                shutil.copy2(prompt_item, dest)
+                            elif prompt_item.is_dir():
+                                dest = repo_prompts_dir / prompt_item.name
+                                shutil.copytree(prompt_item, dest, dirs_exist_ok=True)
+            
+            # Copy Pi.dev themes if agent is pi.dev
+            if agent.name == "pi.dev" and hasattr(agent, 'themes_paths'):
+                for themes_path in agent.themes_paths:
+                    if themes_path.exists():
+                        # Copy themes to repo
+                        repo_themes_dir = self.repo_dir / "configs" / agent.name / "themes"
+                        repo_themes_dir.mkdir(parents=True, exist_ok=True)
+                        
+                        for theme_item in themes_path.iterdir():
+                            if theme_item.is_file():
+                                dest = repo_themes_dir / theme_item.name
+                                shutil.copy2(theme_item, dest)
+                            elif theme_item.is_dir():
+                                dest = repo_themes_dir / theme_item.name
+                                shutil.copytree(theme_item, dest, dirs_exist_ok=True)
         
         # Always sync global skills
         global_skills_dir = Path.home() / ".agents" / "skills"
@@ -456,6 +488,40 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                                 else:
                                     shutil.copy2(ext_item, dest)
                                 changes.append(f"{agent.name}/extensions: {ext_item.name}")
+            
+            # Apply Pi.dev prompts if agent is pi.dev
+            if agent.name == "pi.dev":
+                synced_prompts_dir = synced_config_dir / "prompts"
+                if synced_prompts_dir.exists():
+                    # Apply to both prompts paths
+                    for prompts_path in agent.prompts_paths:
+                        prompts_path.mkdir(parents=True, exist_ok=True)
+                        
+                        for prompt_item in synced_prompts_dir.iterdir():
+                            dest = prompts_path / prompt_item.name
+                            if not dest.exists() or (prompt_item.is_file() and dest.read_text() != prompt_item.read_text()):
+                                if prompt_item.is_dir():
+                                    shutil.copytree(prompt_item, dest, dirs_exist_ok=True)
+                                else:
+                                    shutil.copy2(prompt_item, dest)
+                                changes.append(f"{agent.name}/prompts: {prompt_item.name}")
+            
+            # Apply Pi.dev themes if agent is pi.dev
+            if agent.name == "pi.dev":
+                synced_themes_dir = synced_config_dir / "themes"
+                if synced_themes_dir.exists():
+                    # Apply to both themes paths
+                    for themes_path in agent.themes_paths:
+                        themes_path.mkdir(parents=True, exist_ok=True)
+                        
+                        for theme_item in synced_themes_dir.iterdir():
+                            dest = themes_path / theme_item.name
+                            if not dest.exists() or (theme_item.is_file() and dest.read_text() != theme_item.read_text()):
+                                if theme_item.is_dir():
+                                    shutil.copytree(theme_item, dest, dirs_exist_ok=True)
+                                else:
+                                    shutil.copy2(theme_item, dest)
+                                changes.append(f"{agent.name}/themes: {theme_item.name}")
         
         # Apply global skills
         synced_skills_dir = self.repo_dir / "skills"
