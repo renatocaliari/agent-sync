@@ -66,7 +66,7 @@ Step 1: Centralize (First Time)
                                                         │
 Step 2: Sync to GitHub                                  │
 ─────────────────────────                               ▼
-~/.agents/skills/ ──────────────────────► GitHub Repo (skills/global/)
+~/.agents/skills/ ──────────────────────► GitHub Repo (skills/)
                                                         │
 Step 3: Pull on Other Machines                          │
 ────────────────────────────                              │
@@ -94,16 +94,16 @@ Your Computer                          GitHub Repository
     └── SKILL.md                     │   └── ...
                                      │
 ~/.config/agent-sync/                ├── skills/
-├── config.yaml                      │   └── global/
-└── overrides.yaml                   │       ├── code-review/
-                                     │       │   └── SKILL.md
-~/.claude/commands/_global ────────► │       └── python-expert/
-    (symlink to ~/.agents/skills/)   │           └── SKILL.md
-                                     │
-~/.config/opencode/                  ├── prompts/
-├── opencode.json                    │   └── ...
-└── skills/ ───────────────────────► │
-    (configured to read global)      └── README.md
+├── config.yaml                      │   ├── code-review/
+└── overrides.yaml                   │   │   └── SKILL.md
+                                     │   └── python-expert/
+~/.claude/commands/_global ────────► │       └── SKILL.md
+    (symlink to ~/.agents/skills/)   │
+                                     └── prompts/
+~/.config/opencode/                      └── ...
+├── opencode.json
+└── skills/
+    (configured to read global)
 ```
 
 ---
@@ -553,12 +553,3 @@ This project was inspired by [opencode-synced](https://github.com/iHildy/opencod
 
 - **Issues**: [GitHub Issues](https://github.com/renatocaliari/agent-sync/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/renatocaliari/agent-sync/discussions)
-
----
-
-## 📈 Roadmap
-
-- [ ] Add tests for SkillsManager
-- [ ] Improve documentation for each agent
-- [ ] Add `skills distribute` command (optional)
-- [ ] Support for more agents (codex, etc.)
