@@ -221,13 +221,13 @@ class PiDevAgent(BaseAgent):
     
     Docs: https://github.com/badlogic/pi-mono
     Paths:
-      - Config: ~/.pi/settings.json
+      - Config: ~/.pi/agent/settings.json
       - Global Skills: ~/.pi/agent/skills/, ~/.agents/skills/
       - Project Skills: .pi/skills/, .agents/skills/
     """
     
     name = "pi.dev"
-    config_dir = Path.home() / ".pi"
+    config_dir = Path.home() / ".pi" / "agent"  # ← Configs are in ~/.pi/agent/
     config_filename = "settings.json"
     skills_dir_name = "skills"
     
