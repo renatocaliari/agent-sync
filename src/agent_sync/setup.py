@@ -33,9 +33,11 @@ class SetupWizard:
     
     def run(self) -> bool:
         """Run the complete setup wizard."""
+        from . import __version__
+        
         console.print()
         console.print(Panel.fit(
-            "🔄 [bold]Agent Sync Setup Wizard[/bold]\n\n"
+            f"🔄 [bold]Agent Sync v{__version__}[/bold] - Setup Wizard\n\n"
             "This wizard will help you configure agent-sync.\n"
             "Global skills (~/.agents/skills/) are always enabled.",
             border_style="blue",

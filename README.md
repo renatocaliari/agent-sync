@@ -28,6 +28,13 @@ agent-sync --version
 # If not found: export PATH="$HOME/.local/bin:$PATH"
 ```
 
+**Check for updates:**
+```bash
+agent-sync check-update
+# or
+pipx upgrade agent-sync
+```
+
 ### First Machine
 
 ```bash

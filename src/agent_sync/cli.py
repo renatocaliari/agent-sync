@@ -502,6 +502,47 @@ def export():
     console.print("  • Contains sensitive credentials\n")
 
 
+@main.command("check-update")
+def check_update():
+    """Check for available updates."""
+    import requests
+    
+    console.print("[bold]🔍 Checking for updates...[/bold]\n")
+    
+    try:
+        response = requests.get(
+            "https://api.github.com/repos/renatocaliari/agent-sync/releases/latest",
+            timeout=5,
+        )
+        response.raise_for_status()
+        
+        latest = response.json()["tag_name"].lstrip("v")
+        current = __version__
+        
+        if latest > current:
+            console.print(f"✨ [green]Update available:[/green] [bold]v{latest}[/bold]")
+            console.print(f"   Current: [yellow]v{current}[/yellow]\n")
+            console.print("   Run one of:\n")
+            console.print("     [green]pipx upgrade agent-sync[/green]")
+            console.print("     [green]pip install --upgrade agent-sync[/green]")
+            console.print("     [green]npx skills update renatocaliari/agent-sync -g[/green]\n")
+        else:
+            console.print(f"✓ [green]Up to date:[/green] [bold]v{current}[/bold]\n")
+            
+    except requests.exceptions.RequestException:
+        console.print(f"[dim]Current version: v{current}[/dim]")
+        console.print("[yellow]⚠ Could not check for updates (offline?)\n[/yellow]")
+    except Exception as e:
+        console.print(f"[dim]Current version: v{current}[/dim]")
+        console.print(f"[yellow]⚠ Error checking updates: {e}\n[/yellow]")
+
+
+@main.command()
+def version():
+    """Show version information."""
+    console.print(f"\n[bold]agent-sync[/bold] v{__version__}\n")
+
+
 @main.command()
 def agents():
     """List supported agents and their status."""
