@@ -1,11 +1,25 @@
 ---
 name: agent-sync
-description: Sync AI agent configurations and skills across machines and agents. Use when managing multiple AI agents or setting up agent configurations on a new machine.
+description: Sync AI agent configurations and skills across machines and agents. Requires agent-sync CLI installed separately. Use when managing multiple AI agents or setting up agent configurations on a new machine.
 ---
 
 # Agent Sync
 
 Centralize and synchronize your AI agent configurations and skills across multiple machines and agents.
+
+## Prerequisites
+
+**This skill requires the agent-sync CLI to be installed:**
+
+```bash
+# Install CLI first (required)
+pipx install agent-sync
+# or
+pip install agent-sync
+
+# Then install this skill (for AI agents)
+npx skills add renatocaliari/agent-sync -g
+```
 
 ## When to Use
 
