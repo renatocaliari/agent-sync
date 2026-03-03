@@ -85,12 +85,14 @@ class SecretScrubber:
         load_dotenv(self.env_file)
         restored = content
         
-        # Find all placeholders
-        placeholders = re.findall(r'\{\{env:(AGENT_SYNC_\w+)\}\}', content)
+        # Find all placeholders (support hyphens in env names)
+        placeholders = re.findall(r'\{\{env:(AGENT_SYNC_[\w-]+)\}\}', content)
         
         for env_name in set(placeholders):
             value = os.environ.get(env_name)
             if value:
+                # Remove quotes if present
+                value = value.strip("'\"")
                 restored = restored.replace(f"{{{{env:{env_name}}}}}", value)
         
         return restored
