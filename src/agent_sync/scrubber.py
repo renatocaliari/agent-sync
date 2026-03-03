@@ -55,12 +55,6 @@ class SecretScrubber:
         secrets = {}
         counter = 0
         
-        # First pass: remove existing placeholders to avoid double-scrubbing
-        existing_placeholders = re.findall(r'\{\{env:(AGENT_SYNC_[\w-]+)\}\}', scrubbed)
-        for placeholder in existing_placeholders:
-            # Replace with temporary marker
-            scrubbed = scrubbed.replace(f"{{{{env:{placeholder}}}}}", "___EXISTING_PLACEHOLDER___")
-        
         for pattern, secret_type in self.SECRET_PATTERNS:
             matches = list(re.finditer(pattern, scrubbed, re.IGNORECASE))
             
@@ -70,22 +64,19 @@ class SecretScrubber:
                 suffix = match.group(3)
                 
                 # Skip if this looks like a placeholder value (already scrubbed)
-                if secret_value.startswith("{{env:") or secret_value == "___EXISTING_PLACEHOLDER___":
+                if secret_value.startswith("{{env:") or secret_value.startswith("__PLACEHOLDER_"):
                     continue
                 
                 # Generate unique env var name
                 env_name = f"AGENT_SYNC_{agent_name.upper()}_{secret_type}_{counter}"
                 counter += 1
                 
-                # Store secret
-                secrets[env_name] = secret_value
+                # Store secret (just the value, no quotes)
+                secrets[env_name] = secret_value.strip("'\"")
                 
                 # Replace with placeholder
                 replacement = f"{prefix}{{{{env:{env_name}}}}}{suffix}"
                 scrubbed = scrubbed[:match.start()] + replacement + scrubbed[match.end():]
-        
-        # Restore existing placeholders
-        scrubbed = scrubbed.replace("___EXISTING_PLACEHOLDER___", "{{env:EXISTING}}")
         
         self.scrubbed_secrets.update(secrets)
         return scrubbed, secrets
