@@ -1,6 +1,6 @@
 # 🔄 agent-sync
 
-**Sync your AI agent configurations and skills across multiple machines**
+**Centralize and sync AI agent configurations and skills across machines and agents**
 
 Supports: **opencode** • **claude-code** • **gemini-cli** • **pi.dev** • **qwen-code**
 
@@ -8,20 +8,41 @@ Supports: **opencode** • **claude-code** • **gemini-cli** • **pi.dev** •
 
 ## ⚡ Quick Start
 
-```bash
-# Install
-pip install agent-sync
+### Install
 
-# First machine
+**Recommended (global skill):**
+```bash
+npx skills add renatocaliari/agent-sync -g
+```
+
+**Alternative (CLI tool):**
+```bash
+pipx install agent-sync
+# or
+pip install agent-sync
+```
+
+**Verify:**
+```bash
+agent-sync --version
+# If not found: export PATH="$HOME/.local/bin:$PATH"
+```
+
+### First Machine
+
+```bash
 agent-sync setup    # Interactive wizard
 agent-sync push     # Sync to GitHub
+```
 
-# Other machines
+### Other Machines
+
+```bash
 agent-sync link https://github.com/username/agent-sync-configs.git
 agent-sync pull
 ```
 
-That's it! Your configs and skills are now synced.
+**That's it!** Your configs and skills are now synced across machines and agents.
 
 ---
 
@@ -190,6 +211,34 @@ agent-sync skills centralize  # Move skills to ~/.agents/skills/
 agent-sync skills centralize --copy  # Copy instead of move
 agent-sync skills centralize --push  # Auto-push after centralize
 ```
+
+---
+
+## 🤖 Using Inside Agent CLIs
+
+Once installed, you can use `agent-sync` from any agent CLI:
+
+### Claude Code
+```
+/agent-sync push
+```
+
+### Opencode
+```
+/opencode agent-sync push
+```
+
+### Gemini CLI
+```bash
+agent-sync push
+```
+
+### Any Agent (shell command)
+```bash
+!agent-sync push
+```
+
+All agents have access to the `agent-sync` command as long as it's in your PATH.
 
 ---
 
