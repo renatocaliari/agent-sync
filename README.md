@@ -10,19 +10,28 @@ Supports: **opencode** • **claude-code** • **gemini-cli** • **pi.dev** •
 
 ### Install CLI (Required)
 
-**Recommended (isolated, global):**
+**Option 1: Install from GitHub (current)**
 ```bash
-pipx install agent-sync
+pipx install git+https://github.com/renatocaliari/agent-sync.git
 ```
 
-**Alternative:**
+**Option 2: Install with pip**
 ```bash
-pip install agent-sync
+pip install git+https://github.com/renatocaliari/agent-sync.git
 ```
+
+**Option 3: Install from source**
+```bash
+git clone https://github.com/renatocaliari/agent-sync.git
+cd agent-sync
+pip install -e .
+```
+
+> **Note:** agent-sync will be available on PyPI soon (`pipx install agent-sync`). For now, install from GitHub.
 
 ### Install Skill (For AI Agents - Optional)
 
-If you want AI agents (Claude Code, Opencode, etc.) to use agent-sync:
+If you want AI agents (Claude Code, Opencode, Gemini CLI, etc.) to use agent-sync:
 
 ```bash
 npx skills add renatocaliari/agent-sync -g
@@ -42,7 +51,7 @@ agent-sync --version
 ```bash
 agent-sync check-update
 # or
-pipx upgrade agent-sync
+pipx upgrade git+https://github.com/renatocaliari/agent-sync.git
 ```
 
 ### First Machine
