@@ -1,79 +1,83 @@
-# Implementação Final - Resumo
+# Implementation Summary
 
-## Decisões de Design
-
-### 1. Global Skills Sempre Habilitado ✅
-
-**Decisão:** `~/.agents/skills/` é SEMPRE a fonte da verdade para skills.
-
-**Razões:**
-- Simplicidade: menos opções de configuração
-- Core feature: é o principal benefício do agent-sync
-- Clareza: usuário sabe onde colocar skills
-- Compatibilidade: Pi.dev e Qwen Code já suportam nativamente
-
-**Implementação:**
-- Removido `include_global_skills` da config
-- Removido `sync.skills` da config (sempre true)
-- Skills sempre sincronizadas via `skills/global/` no repo
+Current implementation state of agent-sync.
 
 ---
 
-### 2. Centralização Automática no Setup ✅
+## Design Decisions
 
-**Comando:** `agent-sync skills centralize`
+### 1. Global Skills Always Enabled ✅
 
-**O que faz:**
-1. Scan em todos os agents existentes
-2. Detecta conflitos (mesmo nome em agents diferentes)
-3. Resolve conflitos automaticamente (renomeia com prefixo)
-4. Copia todas as skills para `~/.agents/skills/`
+**Decision:** `~/.agents/skills/` is ALWAYS the source of truth for skills.
 
-**Executado:** Automaticamente no `agent-sync setup` (Step 4)
+**Reasons:**
+- Simplicity: fewer configuration options
+- Core feature: main benefit of agent-sync
+- Clarity: users know where to put skills
+- Compatibility: Pi.dev and Qwen Code already support natively
+
+**Implementation:**
+- Removed `include_global_skills` from config
+- Removed `sync.skills` from config (always true)
+- Skills always synced via `skills/` in repo
 
 ---
 
-### 3. Configuração Automática de Agents ✅
+### 2. Automatic Centralization in Setup ✅
 
-**Métodos por Agente:**
+**Command:** `agent-sync skills centralize`
 
-| Agent | Método | Implementação |
-|-------|--------|---------------|
+**What it does:**
+1. Scans all existing agents
+2. Detects conflicts (same name in different agents)
+3. Resolves conflicts automatically (rename with prefix)
+4. Copies all skills to `~/.agents/skills/`
+
+**Executed:** Automatically in `agent-sync setup` (Step 4)
+
+---
+
+### 3. Automatic Agent Configuration ✅
+
+**Methods per Agent:**
+
+| Agent | Method | Implementation |
+|-------|--------|----------------|
 | **claude-code** | Symlink | `~/.claude/commands/_global` → `~/.agents/skills/` |
-| **opencode** | Config | Atualiza `opencode.json` com `skills.paths` |
-| **qwen-code** | Nativo | Já lê de `~/.agents/skills/` |
-| **pi.dev** | Nativo | Já lê de `~/.agents/skills/` |
-| **gemini-cli** | Fallback | Copia skills para `~/.gemini/tools/` |
+| **opencode** | Config | Updates `opencode.json` with `skills.paths` |
+| **qwen-code** | Native | Already reads from `~/.agents/skills/` |
+| **pi.dev** | Native | Already reads from `~/.agents/skills/` |
+| **gemini-cli** | Fallback | Copies skills to `~/.gemini/tools/` |
 
-**Hierarquia de Estratégia:**
+**Strategy Hierarchy:**
 ```
-1. Symlink (melhor)
+1. Symlink (best)
 2. Config update
 3. Fallback (copy)
-4. Nativo (nenhuma ação necessária)
+4. Native (no action needed)
 ```
 
-**Executado:** Automaticamente no `agent-sync setup` (Step 5)
+**Executed:** Automatically in `agent-sync setup` (Step 5)
 
 ---
 
-### 4. Sem Watch Mode ✅
+### 4. No Watch Mode ✅
 
-**Decisão:** Não implementar processo background.
+**Decision:** Don't implement background process.
 
-**Razões:**
-- Consumo de recursos (CPU, memória)
-- Complexidade desnecessária
-- Usuários de CLI preferem controle explícito
-- `agent-sync push` já é necessário
+**Reasons:**
+- Resource consumption (CPU, memory)
+- Unnecessary complexity
+- CLI users prefer explicit control
+- `agent-sync push` already required
 
-**Alternativa:**
-- Sync sob demanda via `push`/`pull`
-- Documentar workflow manual
+**Alternative:**
+- Sync on demand via `push`/`pull`
+- Document manual workflow
 
 ---
 
-### 5. Estrutura do Repositório ✅
+### 5. Repository Structure ✅
 
 ```
 repo/
@@ -81,60 +85,59 @@ repo/
 │   └── <agent-name>/
 │       └── <config-files>
 │
-├── skills/
-│   └── global/              ← Único diretório de skills
-│       └── <skill-name>/
-│           └── SKILL.md
+├── skills/              ← Directly here (no /global/)
+│   └── <skill-name>/
+│       └── SKILL.md
 │
 └── .gitignore
 ```
 
-**Por que `skills/global/`?**
-- Consistência com estrutura por agent
-- Flexibilidade futura (se precisar de skills específicas)
-- Clareza: explícito que é compartilhado
+**Why no `/global/` folder:**
+- Everything is global - no need for subfolder
+- Reduces verbosity
+- Simpler structure
 
 ---
 
-## Comandos Implementados
+## Implemented Commands
 
-### Setup (Completo)
+### Setup (Complete)
 
 ```bash
 agent-sync setup
 ```
 
 **Steps:**
-1. Detectar agents instalados
-2. Selecionar agents para sync (configs)
-3. Configurar opções por agent (configs only)
-4. **Centralizar skills** (automático) ← NOVO
-5. **Configurar agents** (automático) ← NOVO
-6. Configurar repositório GitHub
-7. Secrets (opcional)
-8. **Resumo detalhado** ← NOVO
+1. Detect installed agents
+2. Select agents to sync (configs)
+3. Configure options (configs only)
+4. **Centralize skills** (automatic) ← NEW
+5. **Configure agents** (automatic) ← NEW
+6. Repository GitHub
+7. Secrets (optional)
+8. **Detailed summary** ← NEW
 
 ---
 
 ### Skills
 
 ```bash
-agent-sync skills centralize    # Centraliza skills existentes
+agent-sync skills centralize    # Centralize existing skills
 ```
 
-**O que faz:**
-- Scan em todos os agents
-- Detecta e resolve conflitos
-- Copia para `~/.agents/skills/`
+**What it does:**
+- Scan all agents
+- Detect and resolve conflicts
+- Copy to `~/.agents/skills/`
 
 ---
 
 ### Config
 
 ```bash
-agent-sync config show          # Ver configuração
-agent-sync config edit          # Editar manualmente
-agent-sync config reset         # Resetar defaults
+agent-sync config show          # View configuration
+agent-sync config edit          # Edit manually
+agent-sync config reset         # Reset defaults
 ```
 
 ---
@@ -142,84 +145,85 @@ agent-sync config reset         # Resetar defaults
 ### Sync
 
 ```bash
-agent-sync push                 # Enviar configs + skills
-agent-sync pull                 # Baixar configs + skills
+agent-sync push                 # Push configs + skills
+agent-sync pull                 # Download configs + skills
 ```
 
-**Mudanças:**
-- `push` sempre sincroniza `skills/global/`
-- `pull` sempre aplica em `~/.agents/skills/`
+**Changes:**
+- `push` always syncs `skills/`
+- `pull` always applies to `~/.agents/skills/`
 
 ---
 
-## Arquivos Criados/Modificados
+## Created/Modified Files
 
-### Novos Arquivos
+### New Files
 
-| Arquivo | Descrição |
-|---------|-----------|
+| File | Description |
+|------|-------------|
 | `src/agent_sync/skills.py` | SkillsManager class |
-| `docs/IMPLEMENTATION_SUMMARY.md` | Este arquivo |
+| `src/agent_sync/scrubber.py` | Secret scrubbing class |
+| `docs/IMPLEMENTATION_SUMMARY.md` | This file |
 
-### Arquivos Modificados
+### Modified Files
 
-| Arquivo | Mudanças |
-|---------|----------|
-| `src/agent_sync/agents/__init__.py` | Adicionado `supports_symlink()`, `supports_config()`, `supports_native()` |
-| `src/agent_sync/setup.py` | Steps 4, 5, 8 atualizados |
-| `src/agent_sync/config.py` | Removido `sync.skills`, `include_global_skills` |
-| `src/agent_sync/sync.py` | Usar `skills/global/`, sempre sync global skills |
-| `src/agent_sync/cli.py` | Adicionado `skills centralize` |
-| `README.md` | Atualizado com nova estrutura |
+| File | Changes |
+|------|---------|
+| `src/agent_sync/agents/__init__.py` | Added `supports_symlink()`, `supports_config()`, `supports_native()` |
+| `src/agent_sync/setup.py` | Steps 4, 5, 8 updated |
+| `src/agent_sync/config.py` | Removed `sync.skills`, `include_global_skills` |
+| `src/agent_sync/sync.py` | Use `skills/`, always sync global skills, scrub secrets |
+| `src/agent_sync/cli.py` | Added `skills centralize` |
+| `README.md` | Updated with new structure |
 
 ---
 
-## Fluxo Completo
+## Complete Flow
 
-### Primeira Máquina
+### First Machine
 
 ```bash
-# 1. Setup (faz tudo)
+# 1. Setup (does everything)
 agent-sync setup
-# → Detecta agents
-# → Centraliza skills (Step 4)
-# → Configura agents (Step 5)
-# → Cria repo GitHub
-# → Mostra resumo (Step 8)
+# → Detects agents
+# → Centralizes skills (Step 4)
+# → Configures agents (Step 5)
+# → Creates GitHub repo
+# → Shows summary (Step 8)
 
-# 2. Enviar para GitHub
+# 2. Push to GitHub
 agent-sync push
 ```
 
-### Segunda Máquina
+### Second Machine
 
 ```bash
-# 1. Link ao repo
+# 1. Link to repo
 agent-sync link https://github.com/user/repo.git
 
-# 2. Baixar configs + skills
+# 2. Download configs + skills
 agent-sync pull
-# → Aplica configs em ~/.config/<agent>/
-# → Aplica skills em ~/.agents/skills/
-# → Configura agents automaticamente
+# → Applies configs to ~/.config/<agent>/
+# → Applies skills to ~/.agents/skills/
+# → Configures agents automatically
 ```
 
-### Dia-a-Dia
+### Day-to-Day
 
 ```bash
-# Adicionar nova skill
-cp minha-skill.py ~/.agents/skills/minha-skill/
+# Add new skill
+cp my-skill.py ~/.agents/skills/my-skill/
 
-# Enviar mudanças
-agent-sync push -m "feat: add minha-skill"
+# Push changes
+agent-sync push -m "feat: add my-skill"
 
-# Em outra máquina
+# On other machine
 agent-sync pull
 ```
 
 ---
 
-## Configuração Gerada
+## Generated Configuration
 
 ### `~/.config/agent-sync/config.yaml`
 
@@ -237,7 +241,7 @@ agents_config:
     enabled: true
     sync:
       configs: true
-      # skills: sempre true (implícito)
+      # skills: always true (implicit)
   
   claude-code:
     enabled: true
@@ -256,86 +260,54 @@ agents_config:
 
 include_secrets: false
 include_mcp_secrets: false
-# global_skills: sempre true (implícito)
+# global_skills: always true (implicit)
 ```
 
 ---
 
-## Resumo Final do Setup
+## Final Summary
 
 ```
-╔══════════════════════════════════════════════════════════════════╗
-║                    ✅ SETUP COMPLETE!                            ║
-╠══════════════════════════════════════════════════════════════════╣
-║                                                                  ║
-║  📦 Repository: github.com/user/my-agent-configs                 ║
-║  📁 Skills: 47 centralized → ~/.agents/skills/                   ║
-║                                                                  ║
-║  ─────────────────────────────────────────────────────────────   ║
-║  Per-Agent Summary                                               ║
-║  ─────────────────────────────────────────────────────────────   ║
-║                                                                  ║
-║  🔗 opencode                                                     ║
-║     Config:  ~/.config/opencode/opencode.json                    ║
-║     Skills:  ~/.agents/skills/ (configured)                      ║
-║     Status:  ✅ Ready                                            ║
-║                                                                  ║
-║  🔗 claude-code                                                  ║
-║     Config:  ~/.claude/settings.json                             ║
-║     Skills:  ~/.agents/skills/ (symlink)                         ║
-║     Status:  ✅ Ready                                            ║
-║                                                                  ║
-║  ✓ qwen-code                                                     ║
-║     Config:  ~/.qwen/settings.json                               ║
-║     Skills:  ~/.agents/skills/ (native)                          ║
-║     Status:  ✅ Ready                                            ║
-║                                                                  ║
-║  📋 gemini-cli                                                   ║
-║     Config:  ~/.gemini/settings.json                             ║
-║     Skills:  ~/.gemini/tools/ (fallback: copy)                   ║
-║     Status:  ✅ Ready (auto-configured)                          ║
-║                                                                  ║
-║  ─────────────────────────────────────────────────────────────   ║
-║  Next Steps:                                                     ║
-║    1. agent-sync config show                                     ║
-║    2. agent-sync push                                            ║
-║    3. agent-sync link <url>  (other machines)                    ║
-║                                                                  ║
-╚══════════════════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════╗
+║                  ✅ SETUP COMPLETE!                      ║
+╠══════════════════════════════════════════════════════════╣
+║                                                          ║
+║  📦 Repository: github.com/user/my-agent-configs         ║
+║  📁 Skills: 47 centralized → ~/.agents/skills/           ║
+║                                                          ║
+║  Per-Agent Summary:                                      ║
+║  🔗 opencode      - Config updated                      ║
+║  🔗 claude-code   - Symlink created                     ║
+║  ✓ qwen-code     - Native support                       ║
+║  📋 gemini-cli    - Fallback (copy)                     ║
+║                                                          ║
+║  Next Steps:                                             ║
+║    1. agent-sync config show                            ║
+║    2. agent-sync push                                   ║
+║    3. agent-sync link <url>  (other machines)           ║
+║                                                          ║
+╚══════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-## Vantagens Desta Implementação
+## Advantages
 
-| Vantagem | Benefício |
-|----------|-----------|
-| ✅ **Simples** | Menos opções, menos confusão |
-| ✅ **Automático** | Setup faz tudo sozinho |
-| ✅ **Sempre funciona** | Fallback garante funcionamento |
-| ✅ **Sem "needs attention"** | Tudo resolvido automaticamente |
-| ✅ **Config limpo** | Menos YAML, mais claro |
-| ✅ **Zero overhead** | Sem processo background |
-| ✅ **Clareza** | `~/.agents/skills/` é óbvio |
-
----
-
-## Próximos Passos (Opcional)
-
-1. **Testes** - Adicionar testes para SkillsManager
-2. **Documentação** - Melhorar docs de cada agent
-3. **Fallback inteligente** - Detectar quando fallback é necessário
-4. **Skills distribute** - Comando opcional para distribuir skills
+| Advantage | Benefit |
+|-----------|---------|
+| ✅ **Simple** | Fewer options, less confusion |
+| ✅ **Automatic** | Setup does everything |
+| ✅ **Always works** | Fallback guarantees functionality |
+| ✅ **No "needs attention"** | Everything resolved automatically |
+| ✅ **Clean config** | Less YAML, clearer |
+| ✅ **Zero overhead** | No background process |
+| ✅ **Clarity** | `~/.agents/skills/` is obvious |
 
 ---
 
-## Conclusão
+## Optional Next Steps
 
-Implementação completa com:
-- ✅ Global skills sempre habilitado
-- ✅ Centralização automática no setup
-- ✅ Configuração automática por agent
-- ✅ Fallback para agents não suportados
-- ✅ Resumo detalhado no final do setup
-- ✅ Sem watch mode (zero overhead)
-- ✅ Estrutura de repo limpa e clara
+1. **Tests** - Add tests for SkillsManager
+2. **Documentation** - Improve docs for each agent
+3. **Smart fallback** - Detect when fallback is needed
+4. **Skills distribute** - Optional command to distribute skills
