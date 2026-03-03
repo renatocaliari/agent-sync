@@ -84,13 +84,17 @@ That's it! Your configs and skills are now synced.
 ```
 1. Centralize (first time)
    ~/.config/opencode/skills/ ──┐
-   ~/.claude/commands/          ├──► ~/.agents/skills/
+   ~/.claude/commands/          │
+   ~/.gemini/tools/             ├──► ~/.agents/skills/
+   ~/.pi/agent/skills/          │    (source of truth)
    ~/.qwen/skills/              ──┘
 
 2. Configure agents (automatic)
    Claude Code: symlink → ~/.agents/skills/
    Opencode:    config update
    Qwen Code:   native support
+   Pi.dev:      native support
+   Gemini CLI:  fallback (copy)
 
 3. Sync to GitHub
    ~/.agents/skills/ ──push──► GitHub ──pull──► Other machines
