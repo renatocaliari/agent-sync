@@ -2,6 +2,14 @@
 
 Automatically detects and removes sensitive data from config files
 before syncing to GitHub.
+
+Only scrubs:
+- MCP server Authorization headers (Bearer tokens)
+- Generic API keys in MCP configs
+
+Does NOT scrub:
+- Native agent API keys (each agent manages their own)
+- OAuth tokens (machine-specific)
 """
 
 import re
@@ -14,26 +22,14 @@ from dotenv import set_key, load_dotenv
 class SecretScrubber:
     """Automatically scrubs secrets from config content."""
     
-    # Patterns that indicate sensitive data
+    # Patterns that indicate sensitive data in MCP configs
+    # We ONLY scrub MCP-related secrets, not native agent keys
     SECRET_PATTERNS = [
-        # Bearer tokens
+        # MCP Authorization headers (Bearer tokens)
         (r'("Authorization"\s*:\s*"Bearer\s+)([^"]+)(")', "BEARER_TOKEN"),
-        # API keys
-        (r'("api[_-]?key"\s*:\s*")([^"]+)(")', "API_KEY"),
-        (r'("apiKey"\s*:\s*")([^"]+)(")', "API_KEY"),
-        # Tokens
-        (r'("token"\s*:\s*")([^"]+)(")', "TOKEN"),
-        (r'("access[_-]?token"\s*:\s*")([^"]+)(")', "ACCESS_TOKEN"),
-        (r'("refresh[_-]?token"\s*:\s*")([^"]+)(")', "REFRESH_TOKEN"),
-        # Secrets
-        (r'("secret"\s*:\s*")([^"]+)(")', "SECRET"),
-        (r'("client[_-]?secret"\s*:\s*")([^"]+)(")', "CLIENT_SECRET"),
-        # Passwords
-        (r'("password"\s*:\s*")([^"]+)(")', "PASSWORD"),
-        # Private keys (partial match)
-        (r'("private[_-]?key"\s*:\s*")([^"]{20,})(")', "PRIVATE_KEY"),
-        # Generic keys
-        (r'("key"\s*:\s*")([^"]{16,})(")', "KEY"),
+        # MCP API keys (only in mcpServers context)
+        (r'("mcpApiKey"\s*:\s*")([^"]+)(")', "MCP_API_KEY"),
+        (r'("mcp_secret"\s*:\s*")([^"]+)(")', "MCP_SECRET"),
     ]
     
     def __init__(self):
@@ -42,7 +38,9 @@ class SecretScrubber:
         self.scrubbed_secrets: dict[str, str] = {}
     
     def scrub(self, content: str, agent_name: str = "unknown") -> tuple[str, dict[str, str]]:
-        """Scrub secrets from content.
+        """Scrub ONLY MCP-related secrets from content.
+        
+        Native agent API keys are NOT scrubbed (each agent manages their own).
         
         Args:
             content: Original content with potential secrets
