@@ -274,16 +274,35 @@ def centralize(copy: bool):
     console.print(f"\n[bold]📁 {action} Skills[/bold]\n")
     
     skills_mgr = SkillsManager()
-    skills_mgr.centralize(move=move)
+    stats = skills_mgr.centralize(move=move)
+    
+    # Show final reassurance
+    console.print("[bold green]🎉 Centralization Complete![/bold green]\n")
+    console.print("What happened:\n")
     
     if move:
-        console.print("\n[green]✓ Skills moved to ~/.agents/skills/[/green]")
-        console.print("[yellow]⚠ Original skills removed from agent directories[/yellow]\n")
+        console.print(f"  ✓ [green]{stats['moved']} skills moved[/green] to ~/.agents/skills/")
+        console.print("    [dim]Original files removed from agent directories[/dim]\n")
     else:
-        console.print("\n[green]✓ Skills copied to ~/.agents/skills/[/green]")
-        console.print("[dim]Original skills kept in agent directories[/dim]\n")
+        console.print(f"  ✓ [green]{stats['copied']} skills copied[/green] to ~/.agents/skills/")
+        console.print("    [dim]Original files kept in agent directories[/dim]\n")
     
-    console.print("💡 Run 'agent-sync push' to sync to GitHub\n")
+    if stats['symlinks_removed'] > 0:
+        console.print(f"  ✓ [yellow]{stats['symlinks_removed']} user symlinks removed[/yellow]")
+        console.print("    [dim]Cleaning up manual symlinks from agent directories[/dim]\n")
+    
+    if stats['conflicts_resolved'] > 0:
+        console.print(f"  ✓ [yellow]{stats['conflicts_resolved']} conflicts resolved[/yellow]")
+        console.print("    [dim]Duplicate skill names renamed with agent prefix[/dim]\n")
+    
+    console.print("Where are my skills now?\n")
+    console.print(f"  [bold cyan]~/.agents/skills/[/bold cyan] [dim]← Single source of truth[/dim]\n")
+    console.print("All your skills are now in one place and will be synced to GitHub.\n")
+    
+    if move:
+        console.print("[dim]Note: Agent directories now use symlinks or config to read from ~/.agents/skills/[/dim]\n")
+    
+    console.print("💡 Run [green]'agent-sync push'[/green] to sync to GitHub\n")
 
 
 @main.command()
