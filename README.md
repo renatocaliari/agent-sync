@@ -291,6 +291,57 @@ All agents also support `~/.agents/skills/` for shared skills.
 
 ---
 
+## 🔧 Troubleshooting
+
+### Invalid Access Token / Token Expired
+
+If you see `Error: 401 invalid access token or token expired`:
+
+1. **Check your .env file:**
+   ```bash
+   cat ~/.config/agent-sync/.env
+   ```
+
+2. **Update the token:**
+   ```bash
+   # Edit the .env file
+   nano ~/.config/agent-sync/.env
+   
+   # Replace expired token with new one
+   AGENT_SYNC_GEMINI-CLI_BEARER_TOKEN_0=your-new-token-here
+   ```
+
+3. **Re-sync configs:**
+   ```bash
+   agent-sync push
+   ```
+
+4. **On other machines:**
+   ```bash
+   # Update .env with same token
+   agent-sync pull
+   ```
+
+### Command Not Found
+
+```bash
+# Add to PATH
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+### Skills Not Detected
+
+```bash
+# List centralized skills
+agent-sync skills list
+
+# Re-centralize if needed
+agent-sync skills centralize
+```
+
+---
+
 ## 🙏 Inspiration
 
 Inspired by [opencode-synced](https://github.com/iHildy/opencode-synced), expanded to support multiple agent CLIs with centralized skills and automatic secret protection.
