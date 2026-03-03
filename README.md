@@ -10,7 +10,7 @@ Supports: **opencode** • **claude-code** • **gemini-cli** • **pi.dev** •
 
 ### Install CLI (Required)
 
-**Option 1: Install from GitHub (current)**
+**Option 1: Install from GitHub**
 ```bash
 pipx install git+https://github.com/renatocaliari/agent-sync.git
 ```
@@ -26,8 +26,6 @@ git clone https://github.com/renatocaliari/agent-sync.git
 cd agent-sync
 pip install -e .
 ```
-
-> **Note:** agent-sync will be available on PyPI soon (`pipx install agent-sync`). For now, install from GitHub.
 
 ### Install Skill (For AI Agents - Optional)
 
