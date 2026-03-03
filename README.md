@@ -159,23 +159,36 @@ agent-sync-configs/
 
 ### Setup
 ```bash
-agent-sync setup          # Interactive setup wizard
+agent-sync setup              # Interactive setup wizard
 agent-sync skills centralize  # Centralize existing skills
+                              # → Asks if you want to push after
+                              # → Use --push to auto-push
 ```
 
 ### Sync
 ```bash
-agent-sync push           # Upload changes to GitHub
-agent-sync pull           # Download changes from GitHub
-agent-sync link <url>     # Connect to existing repo
+agent-sync push               # Upload changes to GitHub
+agent-sync pull               # Download changes from GitHub
+agent-sync link <url>         # Connect to existing repo
 ```
 
 ### Manage
 ```bash
-agent-sync config show    # View current config
-agent-sync agents         # List agents and status
-agent-sync enable <name>  # Enable agent sync
-agent-sync disable <name> # Disable agent sync
+agent-sync config show        # View current config
+agent-sync config edit        # Edit config manually
+agent-sync config reset       # Reset to defaults
+agent-sync agents             # List agents and status
+agent-sync enable <name>      # Enable agent sync
+agent-sync disable <name>     # Disable agent sync
+agent-sync secrets export     # Backup secrets to file
+```
+
+### Skills
+```bash
+agent-sync skills list        # List all centralized skills
+agent-sync skills centralize  # Move skills to ~/.agents/skills/
+agent-sync skills centralize --copy  # Copy instead of move
+agent-sync skills centralize --push  # Auto-push after centralize
 ```
 
 ---
