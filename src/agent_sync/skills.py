@@ -30,6 +30,7 @@ class SkillsManager:
         
         Only directories containing SKILL.md are considered valid skills.
         Files directly in the skills directory are ignored.
+        Symlinks created by users are detected for removal.
         
         Returns:
             dict mapping agent name to list of skill paths
@@ -45,6 +46,11 @@ class SkillsManager:
             # Scan agent's skills directory
             if agent.skills_path.exists():
                 for item in agent.skills_path.iterdir():
+                    # Detect and skip symlinks (user-created or otherwise)
+                    if item.is_symlink():
+                        # Symlinks will be removed during centralize
+                        continue
+                    
                     # Only sync directories (not files)
                     if item.is_dir():
                         # Check if it's a valid skill (has SKILL.md)
@@ -139,6 +145,7 @@ class SkillsManager:
             "skipped": 0,
             "conflicts_resolved": 0,
             "errors": 0,
+            "symlinks_removed": 0,
         }
         
         # Ensure global skills directory exists
@@ -146,7 +153,7 @@ class SkillsManager:
             self.global_skills_dir.mkdir(parents=True, exist_ok=True)
         
         # Scan all agents
-        console.print("\n[bold]Scanning for existing skills...[/bold]\n")
+        console.print("\n[bold]📚 Scanning for existing skills...[/bold]\n")
         skills_found = self.scan_all_agents()
         
         if not skills_found:
@@ -222,17 +229,107 @@ class SkillsManager:
                     console.print(f"  [red]✗[/red] {agent_name}: {skill_name} - {e}")
         
         console.print()
-        if move:
-            console.print(f"[green]✓ Moved {stats['moved']} skills[/green]")
+        
+        # Clean up user-created symlinks from agent directories
+        console.print("[bold]🧹 Cleaning up user symlinks...[/bold]\n")
+        stats["symlinks_removed"] = self._cleanup_user_symlinks()
+        
+        if stats["symlinks_removed"] > 0:
+            console.print(f"  Removed [yellow]{stats['symlinks_removed']}[/yellow] user symlinks\n")
         else:
-            console.print(f"[green]✓ Copied {stats['copied']} skills[/green]")
+            console.print("  [green]✓[/green] No user symlinks found\n")
+        
+        # Create symlinks for agents that need fallback
+        console.print("[bold]🔗 Creating symlinks for agents that need fallback...[/bold]\n")
+        symlinks_created = self._create_fallback_symlinks()
+        
+        if symlinks_created:
+            for agent_name, symlink_path in symlinks_created.items():
+                console.print(f"  [green]✓[/green] {agent_name}: {symlink_path} [dim](fallback)[/dim]")
+            console.print()
+        
+        # Show summary
+        console.print("[bold]📊 Summary:[/bold]\n")
+        if move:
+            console.print(f"  [green]✓ Moved {stats['moved']} skills[/green] to ~/.agents/skills/")
+        else:
+            console.print(f"  [green]✓ Copied {stats['copied']} skills[/green] to ~/.agents/skills/")
+        
         if stats["conflicts_resolved"] > 0:
-            console.print(f"  Resolved [yellow]{stats['conflicts_resolved']}[/yellow] conflicts")
+            console.print(f"  [yellow]⚠ Resolved {stats['conflicts_resolved']} conflicts[/yellow]")
         if stats["skipped"] > 0:
-            console.print(f"  Skipped [dim]{stats['skipped']}[/dim] (already exists)")
-        console.print()
+            console.print(f"  [dim]⊘ Skipped {stats['skipped']} (already exists)[/dim]")
+        if stats["symlinks_removed"] > 0:
+            console.print(f"  [yellow]🗑 Removed {stats['symlinks_removed']} user symlinks[/yellow]")
+        if symlinks_created:
+            console.print(f"  [green]🔗 Created {len(symlinks_created)} fallback symlinks[/green]")
+        
+        console.print("\n[green]✨ All skills are now centralized in ~/.agents/skills/[/green]")
+        console.print("[dim]  This is the single source of truth for all your skills.[/dim]\n")
         
         return stats
+    
+    def _cleanup_user_symlinks(self) -> int:
+        """Remove user-created symlinks from agent skill directories.
+        
+        Returns:
+            Number of symlinks removed
+        """
+        symlinks_removed = 0
+        
+        for agent in get_all_agents():
+            if agent.name == "global-skills":
+                continue
+            
+            if not agent.skills_path.exists():
+                continue
+            
+            for item in agent.skills_path.iterdir():
+                if item.is_symlink():
+                    try:
+                        item.unlink()
+                        symlinks_removed += 1
+                    except Exception:
+                        pass
+        
+        return symlinks_removed
+    
+    def _create_fallback_symlinks(self) -> dict[str, Path]:
+        """Create symlinks for agents that can't be configured to use global skills.
+        
+        Returns:
+            dict mapping agent name to created symlink path
+        """
+        symlinks_created = {}
+        
+        for agent in get_all_agents():
+            if agent.name == "global-skills":
+                continue
+            
+            # Only create symlinks for agents that need fallback
+            if not agent.supports_symlink():
+                continue
+            
+            # For Claude Code: create symlink in commands directory
+            if agent.name == "claude-code":
+                target_dir = agent.commands_path if hasattr(agent, 'commands_path') else agent.skills_path
+                target_dir.mkdir(parents=True, exist_ok=True)
+                
+                symlink_path = target_dir / "_global"
+                
+                # Remove existing symlink if present
+                if symlink_path.is_symlink():
+                    symlink_path.unlink()
+                elif symlink_path.exists():
+                    # Backup existing directory
+                    backup_path = target_dir / "_global_backup"
+                    shutil.move(str(symlink_path), str(backup_path))
+                
+                # Create symlink to global skills
+                symlink_path.symlink_to(self.global_skills_dir)
+                symlinks_created[agent.name] = symlink_path
+        
+        return symlinks_created
     
     def configure_agents(self) -> dict[str, dict]:
         """Configure all agents to use global skills.
