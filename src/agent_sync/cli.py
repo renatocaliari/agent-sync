@@ -1,7 +1,9 @@
 """Main CLI entry point for agent-sync."""
 
 import os
+import threading
 from pathlib import Path
+from datetime import datetime, timedelta
 import click
 from rich.console import Console
 from rich.table import Table
@@ -13,6 +15,73 @@ from .config import Config
 from .secrets import SecretsManager
 
 console = Console()
+
+# Update check configuration
+UPDATE_CHECK_FILE = Path.home() / ".config" / "agent-sync" / ".last_update_check"
+UPDATE_PENDING_FILE = Path.home() / ".config" / "agent-sync" / ".pending_update"
+
+
+def check_for_updates_async():
+    """Check for updates once per week, asynchronously."""
+    if not _should_check_for_updates():
+        return
+    
+    # Run in background thread (doesn't block command)
+    thread = threading.Thread(target=_check_and_notify, daemon=True)
+    thread.start()
+
+
+def _should_check_for_updates() -> bool:
+    """Check if we should check for updates (once per week)."""
+    if not UPDATE_CHECK_FILE.exists():
+        return True
+    
+    try:
+        last_check = datetime.fromisoformat(UPDATE_CHECK_FILE.read_text())
+        return datetime.now() - last_check > timedelta(days=7)
+    except Exception:
+        return True
+
+
+def _check_and_notify():
+    """Check for updates and notify if available."""
+    try:
+        import requests
+        
+        response = requests.get(
+            "https://api.github.com/repos/renatocaliari/agent-sync/releases/latest",
+            timeout=3,  # Fast timeout
+        )
+        response.raise_for_status()
+        
+        latest = response.json()["tag_name"].lstrip("v")
+        
+        if latest > __version__:
+            # Save notification so we can show it after command completes
+            UPDATE_PENDING_FILE.parent.mkdir(parents=True, exist_ok=True)
+            UPDATE_PENDING_FILE.write_text(f"{latest}|{datetime.now().isoformat()}")
+        
+        # Save last check time
+        UPDATE_CHECK_FILE.parent.mkdir(parents=True, exist_ok=True)
+        UPDATE_CHECK_FILE.write_text(datetime.now().isoformat())
+        
+    except Exception:
+        pass  # Silently fail (don't annoy user)
+
+
+def show_pending_update_notification():
+    """Show update notification if one is pending."""
+    if not UPDATE_PENDING_FILE.exists():
+        return
+    
+    try:
+        latest, timestamp = UPDATE_PENDING_FILE.read_text().split("|")
+        console.print(f"\n[dim]✨ Update available: v{latest} (pipx upgrade agent-sync)[/dim]\n")
+        
+        # Clear notification
+        UPDATE_PENDING_FILE.unlink()
+    except Exception:
+        pass  # Silently fail
 
 
 @click.group()
@@ -365,9 +434,12 @@ def pull(force: bool):
     """Fetch and apply remote configuration."""
     console.print("\n📥 Pulling remote configuration...")
     
+    # Check for updates asynchronously (once per week)
+    check_for_updates_async()
+
     config = Config()
     sync_manager = SyncManager(config)
-    
+
     try:
         changes = sync_manager.pull(force=force)
         if changes:
@@ -379,6 +451,9 @@ def pull(force: bool):
     except Exception as e:
         console.print(f"\n❌ Error: {e}", style="red")
         raise click.Abort()
+    
+    # Show update notification if available
+    show_pending_update_notification()
 
 
 @main.command()
@@ -387,9 +462,12 @@ def push(message: str):
     """Commit and push local changes."""
     console.print("\n📤 Pushing local changes...")
     
+    # Check for updates asynchronously (once per week)
+    check_for_updates_async()
+
     config = Config()
     sync_manager = SyncManager(config)
-    
+
     try:
         pushed = sync_manager.push(message=message)
         if pushed:
@@ -401,6 +479,9 @@ def push(message: str):
     except Exception as e:
         console.print(f"\n❌ Error: {e}", style="red")
         raise click.Abort()
+    
+    # Show update notification if available
+    show_pending_update_notification()
 
 
 @main.command()
