@@ -108,22 +108,42 @@ That's it! Your configs and skills are now synced.
 ~/.claude/
 ~/.gemini/
 ~/.qwen/
+~/.pi/
 ```
 
 ### On GitHub (Private Repo)
 ```
 agent-sync-configs/
 ├── configs/
-│   ├── opencode/opencode.jsonc
-│   ├── claude-code/settings.json
-│   ├── gemini-cli/settings.json
-│   └── qwen-code/settings.json
+│   ├── opencode/
+│   │   ├── opencode.jsonc     # Main config + plugins
+│   │   └── opencode.json      # Alternative format
+│   ├── claude-code/
+│   │   ├── settings.json      # Main config + MCP servers
+│   │   └── claude.json        # Alternative format
+│   ├── gemini-cli/
+│   │   └── settings.json      # Config + MCP + auth settings
+│   ├── pi.dev/
+│   │   ├── settings.json      # Main config
+│   │   ├── models.json        # Model configurations
+│   │   └── lsp-settings.json  # LSP configurations
+│   └── qwen-code/
+│       └── settings.json      # Config + MCP servers
 │
 └── skills/
     ├── code-review/
     ├── python-expert/
     └── ...
 ```
+
+### What's Protected (Never Synced)
+- ❌ `*auth*.json` - Authentication files
+- ❌ `*accounts*.json` - Account credentials  
+- ❌ `*overrides*` - Local overrides
+- ❌ `*.lock` - Package locks
+- ❌ API keys in configs - Auto-scrubbed
+- ❌ Bearer tokens - Auto-scrubbed
+- ❌ Passwords - Auto-scrubbed
 
 ---
 
@@ -154,15 +174,17 @@ agent-sync disable <name> # Disable agent sync
 
 ## 🤖 Supported Agents
 
-| Agent | Config | Skills | Method |
-|-------|--------|--------|--------|
-| **opencode** | `~/.config/opencode/` | `~/.config/opencode/skills/` | Config |
-| **claude-code** | `~/.claude/` | `~/.claude/commands/` | Symlink |
-| **gemini-cli** | `~/.gemini/` | `~/.gemini/tools/` | Copy |
-| **pi.dev** | `~/.pi/` | `~/.pi/agent/skills/` | Native |
-| **qwen-code** | `~/.qwen/` | `~/.qwen/skills/` | Native |
+| Agent | Config Files | Skills Path | Method |
+|-------|-------------|-------------|--------|
+| **opencode** | `opencode.json`, `opencode.jsonc` | `~/.config/opencode/skills/` | Config |
+| **claude-code** | `settings.json`, `claude.json` | `~/.claude/commands/` | Symlink |
+| **gemini-cli** | `settings.json` | `~/.gemini/tools/` | Copy |
+| **pi.dev** | `settings.json`, `models.json`, `lsp-settings.json` | `~/.pi/agent/skills/` | Native |
+| **qwen-code** | `settings.json` | `~/.qwen/skills/` | Native |
 
 All agents also support `~/.agents/skills/` for shared skills.
+
+**Files automatically excluded:** `*auth*.json`, `*accounts*.json`, `*overrides*`, `*.lock`
 
 ---
 
