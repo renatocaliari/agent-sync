@@ -2,12 +2,9 @@
 
 import subprocess
 import shutil
-import json
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
-
-from .scrubber import SecretScrubber
 
 
 class SyncManager:
@@ -40,7 +37,6 @@ class SyncManager:
         self.config = config
         self.repo_dir = self.DEFAULT_REPO_DIR
         self.state_file = self.STATE_FILE
-        self.scrubber = SecretScrubber()
         
         # Ensure directories exist
         self.repo_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -374,20 +370,9 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                             if self._should_exclude(config_file.name):
                                 continue
                             
-                            # Read and scrub secrets
-                            content = config_file.read_text()
-                            scrubbed_content, secrets = self.scrubber.scrub(
-                                content, 
-                                agent_name=agent.name
-                            )
-                            
-                            # Save scrubbed content
+                            # Copy config file as-is
                             dest = agent_config_dir / config_file.name
-                            dest.write_text(scrubbed_content)
-                            
-                            # Save secrets to .env (never synced)
-                            if secrets:
-                                self.scrubber.save_secrets(secrets)
+                            shutil.copy2(config_file, dest)
         
         # Always sync global skills
         global_skills_dir = Path.home() / ".agents" / "skills"
@@ -435,16 +420,8 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                 for config_file in synced_config_dir.glob("*"):
                     if config_file.is_file():
                         dest = agent.config_path.parent / config_file.name
-                        
-                        # Read synced content
-                        synced_content = config_file.read_text()
-                        
-                        # Restore secrets from local .env
-                        restored_content = self.scrubber.restore(synced_content)
-                        
-                        # Write restored content
-                        if not dest.exists() or dest.read_text() != restored_content:
-                            dest.write_text(restored_content)
+                        if not dest.exists() or dest.read_text() != config_file.read_text():
+                            shutil.copy2(config_file, dest)
                             changes.append(f"{agent.name}: {config_file.name}")
         
         # Apply global skills
