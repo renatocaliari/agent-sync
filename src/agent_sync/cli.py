@@ -509,6 +509,8 @@ def check_update():
     
     console.print("[bold]🔍 Checking for updates...[/bold]\n")
     
+    current = __version__
+    
     try:
         response = requests.get(
             "https://api.github.com/repos/renatocaliari/agent-sync/releases/latest",
@@ -517,7 +519,6 @@ def check_update():
         response.raise_for_status()
         
         latest = response.json()["tag_name"].lstrip("v")
-        current = __version__
         
         if latest > current:
             console.print(f"✨ [green]Update available:[/green] [bold]v{latest}[/bold]")
@@ -531,7 +532,7 @@ def check_update():
             
     except requests.exceptions.RequestException:
         console.print(f"[dim]Current version: v{current}[/dim]")
-        console.print("[yellow]⚠ Could not check for updates (offline?)\n[/yellow]")
+        console.print("[yellow]⚠ Could not check for updates (offline or no releases yet)\n[/yellow]")
     except Exception as e:
         console.print(f"[dim]Current version: v{current}[/dim]")
         console.print(f"[yellow]⚠ Error checking updates: {e}\n[/yellow]")
