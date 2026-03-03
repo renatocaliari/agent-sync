@@ -8,27 +8,37 @@ Supports: **opencode** • **claude-code** • **gemini-cli** • **pi.dev** •
 
 ## ⚡ Quick Start
 
-### Install
+### Install CLI (Required)
 
-**Recommended (global skill):**
+**Recommended (isolated, global):**
+```bash
+pipx install agent-sync
+```
+
+**Alternative:**
+```bash
+pip install agent-sync
+```
+
+### Install Skill (For AI Agents - Optional)
+
+If you want AI agents (Claude Code, Opencode, etc.) to use agent-sync:
+
 ```bash
 npx skills add renatocaliari/agent-sync -g
 ```
 
-**Alternative (CLI tool):**
-```bash
-pipx install agent-sync
-# or
-pip install agent-sync
-```
+**Note:** The skill is just documentation for AI agents. You still need to install the CLI separately.
 
-**Verify:**
+### Verify CLI Installation
+
 ```bash
 agent-sync --version
 # If not found: export PATH="$HOME/.local/bin:$PATH"
 ```
 
-**Check for updates:**
+### Check for Updates
+
 ```bash
 agent-sync check-update
 # or
