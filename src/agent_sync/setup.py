@@ -394,9 +394,12 @@ class SetupWizard:
                 console.print(f"   [dim]Skills:[/dim] {agent.skills_path} (copy)")
             else:
                 console.print(f"   [dim]Skills:[/dim] ~/.agents/skills/ (native)")
-            
+
             console.print(f"   [dim]Sync configs:[/dim] {'Yes' if sync_configs else 'No'}")
-            console.print(f"   [dim]Status:[/dim] [{'green}]✅ Ready[/{'green'}]" if success else f"[dim]Status:[/dim] [yellow]⚠ Needs attention[/yellow]")
+            if success:
+                console.print(f"   [dim]Status:[/dim] [green]✅ Ready[/green]")
+            else:
+                console.print(f"   [dim]Status:[/dim] [yellow]⚠ Needs attention[/yellow]")
             console.print()
         
         # Next steps
