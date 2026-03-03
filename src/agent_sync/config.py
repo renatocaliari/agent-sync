@@ -1,0 +1,182 @@
+"""Configuration management for agent-sync."""
+
+import os
+from pathlib import Path
+from typing import Optional
+import yaml
+
+
+DEFAULT_CONFIG_DIR = Path.home() / ".config" / "agent-sync"
+DEFAULT_CONFIG_FILE = DEFAULT_CONFIG_DIR / "config.yaml"
+DEFAULT_OVERRIDES_FILE = DEFAULT_CONFIG_DIR / "overrides.yaml"
+
+
+class Config:
+    """Manages agent-sync configuration."""
+    
+    def __init__(self, config_path: Optional[Path] = None):
+        self.config_path = config_path or DEFAULT_CONFIG_FILE
+        self.overrides_path = DEFAULT_OVERRIDES_FILE
+        self._config: dict = {}
+        self._overrides: dict = {}
+        self.load()
+    
+    def load(self) -> None:
+        """Load configuration from files."""
+        # Ensure config directory exists
+        self.config_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Load main config
+        if self.config_path.exists():
+            with open(self.config_path) as f:
+                self._config = yaml.safe_load(f) or {}
+        
+        # Load overrides (local-only, not synced)
+        if self.overrides_path.exists():
+            with open(self.overrides_path) as f:
+                self._overrides = yaml.safe_load(f) or {}
+    
+    def save(self) -> None:
+        """Save configuration to file."""
+        self.config_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.config_path, "w") as f:
+            yaml.dump(self._config, f, default_flow_style=False, sort_keys=False)
+    
+    def save_overrides(self) -> None:
+        """Save local overrides (not synced)."""
+        self.overrides_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.overrides_path, "w") as f:
+            yaml.dump(self._overrides, f, default_flow_style=False, sort_keys=False)
+    
+    @property
+    def repo_url(self) -> Optional[str]:
+        """Get the sync repository URL."""
+        return self._config.get("repo_url")
+    
+    @repo_url.setter
+    def repo_url(self, url: str) -> None:
+        """Set the sync repository URL."""
+        self._config["repo_url"] = url
+        self.save()
+    
+    @property
+    def agents(self) -> list[str]:
+        """Get list of enabled agents."""
+        return self._config.get("agents", [])
+    
+    @agents.setter
+    def agents(self, agents: list[str]) -> None:
+        """Set enabled agents."""
+        self._config["agents"] = agents
+        self.save()
+    
+    def get_agent_config(self, agent_name: str) -> dict:
+        """Get configuration for a specific agent."""
+        agents_config = self._config.get("agents_config", {})
+        return agents_config.get(agent_name, {})
+    
+    def set_agent_config(self, agent_name: str, config: dict) -> None:
+        """Set configuration for a specific agent."""
+        if "agents_config" not in self._config:
+            self._config["agents_config"] = {}
+        
+        self._config["agents_config"][agent_name] = config
+        self.save()
+    
+    def is_agent_enabled(self, agent_name: str) -> bool:
+        """Check if sync is enabled for a specific agent."""
+        agent_config = self.get_agent_config(agent_name)
+        return agent_config.get("enabled", True)
+    
+    def enable_agent(self, agent_name: str) -> None:
+        """Enable sync for a specific agent."""
+        agent_config = self.get_agent_config(agent_name)
+        agent_config["enabled"] = True
+        self.set_agent_config(agent_name, agent_config)
+    
+    def disable_agent(self, agent_name: str) -> None:
+        """Disable sync for a specific agent."""
+        agent_config = self.get_agent_config(agent_name)
+        agent_config["enabled"] = False
+        self.set_agent_config(agent_name, agent_config)
+    
+    def get_sync_options(self, agent_name: str) -> dict:
+        """Get sync options for a specific agent."""
+        agent_config = self.get_agent_config(agent_name)
+        return agent_config.get("sync", {})
+    
+    def set_sync_option(self, agent_name: str, key: str, value) -> None:
+        """Set a sync option for a specific agent."""
+        agent_config = self.get_agent_config(agent_name)
+        if "sync" not in agent_config:
+            agent_config["sync"] = {}
+        agent_config["sync"][key] = value
+        self.set_agent_config(agent_name, agent_config)
+    
+    @property
+    def include_secrets(self) -> bool:
+        """Check if secrets sync is enabled."""
+        return self._config.get("include_secrets", False)
+    
+    @include_secrets.setter
+    def include_secrets(self, value: bool) -> None:
+        """Enable/disable secrets sync."""
+        self._config["include_secrets"] = value
+        self.save()
+    
+    @property
+    def include_mcp_secrets(self) -> bool:
+        """Check if MCP secrets sync is enabled."""
+        return self._config.get("include_mcp_secrets", False)
+    
+    @include_mcp_secrets.setter
+    def include_mcp_secrets(self, value: bool) -> None:
+        """Enable/disable MCP secrets sync."""
+        self._config["include_mcp_secrets"] = value
+        self.save()
+    
+    def get_override(self, key: str, default=None):
+        """Get a local override value."""
+        return self._overrides.get(key, default)
+    
+    def set_override(self, key: str, value) -> None:
+        """Set a local override (not synced)."""
+        self._overrides[key] = value
+        self.save_overrides()
+    
+    def generate_default(self, target_agents: Optional[list[str]] = None) -> Path:
+        """Generate a default configuration file."""
+        default_agents = target_agents or [
+            "opencode",
+            "claude-code",
+            "gemini-cli",
+            "pi.dev",
+            "qwen-code",
+            "global-skills",
+        ]
+        
+        default_config = {
+            "repo_url": None,
+            "agents": default_agents,
+            "agents_config": {
+                agent: {
+                    "enabled": True,
+                    "sync": {
+                        "configs": True,
+                        # skills: sempre true (global skills)
+                    }
+                }
+                for agent in default_agents
+            },
+            "include_secrets": False,
+            "include_mcp_secrets": False,
+            # global_skills: sempre true (implícito)
+        }
+        
+        self._config = default_config
+        self.save()
+        return self.config_path
+    
+    def to_dict(self) -> dict:
+        """Get configuration as dictionary."""
+        return {**self._config, "overrides": self._overrides}

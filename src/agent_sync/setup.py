@@ -1,0 +1,441 @@
+"""Interactive setup wizard for agent-sync."""
+
+from pathlib import Path
+from typing import Optional
+from rich.console import Console
+from rich.panel import Panel
+from rich.prompt import Prompt, Confirm
+from rich.table import Table
+from rich import box
+from rich.markdown import Markdown
+
+from .config import Config
+from .agents import get_all_agents, BaseAgent
+from .skills import SkillsManager
+
+
+console = Console()
+
+
+class SetupWizard:
+    """Interactive setup wizard for agent-sync."""
+    
+    def __init__(self):
+        self.config = Config()
+        self.selected_agents: list[str] = []
+        self.agent_configs: dict[str, dict] = {}
+        self.include_global_skills = True  # Always true
+        self.include_secrets = False
+        self.repo_name: str = ""
+        self.is_private = True
+        self.skills_centralized = False
+        self.agent_configure_results: dict = {}
+    
+    def run(self) -> bool:
+        """Run the complete setup wizard."""
+        console.print()
+        console.print(Panel.fit(
+            "🔄 [bold]Agent Sync Setup Wizard[/bold]\n\n"
+            "This wizard will help you configure agent-sync.\n"
+            "Global skills (~/.agents/skills/) are always enabled.",
+            border_style="blue",
+        ))
+        console.print()
+        
+        # Step 1: Detect installed agents
+        self._step_detect_agents()
+        
+        # Step 2: Select agents to sync
+        self._step_select_agents()
+        
+        # Step 3: Configure sync options per agent (configs only)
+        self._step_configure_agents()
+        
+        # Step 4: Centralize skills (automatic)
+        self._step_centralize_skills()
+        
+        # Step 5: Configure agents automatically
+        self._step_auto_configure_agents()
+        
+        # Step 6: Repository settings
+        self._step_repo_settings()
+        
+        # Step 7: Secrets (optional)
+        self._step_secrets()
+        
+        # Step 8: Review and confirm
+        return self._step_review()
+    
+    def _step_detect_agents(self) -> None:
+        """Step 1: Detect installed agents."""
+        console.print(Panel.fit(
+            "[bold]Step 1: Detecting Installed Agents[/bold]",
+            border_style="green",
+        ))
+        console.print()
+        
+        installed = []
+        not_installed = []
+        
+        for agent in get_all_agents():
+            if agent.name == "global-skills":
+                continue
+            
+            if agent.is_available():
+                installed.append(agent)
+            else:
+                not_installed.append(agent)
+        
+        if installed:
+            console.print("[green]✓ Found installed agents:[/green]")
+            for agent in installed:
+                console.print(f"  • {agent.name}")
+        else:
+            console.print("[yellow]⚠ No agents detected on your system[/yellow]")
+        
+        if not_installed:
+            console.print(f"\n[yellow]Not installed ({len(not_installed)}):[/yellow]")
+            for agent in not_installed:
+                console.print(f"  • {agent.name}")
+        
+        console.print()
+    
+    def _step_select_agents(self) -> None:
+        """Step 2: Select agents to sync."""
+        console.print(Panel.fit(
+            "[bold]Step 2: Select Agents to Sync[/bold]\n\n"
+            "Choose which agents you want to synchronize.",
+            border_style="green",
+        ))
+        console.print()
+        
+        # Show all agents with status
+        table = Table(box=box.SIMPLE)
+        table.add_column("Agent", style="cyan")
+        table.add_column("Status", style="yellow")
+        table.add_column("Config Path", style="dim")
+        
+        for agent in get_all_agents():
+            if agent.name == "global-skills":
+                continue
+            
+            status = "✓" if agent.is_available() else "✗"
+            config_path = str(agent.config_path)
+            if len(config_path) > 50:
+                config_path = "..." + config_path[-47:]
+            
+            table.add_row(agent.name, status, config_path)
+        
+        console.print(table)
+        console.print()
+        
+        # Ask which agents to enable
+        default_agents = "all"
+        selected = Prompt.ask(
+            "Which agents to sync",
+            default=default_agents,
+            show_default=True,
+        )
+        
+        if selected.lower() == "all":
+            # Select all installed agents
+            for agent in get_all_agents():
+                if agent.name != "global-skills" and agent.is_available():
+                    self.selected_agents.append(agent.name)
+        elif selected.lower() == "none":
+            pass  # Select none
+        else:
+            # Parse comma-separated list
+            names = [n.strip().lower() for n in selected.split(",")]
+            for agent in get_all_agents():
+                if agent.name in names:
+                    self.selected_agents.append(agent.name)
+        
+        console.print(f"\n[green]✓ Selected {len(self.selected_agents)} agent(s):[/green]")
+        for name in self.selected_agents:
+            console.print(f"  • {name}")
+        
+        console.print()
+    
+    def _step_configure_agents(self) -> None:
+        """Step 3: Configure sync options per agent (configs only)."""
+        console.print(Panel.fit(
+            "[bold]Step 3: Configure Sync Options[/bold]\n\n"
+            "Choose what to sync for each agent.\n"
+            "[dim]Note: Skills are always synced to ~/.agents/skills/[/dim]",
+            border_style="green",
+        ))
+        console.print()
+        
+        for agent_name in self.selected_agents:
+            if agent_name == "global-skills":
+                continue
+            
+            agent = next((a for a in get_all_agents() if a.name == agent_name), None)
+            if not agent:
+                continue
+            
+            console.print(f"[cyan]Configuring {agent_name}:[/cyan]")
+            
+            # Sync configs?
+            sync_configs = Confirm.ask(
+                "  Sync configuration files?",
+                default=True,
+            )
+            
+            self.agent_configs[agent_name] = {
+                "enabled": True,
+                "sync": {
+                    "configs": sync_configs,
+                }
+            }
+            
+            console.print()
+    
+    def _step_centralize_skills(self) -> None:
+        """Step 4: Centralize skills to ~/.agents/skills/ (automatic)."""
+        console.print(Panel.fit(
+            "[bold]Step 4: Centralizing Skills[/bold]\n\n"
+            "Scanning for existing skills in all agents...\n"
+            "All skills will be centralized to ~/.agents/skills/",
+            border_style="green",
+        ))
+        console.print()
+        
+        skills_mgr = SkillsManager()
+        
+        # Check if there are any skills to centralize
+        skills_found = skills_mgr.scan_all_agents()
+        
+        if skills_found:
+            total = sum(len(s) for s in skills_found.values())
+            console.print(f"Found [cyan]{total}[/cyan] skills across {len(skills_found)} agents.\n")
+            
+            if Confirm.ask("Centralize all skills to ~/.agents/skills/?", default=True):
+                skills_mgr.centralize()
+                self.skills_centralized = True
+            else:
+                console.print("[yellow]Skipping centralization.[/yellow]\n")
+                self.skills_centralized = False
+        else:
+            console.print("[green]✓ No existing skills found. Global skills directory is empty.[/green]\n")
+            self.skills_centralized = True
+        
+        # Always add global-skills to selected agents
+        if "global-skills" not in self.selected_agents:
+            self.selected_agents.append("global-skills")
+        
+        self.agent_configs["global-skills"] = {
+            "enabled": True,
+            "sync": {
+                "configs": False,
+            }
+        }
+    
+    def _step_auto_configure_agents(self) -> None:
+        """Step 5: Configure agents to use global skills (automatic)."""
+        console.print(Panel.fit(
+            "[bold]Step 5: Configuring Agents[/bold]\n\n"
+            "Automatically configuring agents to use global skills...",
+            border_style="green",
+        ))
+        console.print()
+        
+        skills_mgr = SkillsManager()
+        self.agent_configure_results = skills_mgr.configure_agents()
+        
+        console.print()
+    
+    def _step_repo_settings(self) -> None:
+        """Step 5: Repository settings."""
+        console.print(Panel.fit(
+            "[bold]Step 5: Repository Settings[/bold]\n\n"
+            "Configure your sync repository.",
+            border_style="green",
+        ))
+        console.print()
+        
+        # Repository name
+        self.repo_name = Prompt.ask(
+            "Repository name",
+            default="agent-sync-configs",
+        )
+        
+        # Private or public
+        self.is_private = Confirm.ask(
+            "Make repository private?",
+            default=True,
+        )
+        
+        console.print()
+    
+    def _step_secrets(self) -> None:
+        """Step 6: Secrets configuration."""
+        console.print(Panel.fit(
+            "[bold]Step 6: Secrets Configuration[/bold]\n\n"
+            "[yellow]⚠ Only enable secrets with PRIVATE repositories![/yellow]",
+            border_style="yellow",
+        ))
+        console.print()
+        
+        console.print("Secrets include:")
+        console.print("  • API keys")
+        console.print("  • Auth tokens")
+        console.print("  • MCP credentials")
+        console.print()
+        
+        self.include_secrets = Confirm.ask(
+            "Enable secrets synchronization?",
+            default=False,
+        )
+        
+        if self.include_secrets:
+            include_mcp = Confirm.ask(
+                "  Include MCP secrets?",
+                default=False,
+            )
+        else:
+            include_mcp = False
+        
+        console.print()
+    
+    def _step_review(self) -> bool:
+        """Step 8: Review configuration and show summary."""
+        console.print(Panel.fit(
+            "[bold]Step 8: Summary[/bold]",
+            border_style="blue",
+        ))
+        console.print()
+        
+        # Show final summary
+        self._show_final_summary()
+        
+        # Confirm
+        confirmed = Confirm.ask(
+            "\n[bold]Proceed with this configuration?[/bold]",
+            default=True,
+        )
+        
+        if confirmed:
+            self._save_configuration()
+        
+        console.print()
+        return confirmed
+    
+    def _show_final_summary(self) -> None:
+        """Show detailed final summary of what was done."""
+        
+        # Repository info
+        console.print(Panel(
+            f"[cyan]📦 Repository:[/cyan] {self.repo_name}\n"
+            f"[cyan]Visibility:[/cyan] {'🔒 Private' if self.is_private else '🌍 Public'}",
+            title="GitHub",
+            border_style="blue",
+        ))
+        console.print()
+        
+        # Skills summary
+        skills_mgr = SkillsManager()
+        skills_summary = skills_mgr.get_summary()
+        
+        console.print(Panel(
+            f"[cyan]📁 Location:[/cyan] {skills_summary['global_skills_dir']}\n"
+            f"[cyan]Skills:[/cyan] {skills_summary['skill_count']} skills",
+            title="Global Skills",
+            border_style="green",
+        ))
+        console.print()
+        
+        # Per-agent summary
+        console.print("[bold]Per-Agent Summary:[/bold]\n")
+        
+        for agent_name in self.selected_agents:
+            if agent_name == "global-skills":
+                continue
+            
+            agent = next((a for a in get_all_agents() if a.name == agent_name), None)
+            if not agent:
+                continue
+            
+            # Get configuration result
+            config_result = self.agent_configure_results.get(agent_name, {})
+            method = config_result.get("method", "unknown")
+            success = config_result.get("success", False)
+            message = config_result.get("message", "")
+            
+            # Status icon
+            if success:
+                if method == "symlink":
+                    icon = "🔗"
+                elif method == "config":
+                    icon = "⚙️"
+                elif method == "fallback":
+                    icon = "📋"
+                else:
+                    icon = "✓"
+                status_color = "green"
+            else:
+                icon = "⚠️"
+                status_color = "yellow"
+            
+            # Config sync status
+            agent_config = self.agent_configs.get(agent_name, {})
+            sync_opts = agent_config.get("sync", {})
+            sync_configs = sync_opts.get("configs", True)
+            
+            console.print(f"[{status_color}]{icon} {agent_name}[/{status_color}]")
+            console.print(f"   [dim]Config:[/dim] {agent.config_path}")
+            
+            if method == "symlink":
+                console.print(f"   [dim]Skills:[/dim] ~/.agents/skills/ (symlink)")
+            elif method == "config":
+                console.print(f"   [dim]Skills:[/dim] ~/.agents/skills/ (configured)")
+            elif method == "fallback":
+                console.print(f"   [dim]Skills:[/dim] {agent.skills_path} (copy)")
+            else:
+                console.print(f"   [dim]Skills:[/dim] ~/.agents/skills/ (native)")
+            
+            console.print(f"   [dim]Sync configs:[/dim] {'Yes' if sync_configs else 'No'}")
+            console.print(f"   [dim]Status:[/dim] [{'green}]✅ Ready[/{'green'}]" if success else f"[dim]Status:[/dim] [yellow]⚠ Needs attention[/yellow]")
+            console.print()
+        
+        # Next steps
+        console.print(Panel(
+            "[bold]Next Steps:[/bold]\n\n"
+            "  1. [green]agent-sync config show[/green]   - Review configuration\n"
+            "  2. [green]agent-sync push[/green]          - Push to GitHub\n"
+            "  3. [green]agent-sync link <url>[/green]    - Link other machines",
+            title="📋 What's Next",
+            border_style="yellow",
+        ))
+    
+    def _save_configuration(self) -> None:
+        """Save the configuration."""
+        console.print("\n[bold]Saving configuration...[/bold]\n")
+        
+        # Save agent-specific configs
+        for agent_name, config in self.agent_configs.items():
+            self.config.set_agent_config(agent_name, config)
+        
+        # Save global settings
+        self.config.include_secrets = self.include_secrets
+        
+        console.print("[green]✓ Configuration saved to ~/.config/agent-sync/config.yaml[/green]\n")
+    
+    def get_repo_config(self) -> dict:
+        """Get repository configuration for init."""
+        return {
+            "name": self.repo_name,
+            "private": self.is_private,
+            "agents": tuple(self.selected_agents),
+        }
+
+
+def run_setup_wizard() -> Optional[dict]:
+    """Run the setup wizard and return repo config."""
+    wizard = SetupWizard()
+    
+    if wizard.run():
+        return wizard.get_repo_config()
+    
+    return None

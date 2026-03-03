@@ -1,0 +1,68 @@
+# Example configuration file for agent-sync
+# Location: ~/.config/agent-sync/config.yaml
+
+# GitHub repository URL (set automatically by agent-sync init/link)
+repo_url: https://github.com/username/my-agent-configs.git
+
+# List of agents to synchronize
+# Supported: opencode, claude-code, gemini-cli, pi.dev, qwen-code, global-skills
+agents:
+  - opencode
+  - claude-code
+  - qwen-code
+  - global-skills
+
+# Per-agent configuration
+agents_config:
+  opencode:
+    enabled: true
+    sync:
+      configs: true    # Sync opencode.json
+      skills: true     # Sync tool/ directory
+  
+  claude-code:
+    enabled: true
+    sync:
+      configs: true
+      skills: true
+  
+  gemini-cli:
+    enabled: false     # Disabled - won't be synced
+    sync:
+      configs: true
+      skills: true
+  
+  pi.dev:
+    enabled: true
+    sync:
+      configs: true
+      skills: true
+  
+  qwen-code:
+    enabled: true
+    sync:
+      configs: true
+      skills: true
+  
+  global-skills:
+    enabled: true      # Sync ~/.agents/skills/
+    sync:
+      configs: false   # No config file for global skills
+      skills: true     # Sync skills directory
+
+# Secrets configuration
+# ⚠️ Only enable with PRIVATE repositories
+include_secrets: false
+include_mcp_secrets: false
+
+# What to sync (global settings)
+sync_paths:
+  configs: true      # Agent configuration files
+  skills: true       # Custom skills and tools
+  prompts: false     # Saved prompts (optional)
+  sessions: false    # Conversation sessions (requires secrets)
+  global_skills: true # ~/.agents/skills directory
+
+# Machine-specific overrides
+# These are stored separately in ~/.config/agent-sync/overrides.yaml
+# and are never synced to the repository
