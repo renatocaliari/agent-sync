@@ -213,6 +213,54 @@ def skills():
     pass
 
 
+@skills.command("list")
+def list_skills():
+    """List all centralized skills."""
+    from rich.table import Table
+    from rich import box
+    
+    skills_dir = Path.home() / ".agents" / "skills"
+    
+    if not skills_dir.exists():
+        console.print("\n[yellow]No skills directory found.[/yellow]")
+        console.print("Run [green]`agent-sync skills centralize`[/green] to centralize skills.\n")
+        return
+    
+    skills = []
+    for item in skills_dir.iterdir():
+        if item.is_dir() and (item / "SKILL.md").exists():
+            skills.append({
+                "name": item.name,
+                "path": str(item),
+                "valid": True
+            })
+        elif item.is_file() and item.suffix in [".md", ".py", ".sh"]:
+            skills.append({
+                "name": item.name,
+                "path": str(item),
+                "valid": False
+            })
+    
+    if not skills:
+        console.print("\n[yellow]No skills found in ~/.agents/skills/[/yellow]\n")
+        return
+    
+    console.print(f"\n[bold]📚 Centralized Skills ({len(skills)})[/bold]\n")
+    
+    table = Table(box=box.SIMPLE)
+    table.add_column("Status", style="green")
+    table.add_column("Skill Name", style="cyan")
+    table.add_column("Path", style="dim")
+    
+    for skill in sorted(skills, key=lambda s: s["name"]):
+        icon = "✓" if skill["valid"] else "⚠"
+        status = "Valid" if skill["valid"] else "File (no SKILL.md)"
+        table.add_row(icon, skill["name"], skill["path"])
+    
+    console.print(table)
+    console.print()
+
+
 @skills.command()
 @click.option("--copy", is_flag=True, help="Copy instead of moving skills")
 def centralize(copy: bool):
@@ -359,7 +407,7 @@ def enable(include_mcp: bool):
 def disable():
     """Disable secrets synchronization."""
     console.print("\n🔓 Disabling secrets sync...")
-    
+
     secrets_mgr = SecretsManager()
     try:
         secrets_mgr.disable()
@@ -367,6 +415,35 @@ def disable():
     except Exception as e:
         console.print(f"\n❌ Error: {e}", style="red")
         raise click.Abort()
+
+
+@secrets.command()
+def export():
+    """Export secrets to a backup file."""
+    from datetime import datetime
+    
+    secrets_mgr = SecretsManager()
+    secrets = secrets_mgr.load_secrets()
+    
+    if not secrets:
+        console.print("\n[yellow]No secrets to export[/yellow]\n")
+        return
+    
+    # Create backup filename with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_file = Path.home() / f".config/agent-sync/secrets_backup_{timestamp}.env"
+    backup_file.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(backup_file, "w") as f:
+        f.write("# Agent Sync Secrets Backup\n")
+        f.write(f"# Created: {datetime.now().isoformat()}\n")
+        f.write("# WARNING: Keep this file secure!\n\n")
+        for key, value in sorted(secrets.items()):
+            f.write(f"{key}={value}\n")
+    
+    console.print(f"\n[green]✓ Secrets exported to:[/green] {backup_file}")
+    console.print("\n[yellow]⚠️  Keep this backup file secure![/yellow]")
+    console.print("  • Contains sensitive credentials\n")
 
 
 @main.command()

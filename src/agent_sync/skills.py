@@ -350,6 +350,8 @@ class SkillsManager:
     
     def _copy_skills(self, agent: BaseAgent) -> None:
         """Copy skills from global to agent path (fallback)."""
+        import hashlib
+        
         if not self.global_skills_dir.exists():
             return
         
@@ -359,10 +361,20 @@ class SkillsManager:
             dest = agent.skills_path / skill_item.name
             
             if not dest.exists():
+                # Copy if doesn't exist
                 if skill_item.is_dir():
                     shutil.copytree(skill_item, dest)
                 else:
                     shutil.copy2(skill_item, dest)
+            else:
+                # Check if different (idempotent)
+                if skill_item.is_file() and dest.is_file():
+                    src_hash = hashlib.md5(skill_item.read_bytes()).hexdigest()
+                    dest_hash = hashlib.md5(dest.read_bytes()).hexdigest()
+                    
+                    if src_hash != dest_hash:
+                        # Files differ, skip to avoid overwriting local changes
+                        console.print(f"  [yellow]⚠ {skill_item.name} differs in {agent.name}, skipping[/yellow]")
     
     def get_summary(self) -> dict:
         """Get summary of skills configuration."""

@@ -76,6 +76,7 @@ class SetupWizard:
         
         installed = []
         not_installed = []
+        path_warnings = []
         
         for agent in get_all_agents():
             if agent.name == "global-skills":
@@ -83,6 +84,14 @@ class SetupWizard:
             
             if agent.is_available():
                 installed.append(agent)
+                
+                # Validate config path exists
+                if agent.config_path and not agent.config_path.exists():
+                    path_warnings.append({
+                        "agent": agent.name,
+                        "path": agent.config_path,
+                        "message": f"Config file not found at {agent.config_path}"
+                    })
             else:
                 not_installed.append(agent)
         
@@ -97,6 +106,13 @@ class SetupWizard:
             console.print(f"\n[yellow]Not installed ({len(not_installed)}):[/yellow]")
             for agent in not_installed:
                 console.print(f"  • {agent.name}")
+        
+        # Show path warnings
+        if path_warnings:
+            console.print(f"\n[yellow]⚠ Path warnings ({len(path_warnings)}):[/yellow]")
+            for warning in path_warnings:
+                console.print(f"  • {warning['agent']}: {warning['message']}")
+            console.print("\n[dim]This may indicate the agent is installed but not configured yet.[/dim]\n")
         
         console.print()
     

@@ -55,6 +55,12 @@ class SecretScrubber:
         secrets = {}
         counter = 0
         
+        # First pass: remove existing placeholders to avoid double-scrubbing
+        existing_placeholders = re.findall(r'\{\{env:(AGENT_SYNC_[\w-]+)\}\}', scrubbed)
+        for placeholder in existing_placeholders:
+            # Replace with temporary marker
+            scrubbed = scrubbed.replace(f"{{{{env:{placeholder}}}}}", "___EXISTING_PLACEHOLDER___")
+        
         for pattern, secret_type in self.SECRET_PATTERNS:
             matches = list(re.finditer(pattern, scrubbed, re.IGNORECASE))
             
@@ -62,6 +68,10 @@ class SecretScrubber:
                 prefix = match.group(1)
                 secret_value = match.group(2)
                 suffix = match.group(3)
+                
+                # Skip if this looks like a placeholder value (already scrubbed)
+                if secret_value.startswith("{{env:") or secret_value == "___EXISTING_PLACEHOLDER___":
+                    continue
                 
                 # Generate unique env var name
                 env_name = f"AGENT_SYNC_{agent_name.upper()}_{secret_type}_{counter}"
@@ -73,6 +83,9 @@ class SecretScrubber:
                 # Replace with placeholder
                 replacement = f"{prefix}{{{{env:{env_name}}}}}{suffix}"
                 scrubbed = scrubbed[:match.start()] + replacement + scrubbed[match.end():]
+        
+        # Restore existing placeholders
+        scrubbed = scrubbed.replace("___EXISTING_PLACEHOLDER___", "{{env:EXISTING}}")
         
         self.scrubbed_secrets.update(secrets)
         return scrubbed, secrets
@@ -99,8 +112,23 @@ class SecretScrubber:
     
     def save_secrets(self, secrets: dict[str, str]) -> None:
         """Save secrets to local .env file (never synced)."""
+        if not secrets:
+            return
+        
+        # Check if .env already exists
+        env_existed = self.env_file.exists()
+        
         for key, value in secrets.items():
             set_key(self.env_file, key, value)
+        
+        # Show warning if this is the first time creating .env
+        if not env_existed:
+            from rich.console import Console
+            console = Console()
+            console.print("\n[yellow]⚠️  Secrets saved to ~/.config/agent-sync/.env[/yellow]")
+            console.print("  • This file is [bold]NOT synced[/bold] to GitHub")
+            console.print("  • [bold]Backup this file[/bold] to avoid losing secrets")
+            console.print("  • Use [green]`agent-sync secrets export`[/green] to backup\n")
     
     def scrub_file(self, file_path: Path, agent_name: str = "unknown") -> Optional[dict[str, str]]:
         """Scrub secrets from a file.
