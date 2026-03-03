@@ -373,6 +373,22 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                             # Copy config file as-is
                             dest = agent_config_dir / config_file.name
                             shutil.copy2(config_file, dest)
+            
+            # Copy Pi.dev extensions if agent is pi.dev
+            if agent.name == "pi.dev" and hasattr(agent, 'extensions_paths'):
+                for ext_path in agent.extensions_paths:
+                    if ext_path.exists():
+                        # Copy extensions to repo
+                        repo_ext_dir = self.repo_dir / "configs" / agent.name / "extensions"
+                        repo_ext_dir.mkdir(parents=True, exist_ok=True)
+                        
+                        for ext_item in ext_path.iterdir():
+                            if ext_item.is_file():
+                                dest = repo_ext_dir / ext_item.name
+                                shutil.copy2(ext_item, dest)
+                            elif ext_item.is_dir():
+                                dest = repo_ext_dir / ext_item.name
+                                shutil.copytree(ext_item, dest, dirs_exist_ok=True)
         
         # Always sync global skills
         global_skills_dir = Path.home() / ".agents" / "skills"
@@ -423,6 +439,23 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                         if not dest.exists() or dest.read_text() != config_file.read_text():
                             shutil.copy2(config_file, dest)
                             changes.append(f"{agent.name}: {config_file.name}")
+            
+            # Apply Pi.dev extensions if agent is pi.dev
+            if agent.name == "pi.dev":
+                synced_ext_dir = synced_config_dir / "extensions"
+                if synced_ext_dir.exists():
+                    # Apply to both extension paths
+                    for ext_path in agent.extensions_paths:
+                        ext_path.mkdir(parents=True, exist_ok=True)
+                        
+                        for ext_item in synced_ext_dir.iterdir():
+                            dest = ext_path / ext_item.name
+                            if not dest.exists() or (ext_item.is_file() and dest.read_text() != ext_item.read_text()):
+                                if ext_item.is_dir():
+                                    shutil.copytree(ext_item, dest, dirs_exist_ok=True)
+                                else:
+                                    shutil.copy2(ext_item, dest)
+                                changes.append(f"{agent.name}/extensions: {ext_item.name}")
         
         # Apply global skills
         synced_skills_dir = self.repo_dir / "skills"
