@@ -264,9 +264,11 @@ def list_skills():
 
 @skills.command()
 @click.option("--copy", is_flag=True, help="Copy instead of moving skills")
-def centralize(copy: bool):
+@click.option("--push", is_flag=True, help="Automatically push to GitHub after centralizing")
+def centralize(copy: bool, push: bool):
     """Centralize skills from all agents to ~/.agents/skills/."""
     from .skills import SkillsManager
+    from rich.prompt import Confirm
     
     move = not copy
     action = "Copying" if copy else "Moving"
@@ -302,7 +304,41 @@ def centralize(copy: bool):
     if move:
         console.print("[dim]Note: Agent directories now use symlinks or config to read from ~/.agents/skills/[/dim]\n")
     
-    console.print("💡 Run [green]'agent-sync push'[/green] to sync to GitHub\n")
+    # Ask if user wants to push
+    should_push = push
+    
+    if not should_push:
+        should_push = Confirm.ask(
+            "\n[bold]Would you like to push these changes to GitHub now?[/bold]",
+            default=True,
+        )
+    
+    if should_push:
+        console.print("\n[bold]📤 Pushing to GitHub...[/bold]\n")
+        
+        from .sync import SyncManager
+        from .config import Config
+        
+        config = Config()
+        
+        if not config.repo_url:
+            console.print("[yellow]⚠ No repository configured yet.[/yellow]")
+            console.print("Run [green]agent-sync init[/green] to create a repository first.\n")
+        else:
+            try:
+                sync_manager = SyncManager(config)
+                pushed = sync_manager.push(message="chore: centralize skills")
+                
+                if pushed:
+                    console.print(f"\n[green]✓ Pushed {len(pushed)} files to GitHub[/green]\n")
+                    console.print("💡 On other machines, run [green]agent-sync pull[/green]\n")
+                else:
+                    console.print("\n[yellow]✓ Nothing to push (already up to date)[/yellow]\n")
+            except Exception as e:
+                console.print(f"\n[red]✗ Push failed: {e}[/red]\n")
+                console.print("[dim]You can run [green]agent-sync push[/green] manually later.[/dim]\n")
+    else:
+        console.print("💡 Run [green]agent-sync push[/green] to sync to GitHub\n")
 
 
 @main.command()
