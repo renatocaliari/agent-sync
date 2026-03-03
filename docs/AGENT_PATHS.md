@@ -1,29 +1,29 @@
-# Paths de Configuração por Agent CLI
+# Agent CLI Configuration Paths
 
-Este documento lista os paths exatos usados por cada agent CLI, baseados na documentação oficial.
+This document lists the exact paths used by each agent CLI, based on official documentation.
 
 ---
 
 ## Opencode
 
-**Documentação:** https://opencode.ai/docs/
+**Documentation:** https://opencode.ai/docs/
 
 ### Paths
 
-| Tipo | Path | Descrição |
+| Type | Path | Description |
 |------|------|-----------|
-| Config | `~/.config/opencode/opencode.json` | Configuração principal |
-| Skills | `~/.config/opencode/skills/` | Skills globais |
-| Tools | `~/.config/opencode/tools/` | Tools customizadas |
-| Commands | `~/.config/opencode/commands/` | Comandos customizados |
+| Config | `~/.config/opencode/opencode.json` | Main configuration |
+| Skills | `~/.config/opencode/skills/` | Global skills |
+| Tools | `~/.config/opencode/tools/` | Custom tools |
+| Commands | `~/.config/opencode/commands/` | Custom commands |
 | Plugins | `~/.config/opencode/plugins/` | Plugins |
-| Modes | `~/.config/opencode/modes/` | Modes customizados |
-| Themes | `~/.config/opencode/themes/` | Temas |
+| Modes | `~/.config/opencode/modes/` | Custom modes |
+| Themes | `~/.config/opencode/themes/` | Themes |
 | Agents | `~/.config/opencode/agents/` | Agent configs |
 
-### Projeto
+### Project
 
-No diretório do projeto: `.opencode/`
+In project directory: `.opencode/`
 
 ```
 .opencode/
@@ -34,29 +34,29 @@ No diretório do projeto: `.opencode/`
 └── modes/
 ```
 
-### Notas
+### Notes
 
-- Nomes plurais são o padrão (`skills/`, `tools/`, `commands/`)
-- Nomes singulares também funcionam para backwards compatibility
-- Skills são arquivos `SKILL.md` dentro de subdiretórios
+- Plural names are standard (`skills/`, `tools/`, `commands/`)
+- Singular names also work for backwards compatibility
+- Skills are `SKILL.md` files inside subdirectories
 
 ---
 
 ## Claude Code
 
-**Documentação:** https://code.claude.com/docs/
+**Documentation:** https://code.claude.com/docs/
 
 ### Paths
 
-| Tipo | Path | Descrição |
+| Type | Path | Description |
 |------|------|-----------|
-| Config | `~/.claude/settings.json` | Configuração principal |
-| Commands | `~/.claude/commands/` | Comandos/skills customizados |
-| Worktrees | `<repo>/.claude/worktrees/` | Worktrees por repositório |
+| Config | `~/.claude/settings.json` | Main configuration |
+| Commands | `~/.claude/commands/` | Custom commands/skills |
+| Worktrees | `<repo>/.claude/worktrees/` | Per-repository worktrees |
 
-### Projeto
+### Project
 
-No diretório do projeto: `.claude/`
+In project directory: `.claude/`
 
 ```
 .claude/
@@ -64,28 +64,28 @@ No diretório do projeto: `.claude/`
 └── commands/
 ```
 
-### Notas
+### Notes
 
-- Settings podem ser carregados via `--settings ./settings.json`
-- Comandos customizados são arquivos `.md` ou `.sh` no diretório `commands/`
-- Worktrees são específicos por repositório
+- Settings can be loaded via `--settings ./settings.json`
+- Custom commands are `.md` or `.sh` files in `commands/` directory
+- Worktrees are specific per repository
 
 ---
 
 ## Gemini CLI
 
-**Documentação:** https://gemini-cli-docs.pages.dev/
+**Documentation:** https://gemini-cli-docs.pages.dev/
 
 ### Paths
 
-| Tipo | Path | Descrição |
+| Type | Path | Description |
 |------|------|-----------|
-| Config | `~/.gemini/settings.json` | Configuração do usuário |
-| Project Config | `.gemini/settings.json` | Configuração do projeto |
-| Tools | `.gemini/` | Scripts de tools customizadas |
-| Sandbox | `.gemini/sandbox-*.sb` | Perfis de sandbox customizados |
+| Config | `~/.gemini/settings.json` | User configuration |
+| Project Config | `.gemini/settings.json` | Project configuration |
+| Tools | `.gemini/` | Custom tool scripts |
+| Sandbox | `.gemini/sandbox-*.sb` | Custom sandbox profiles |
 
-### Sistema
+### System
 
 | OS | Path |
 |----|------|
@@ -93,7 +93,7 @@ No diretório do projeto: `.claude/`
 | Windows | `C:\ProgramData\gemini-cli\settings.json` |
 | macOS | `/Library/Application Support/GeminiCli/settings.json` |
 
-### Projeto
+### Project
 
 ```
 .gemini/
@@ -104,29 +104,29 @@ No diretório do projeto: `.claude/`
     └── call_tool
 ```
 
-### Notas
+### Notes
 
-- Config do usuário sobrescreve config do sistema
-- Config do projeto sobrescreve config do usuário
-- Tools customizadas podem estar em `bin/` dentro de `.gemini/`
+- User config overrides system config
+- Project config overrides user config
+- Custom tools can be in `bin/` inside `.gemini/`
 
 ---
 
 ## Pi.dev
 
-**Documentação:** https://github.com/badlogic/pi-mono
+**Documentation:** https://github.com/badlogic/pi-mono
 
 ### Paths
 
-| Tipo | Path | Descrição |
+| Type | Path | Description |
 |------|------|-----------|
-| Config | `~/.pi/settings.json` | Configuração global |
-| Global Skills | `~/.pi/agent/skills/` | Skills globais |
-| Global Skills | `~/.agents/skills/` | Skills compartilhadas |
-| Project Skills | `.pi/skills/` | Skills do projeto |
-| Project Skills | `.agents/skills/` | Skills do projeto (ancestors) |
+| Config | `~/.pi/settings.json` | Global configuration |
+| Global Skills | `~/.pi/agent/skills/` | Global skills |
+| Global Skills | `~/.agents/skills/` | Shared skills |
+| Project Skills | `.pi/skills/` | Project skills |
+| Project Skills | `.agents/skills/` | Project skills (ancestors) |
 
-### Projeto
+### Project
 
 ```
 .pi/
@@ -136,30 +136,30 @@ No diretório do projeto: `.claude/`
         └── SKILL.md
 ```
 
-### Notas
+### Notes
 
-- Skills são diretórios contendo um arquivo `SKILL.md`
-- Pi.dev procura skills em múltiplos paths (do mais específico ao mais genérico)
-- `~/.agents/skills/` é compartilhado com outros agents
-- Skills de packages npm também são suportados via `package.json`
+- Skills are directories containing a `SKILL.md` file
+- Pi.dev searches for skills in multiple paths (most specific to most general)
+- `~/.agents/skills/` is shared with other agents
+- npm package skills are also supported via `package.json`
 
 ---
 
 ## Qwen Code
 
-**Documentação:** https://qwenlm.github.io/qwen-code-docs/
+**Documentation:** https://qwenlm.github.io/qwen-code-docs/
 
 ### Paths
 
-| Tipo | Path | Descrição |
+| Type | Path | Description |
 |------|------|-----------|
-| Config | `~/.qwen/settings.json` | Configuração do usuário |
-| Skills | `~/.qwen/skills/` | Skills globais |
+| Config | `~/.qwen/settings.json` | User configuration |
+| Skills | `~/.qwen/skills/` | Global skills |
 | Agents | `~/.qwen/agents/` | Agent configs |
-| Project Config | `.qwen/settings.json` | Configuração do projeto |
-| Project Skills | `.qwen/skills/` | Skills do projeto |
+| Project Config | `.qwen/settings.json` | Project configuration |
+| Project Skills | `.qwen/skills/` | Project skills |
 
-### Projeto
+### Project
 
 ```
 .qwen/
@@ -170,28 +170,28 @@ No diretório do projeto: `.claude/`
 └── agents/
 ```
 
-### Notas
+### Notes
 
-- Skills são diretórios com arquivo `SKILL.md`
-- Config é procurada do diretório atual até o root do git
-- `--experimental-skills` flag habilita suporte a skills
-- `~/.agents/skills/` também é suportado
+- Skills are directories with `SKILL.md` file
+- Config is searched from current directory up to git root
+- `--experimental-skills` flag enables skills support
+- `~/.agents/skills/` is also supported
 
 ---
 
 ## Global Skills (~/.agents/skills/)
 
-Este diretório é **compartilhado** entre múltiplos agents:
+This directory is **shared** across multiple agents:
 
-| Agent | Suporta |
-|-------|---------|
+| Agent | Supports |
+|-------|----------|
 | Opencode | ✅ (via config) |
 | Claude Code | ❌ |
 | Gemini CLI | ❌ |
-| Pi.dev | ✅ (nativo) |
-| Qwen Code | ✅ (nativo) |
+| Pi.dev | ✅ (native) |
+| Qwen Code | ✅ (native) |
 
-### Estrutura
+### Structure
 
 ```
 ~/.agents/skills/
@@ -203,15 +203,15 @@ Este diretório é **compartilhado** entre múltiplos agents:
     └── SKILL.md
 ```
 
-### Uso no agent-sync
+### Usage with agent-sync
 
 ```bash
-# Habilitar sync
+# Enable sync
 agent-sync enable global-skills
 
-# Adicionar skill
-mkdir ~/.agents/skills/minha-skill
-echo "# Minha Skill" > ~/.agents/skills/minha-skill/SKILL.md
+# Add skill
+mkdir ~/.agents/skills/my-skill
+echo "# My Skill" > ~/.agents/skills/my-skill/SKILL.md
 
 # Sync
 agent-sync push
@@ -219,7 +219,7 @@ agent-sync push
 
 ---
 
-## Resumo dos Paths no agent-sync
+## agent-sync Paths Summary
 
 ```python
 # Opencode

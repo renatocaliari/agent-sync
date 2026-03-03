@@ -1,319 +1,241 @@
-# Reconfigurando Agent Sync
+# Reconfiguration Guide
 
-Você pode reconfigurar o **agent-sync** a qualquer momento, mesmo depois de usar por um tempo.
-
----
-
-## Quando Reconfigurar
-
-- ✅ Adicionar novo agent (ex: começou a usar Gemini CLI)
-- ✅ Remover agent que não usa mais
-- ✅ Mudar o que é sincronizado (ex: parar de sync skills)
-- ✅ Habilitar/desabilitar global skills
-- ✅ Mudar configurações de secrets
-- ✅ Corrigir configuração incorreta
+Reconfigure **agent-sync** at any time, even after extended use.
 
 ---
 
-## Métodos de Reconfiguração
+## When to Reconfigure
 
-### 1. Setup Wizard (Recomendado)
+- ✅ Add new agent (e.g., started using Gemini CLI)
+- ✅ Remove unused agent
+- ✅ Change what gets synced (e.g., stop syncing skills)
+- ✅ Enable/disable global skills
+- ✅ Change secrets settings
+- ✅ Fix incorrect configuration
+
+---
+
+## Reconfiguration Methods
+
+### 1. Setup Wizard (Recommended)
 
 ```bash
-# Reconfigurar tudo com wizard interativo
+# Reconfigure everything with interactive wizard
 agent-sync setup
 ```
 
-**O que acontece:**
-- Detecta agents instalados
-- Mostra configuração atual
-- Permite mudar tudo
-- Mantém seu repositório vinculado
-- **Não deleta dados do repo**
+**What happens:**
+- Detects installed agents
+- Shows current configuration
+- Allows changing everything
+- Keeps your repository linked
+- **Doesn't delete repo data**
 
-**Fluxo:**
+**Flow:**
 ```
-1. Aviso de configuração existente
-2. Confirmação para continuar
-3. Wizard completo (igual ao setup inicial)
-4. Configuração atualizada
-5. Prompt para rodar `agent-sync push`
+1. Warning about existing configuration
+2. Confirmation to continue
+3. Full wizard (same as initial setup)
+4. Configuration updated
+5. Prompt to run `agent-sync push`
 ```
 
 ---
 
-### 2. Comandos de Configuração
+### 2. Configuration Commands
 
-#### Ver Configuração Atual
+#### View Current Configuration
 
 ```bash
-# Mostrar configuração
+# Show configuration
 agent-sync config show
 ```
 
-**Output exemplo:**
+**Example output:**
 ```
 📋 Current Configuration
 
 Repository: https://github.com/user/my-configs.git
 
 Enabled Agents:
-  ✓ opencode: configs, skills
+  ✓ opencode: configs
   ✓ claude-code: configs
   ✗ gemini-cli (disabled)
-  ✓ qwen-code: configs, skills
-  ✓ global-skills: skills
+  ✓ qwen-code: configs
 
 Secrets:
   Include secrets: No
   Include MCP: No
-
-Config file: ~/.config/agent-sync/config.yaml
 ```
 
 ---
 
-#### Editar Manualmente
+#### Edit Manually
 
 ```bash
-# Abrir arquivo de configuração no editor
+# Open config file in editor
 agent-sync config edit
 
-# Ou edite manualmente
+# Or edit manually
 nano ~/.config/agent-sync/config.yaml
 ```
 
-**Exemplo de edição:**
+**Example edit:**
 
 ```yaml
-# Antes
+# Before
 agents_config:
   opencode:
     enabled: true
     sync:
       configs: true
-      skills: true
 
-# Depois - desabilitar skills do opencode
+# After - disable opencode
 agents_config:
   opencode:
-    enabled: true
-    sync:
-      configs: true
-      skills: false  # ← Mudar aqui
+    enabled: false  # ← Change here
 ```
 
 ---
 
-#### Resetar para Defaults
+#### Reset to Defaults
 
 ```bash
-# Resetar configuração (mantém repo vinculado)
+# Reset configuration (keeps repo linked)
 agent-sync config reset
 ```
 
-**O que faz:**
-- Reseta todas as configurações para valores padrão
-- Mantém `repo_url` (não desvincula)
-- Habilita todos os agents detectados
-- Remove configurações customizadas
+**What it does:**
+- Resets all settings to defaults
+- Keeps `repo_url` (doesn't unlink)
+- Enables all detected agents
+- Removes custom configurations
 
-**Depois do reset:**
+**After reset:**
 ```bash
-# Reconfigurar com wizard
+# Reconfigure with wizard
 agent-sync setup
 
-# Ou editar manualmente
+# Or edit manually
 agent-sync config edit
 ```
 
 ---
 
-### 3. Comandos Enable/Disable
+### 3. Enable/Disable Commands
 
 ```bash
-# Habilitar agent específico
+# Enable specific agent
 agent-sync enable gemini-cli
 
-# Desabilitar agent
+# Disable specific agent
 agent-sync disable claude-code
 
-# Verificar status
+# Check status
 agent-sync agents
 ```
 
-**Rápido e direto** - bom para mudanças simples.
+**Quick and direct** - good for simple changes.
 
 ---
 
-## Cenários Comuns
+## Common Scenarios
 
-### Cenário 1: Adicionar Novo Agent
+### Scenario 1: Add New Agent
 
-Você começou a usar Gemini CLI:
+You started using Gemini CLI:
 
 ```bash
-# Opção A: Wizard (mais fácil)
+# Option A: Wizard (easiest)
 agent-sync setup
-# → Selecionar gemini-cli na lista
-# → Configurar opções de sync
-# → Confirmar
+# → Select gemini-cli from list
+# → Configure sync options
+# → Confirm
 
-# Opção B: Comando rápido
+# Option B: Quick command
 agent-sync enable gemini-cli
 
-# Depois: enviar mudanças
+# Then: push changes
 agent-sync push -m "feat: add gemini-cli sync"
 ```
 
 ---
 
-### Cenário 2: Parar de Sync Skills
-
-Skills estão ocupando muito espaço:
+### Scenario 2: Stop Syncing Configs
 
 ```bash
-# Opção A: Wizard
+# Option A: Wizard
 agent-sync setup
-# → Para cada agent: responder "n" em "Sync skills?"
+# → For each agent: answer "n" to "Sync configs?"
 
-# Opção B: Editar config
+# Option B: Edit config
 agent-sync config edit
 
-# Mudar no YAML:
+# Change in YAML:
 agents_config:
   opencode:
-    sync:
-      skills: false  # ← Mudar para false
-  claude-code:
-    sync:
-      skills: false
+    enabled: false  # ← Change to false
 
-# Depois: push
-agent-sync push -m "chore: disable skills sync"
+# Then: push
+agent-sync push -m "chore: disable opencode sync"
 ```
 
 ---
 
-### Cenário 3: Habilitar Global Skills
+### Scenario 3: Fix Wrong Configuration
 
-Você quer compartilhar skills entre agents:
-
-```bash
-# Opção A: Wizard
-agent-sync setup
-# → Step 4: "Enable sync of global skills?" → y
-
-# Opção B: Enable direto
-agent-sync enable global-skills
-
-# Ver skills globais
-ls ~/.agents/skills/
-
-# Push
-agent-sync push
-```
-
----
-
-### Cenário 4: Corrigir Configuração Errada
-
-Configuração ficou bagunçada:
+Configuration got messed up:
 
 ```bash
-# Resetar tudo
+# Reset everything
 agent-sync config reset
 
-# Reconfigurar do zero
+# Reconfigure from scratch
 agent-sync setup
 
-# Verificar
+# Verify
 agent-sync config show
 agent-sync agents
 ```
 
 ---
 
-### Cenário 5: Mudar Apenas Secrets
+## What's Kept vs. Changed
 
-Habilitar/desabilitar secrets:
+### Kept ✅
+- Repository URL
+- Configs already synced in repo
+- Git history
+- Secrets in local `.env`
 
-```bash
-# Habilitar secrets
-agent-sync secrets enable
+### Changed 🔄
+- Configuration in `~/.config/agent-sync/config.yaml`
+- Enabled/disabled agents
+- Sync options per agent
+- Secrets settings
 
-# Habilitar incluindo MCP
-agent-sync secrets enable --include-mcp
-
-# Desabilitar
-agent-sync secrets disable
-
-# Verificar
-agent-sync config show
-```
-
----
-
-## Fluxo Completo de Reconfiguração
-
-```bash
-# 1. Ver configuração atual
-agent-sync config show
-agent-sync agents
-
-# 2. Reconfigurar (wizard)
-agent-sync setup
-
-# 3. Verificar mudanças
-agent-sync config show
-agent-sync status
-
-# 4. Enviar mudanças para o repo
-agent-sync push -m "chore: update configuration"
-
-# 5. Em outras máquinas, puxar mudanças
-# (em outra máquina)
-agent-sync pull
-```
+### Not Affected ❌
+- Files in `~/.agents/skills/`
+- Agent configs (`~/.claude/`, `~/.qwen/`, etc.)
+- GitHub remote repository
 
 ---
 
-## O Que é Mantido vs. Alterado
+## Best Practices
 
-### Mantido ✅
-- URL do repositório
-- Configs já sincronizadas no repo
-- Histórico do git
-- Secrets no `.env` local
-
-### Alterado 🔄
-- Configuração em `~/.config/agent-sync/config.yaml`
-- Agents habilitados/desabilitados
-- Opções de sync por agent
-- Configs de secrets
-
-### Não Afetado ❌
-- Arquivos em `~/.agents/skills/`
-- Configs dos agents (`~/.claude/`, `~/.qwen/`, etc.)
-- Repositório GitHub remoto
-
----
-
-## Boas Práticas
-
-### 1. Faça Push Após Reconfigurar
+### 1. Push After Reconfiguring
 
 ```bash
 agent-sync setup
 agent-sync push -m "chore: reconfigure agents"
 ```
 
-### 2. Avise Outros Usuários
+### 2. Notify Other Users
 
-Se compartilha o repo:
+If sharing the repo:
 
 ```bash
-# Após reconfigurar e push
+# After reconfiguring and pushing
 git commit -m "chore: add gemini-cli sync
 
 Other users should run:
@@ -321,27 +243,27 @@ Other users should run:
 "
 ```
 
-### 3. Teste Antes de Push
+### 3. Test Before Push
 
 ```bash
-# Verificar status
+# Check status
 agent-sync status
 
-# Ver agents
+# Check agents
 agent-sync agents
 
-# Só depois: push
+# Then: push
 agent-sync push
 ```
 
-### 4. Backup da Config
+### 4. Backup Config
 
 ```bash
-# Backup antes de reset
+# Backup before reset
 cp ~/.config/agent-sync/config.yaml \
    ~/.config/agent-sync/config.yaml.backup
 
-# Depois de reset
+# After reset
 agent-sync config reset
 ```
 
@@ -349,62 +271,62 @@ agent-sync config reset
 
 ## Troubleshooting
 
-### Reconfiguração não aplica
+### Reconfiguration not applying
 
 ```bash
-# Forçar pull após reconfigurar
+# Force pull after reconfiguring
 agent-sync pull --force
 
-# Ou reset completo
+# Or full reset
 agent-sync config reset
 agent-sync setup
 agent-sync pull --force
 ```
 
-### Agents não aparecem
+### Agents not appearing
 
 ```bash
-# Verificar se agent está instalado
+# Check if agent is installed
 which opencode
 
-# Verificar detecção
+# Check detection
 agent-sync agents
 
-# Se não detectado, instalar agent ou verificar PATH
+# If not detected, install agent or check PATH
 ```
 
-### Configuração corrompida
+### Configuration corrupted
 
 ```bash
-# Resetar
+# Reset
 agent-sync config reset
 
-# Ou deletar e recriar
+# Or delete and recreate
 rm ~/.config/agent-sync/config.yaml
 agent-sync setup
 ```
 
 ---
 
-## Resumo dos Comandos
+## Command Summary
 
-| Comando | Descrição | Quando Usar |
-|---------|-----------|-------------|
-| `agent-sync setup` | Wizard interativo | Reconfigurar tudo |
-| `agent-sync config show` | Ver configuração | Checar status |
-| `agent-sync config edit` | Editar manualmente | Mudanças específicas |
-| `agent-sync config reset` | Resetar defaults | Começar do zero |
-| `agent-sync enable <agent>` | Habilitar agent | Adicionar agent rápido |
-| `agent-sync disable <agent>` | Desabilitar agent | Remover agent rápido |
-| `agent-sync push` | Enviar mudanças | Após reconfigurar |
+| Command | Description | When to Use |
+|---------|-------------|-------------|
+| `agent-sync setup` | Interactive wizard | Reconfigure everything |
+| `agent-sync config show` | View configuration | Check status |
+| `agent-sync config edit` | Edit manually | Specific changes |
+| `agent-sync config reset` | Reset to defaults | Start fresh |
+| `agent-sync enable <agent>` | Enable agent | Add agent quickly |
+| `agent-sync disable <agent>` | Disable agent | Remove agent quickly |
+| `agent-sync push` | Push changes | After reconfiguring |
 
 ---
 
-## Próximos Passos
+## Next Steps
 
-Após reconfigurar:
+After reconfiguring:
 
-1. ✅ Verificar configuração: `agent-sync config show`
-2. ✅ Enviar mudanças: `agent-sync push`
-3. ✅ Atualizar outras máquinas: `agent-sync pull`
-4. ✅ Testar sync: `agent-sync status`
+1. ✅ Verify configuration: `agent-sync config show`
+2. ✅ Push changes: `agent-sync push`
+3. ✅ Update other machines: `agent-sync pull`
+4. ✅ Test sync: `agent-sync status`

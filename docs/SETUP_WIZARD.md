@@ -1,27 +1,27 @@
-# Setup Wizard - Guia de Uso
+# Setup Wizard Guide
 
-O **agent-sync** agora possui um setup wizard interativo que facilita a configuração inicial.
-
----
-
-## Quando o Wizard é Executado
-
-### Automaticamente
-- Ao rodar `agent-sync init` pela primeira vez (sem argumentos)
-- Quando não há configuração existente em `~/.config/agent-sync/config.yaml`
-
-### Manualmente
-- Execute `agent-sync setup` para reconfigurar a qualquer momento
-
-### Skip (Pular)
-- Use `agent-sync init --name my-repo --no-wizard` para pular o wizard
-- Ou passe os parâmetros diretamente: `--agents opencode claude-code`
+The **agent-sync** interactive setup wizard for initial configuration and reconfiguration.
 
 ---
 
-## Passos do Wizard
+## When Wizard Runs
 
-### Step 1: Detecção de Agents Instalados
+### Automatically
+- When running `agent-sync init` for the first time (without arguments)
+- When no configuration exists at `~/.config/agent-sync/config.yaml`
+
+### Manually
+- Run `agent-sync setup` to reconfigure at any time
+
+### Skip Wizard
+- Use `agent-sync init --name my-repo --no-wizard` to skip
+- Or pass parameters directly: `--agents opencode claude-code`
+
+---
+
+## Wizard Steps
+
+### Step 1: Detect Installed Agents
 
 ```
 Step 1: Detecting Installed Agents
@@ -37,11 +37,11 @@ Not installed (2):
   • pi.dev
 ```
 
-O wizard detecta automaticamente quais agents estão instalados no seu sistema.
+Automatically detects which agents are installed on your system.
 
 ---
 
-### Step 2: Selecionar Agents para Sync
+### Step 2: Select Agents to Sync
 
 ```
 Step 2: Select Agents to Sync
@@ -60,14 +60,14 @@ Step 2: Select Agents to Sync
 Which agents to sync [all]: all
 ```
 
-**Opções:**
-- `all` - Todos os agents instalados
-- `none` - Nenhum agent
-- `opencode,claude-code` - Lista específica (separada por vírgula)
+**Options:**
+- `all` - All installed agents
+- `none` - No agents
+- `opencode,claude-code` - Comma-separated list
 
 ---
 
-### Step 3: Configurar Opções por Agent
+### Step 3: Configure Sync Options
 
 ```
 Step 3: Configure Sync Options
@@ -75,58 +75,90 @@ Step 3: Configure Sync Options
 
 Configuring opencode:
   Sync configuration files? [Y/n]: y
-  Sync skills/commands/tools? [Y/n]: y
 
 Configuring claude-code:
   Sync configuration files? [Y/n]: y
-  Sync skills/commands/tools? [Y/n]: n
 
 Configuring qwen-code:
   Sync configuration files? [Y/n]: y
-  Sync skills/commands/tools? [Y/n]: y
 ```
 
-Para cada agent selecionado, você pode escolher:
-- **Sync configs**: Arquivos de configuração (ex: `settings.json`)
-- **Sync skills**: Skills, commands, tools personalizados
+For each selected agent, choose:
+- **Sync configs**: Configuration files (e.g., `settings.json`)
+- **Skills**: Always synced via `~/.agents/skills/` (global)
 
 ---
 
-### Step 4: Global Skills
+### Step 4: Centralize Skills
 
 ```
-Step 4: Global Skills
-─────────────────────
-
-Global skills are stored in ~/.agents/skills/
-Currently 19 skill(s) found.
-
-Enable sync of global skills (~/.agents/skills/)? [Y/n]: y
-```
-
-Skills globais são compartilhadas entre múltiplos agents.
-
----
-
-### Step 5: Configurações do Repositório
-
-```
-Step 5: Repository Settings
+Step 4: Centralizing Skills
 ────────────────────────────
 
-Repository name [agent-sync-configs]: my-agent-configs
-Make repository private? [Y/n]: y
+Scanning for existing skills in all agents...
+All skills will be centralized to ~/.agents/skills/
+
+Found 24 skills across 4 agents.
+
+Centralize all skills to ~/.agents/skills/? [Y/n]: y
 ```
 
-- **Nome**: Nome do repositório GitHub
-- **Privado**: Recomendado se for sincronizar secrets
+Automatically:
+- Scans all agent skill directories
+- Detects conflicts (same skill in multiple agents)
+- Resolves conflicts by renaming with agent prefix
+- Copies to `~/.agents/skills/` (source of truth)
 
 ---
 
-### Step 6: Secrets (Opcional)
+### Step 5: Configure Agents
 
 ```
-Step 6: Secrets Configuration
+Step 5: Configuring Agents
+───────────────────────────
+
+Automatically configuring agents to use global skills...
+
+  ✓ opencode:     Updated config to include global skills
+  ✓ claude-code:  Created symlink ~/.claude/commands/_global
+  ✓ qwen-code:    Already uses ~/.agents/skills/ (no change)
+  ✓ gemini-cli:   Using fallback (skills copied to agent path)
+```
+
+Automatically configures each agent to use `~/.agents/skills/`:
+- **Symlink**: Claude Code
+- **Config update**: Opencode
+- **Native**: Pi.dev, Qwen Code
+- **Fallback (copy)**: Gemini CLI
+
+---
+
+### Step 6: Repository Settings
+
+```
+Step 6: Repository Settings
+────────────────────────────
+
+⚠ SECURITY: Use PRIVATE repository for configs!
+
+Your configs may contain sensitive information.
+Private repositories are FREE on GitHub.
+
+Repository name [agent-sync-configs]: my-agent-configs
+Make repository PRIVATE? [Y/n]: y
+```
+
+**Important:**
+- ⚠️ Private repository recommended
+- ⚠️ Required if enabling secrets sync
+- ✅ Free on GitHub
+
+---
+
+### Step 7: Secrets Configuration
+
+```
+Step 7: Secrets Configuration
 ──────────────────────────────
 
 ⚠ Only enable secrets with PRIVATE repositories!
@@ -139,85 +171,66 @@ Secrets include:
 Enable secrets synchronization? [y/N]: n
 ```
 
-**Importante:** Só habilite secrets em repositórios **privados**!
+**By default:**
+- ✅ Secrets sync is **disabled** (secure by default)
+- ✅ API keys auto-scrubbed from configs
+- ✅ Stored locally in `~/.config/agent-sync/.env`
 
 ---
 
-### Step 7: Revisão e Confirmação
+### Step 8: Summary
 
 ```
-Step 7: Review Configuration
-─────────────────────────────
-
-┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Setting         ┃ Value                    ┃
-┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ Repository      │ my-agent-configs         │
-│ Visibility      │ 🔒 Private               │
-│ Agents          │ opencode, claude-code,   │
-│                 │ qwen-code, global-skills │
-│ Global Skills   │ ✓                        │
-│ Secrets         │ ✗ Disabled               │
-└─────────────────┴──────────────────────────┘
-
-Per-agent configuration:
-  • opencode: configs, skills
-  • claude-code: configs
-  • qwen-code: configs, skills
-  • global-skills: skills
-
-Proceed with this configuration? [Y/n]: y
+╔══════════════════════════════════════════════════════════╗
+║                  ✅ SETUP COMPLETE!                      ║
+╠══════════════════════════════════════════════════════════╣
+║                                                          ║
+║  📦 Repository: my-agent-configs                         ║
+║  📁 Skills: 24 centralized → ~/.agents/skills/           ║
+║                                                          ║
+║  Per-Agent Summary:                                      ║
+║  🔗 opencode      - Config updated                      ║
+║  🔗 claude-code   - Symlink created                     ║
+║  ✓ qwen-code     - Native support                       ║
+║  📋 gemini-cli    - Fallback (copy)                     ║
+║                                                          ║
+║  Next Steps:                                             ║
+║    1. agent-sync config show                            ║
+║    2. agent-sync push                                   ║
+║    3. agent-sync link <url>  (other machines)           ║
+║                                                          ║
+╚══════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-## Após o Wizard
+## After Setup
 
-### Criar Repositório
-
-Depois de configurar, execute:
+### Create Repository
 
 ```bash
-# Inicializa o repositório GitHub
+# Initialize GitHub repository
 agent-sync init
 
-# Ou se já configurou via wizard:
+# Or if already configured via wizard:
 agent-sync init --no-wizard
 ```
 
-### Enviar Configs
+### Push Configs
 
 ```bash
-# Envia suas configs para o repositório
+# Send your configs to GitHub
 agent-sync push
 ```
 
 ---
 
-## Exemplo de Sessão Completa
+## Generated Configuration
 
-```bash
-# 1. Executar wizard
-$ agent-sync setup
-
-# 2. Inicializar repositório
-$ agent-sync init
-
-# 3. Enviar configs
-$ agent-sync push
-
-# 4. Verificar status
-$ agent-sync status
-```
-
----
-
-## Configuração Gerada
-
-O wizard cria `~/.config/agent-sync/config.yaml`:
+The wizard creates `~/.config/agent-sync/config.yaml`:
 
 ```yaml
-repo_url: null  # Definido após `agent-sync init`
+repo_url: null  # Set after `agent-sync init`
 agents:
   - opencode
   - claude-code
@@ -229,25 +242,21 @@ agents_config:
     enabled: true
     sync:
       configs: true
-      skills: true
   
   claude-code:
     enabled: true
     sync:
       configs: true
-      skills: false
   
   qwen-code:
     enabled: true
     sync:
       configs: true
-      skills: true
   
   global-skills:
     enabled: true
     sync:
       configs: false
-      skills: true
 
 include_secrets: false
 include_mcp_secrets: false
@@ -255,26 +264,26 @@ include_mcp_secrets: false
 
 ---
 
-## Dicas
+## Tips
 
-1. **Primeira vez**: Use o wizard para configurar tudo corretamente
-2. **Reconfigurar**: Execute `agent-sync setup` a qualquer momento
-3. **Não-interativo**: Use flags `--name`, `--agents`, `--no-wizard`
-4. **Secrets**: Só habilite em repositórios privados
-5. **Global skills**: Útil para skills compartilhadas entre agents
+1. **First time**: Use wizard to configure everything correctly
+2. **Reconfigure**: Run `agent-sync setup` anytime
+3. **Non-interactive**: Use flags `--name`, `--agents`, `--no-wizard`
+4. **Secrets**: Only enable in private repositories
+5. **Global skills**: Useful for shared skills across agents
 
 ---
 
 ## Troubleshooting
 
-### Wizard não aparece
-- Verifique se há config existente: `cat ~/.config/agent-sync/config.yaml`
-- Delete e execute novamente: `rm ~/.config/agent-sync/config.yaml && agent-sync setup`
+### Wizard doesn't appear
+- Check for existing config: `cat ~/.config/agent-sync/config.yaml`
+- Delete and run again: `rm ~/.config/agent-sync/config.yaml && agent-sync setup`
 
-### Agente não detectado
-- Verifique se o agent está instalado: `which opencode`
-- O agent pode não estar no PATH
+### Agent not detected
+- Check if agent is installed: `which opencode`
+- Agent may not be in PATH
 
-### Cancelar wizard
-- Pressione `Ctrl+C` a qualquer momento
-- Ou responda `n` na confirmação final
+### Cancel wizard
+- Press `Ctrl+C` anytime
+- Or answer `n` at final confirmation
