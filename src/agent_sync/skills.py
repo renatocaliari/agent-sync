@@ -28,6 +28,9 @@ class SkillsManager:
     def scan_all_agents(self) -> dict[str, list[Path]]:
         """Scan all agents for existing skills.
         
+        Only directories containing SKILL.md are considered valid skills.
+        Files directly in the skills directory are ignored.
+        
         Returns:
             dict mapping agent name to list of skill paths
         """
@@ -42,11 +45,16 @@ class SkillsManager:
             # Scan agent's skills directory
             if agent.skills_path.exists():
                 for item in agent.skills_path.iterdir():
-                    if item.is_dir() and (item / "SKILL.md").exists():
-                        agent_skills.append(item)
-                    elif item.is_file() and item.suffix in [".md", ".py", ".sh", ".json"]:
-                        # Individual skill files
-                        agent_skills.append(item)
+                    # Only sync directories (not files)
+                    if item.is_dir():
+                        # Check if it's a valid skill (has SKILL.md)
+                        if (item / "SKILL.md").exists():
+                            agent_skills.append(item)
+                        # Also accept directories with common skill files
+                        elif any(item.glob("*.md")) or any(item.glob("*.py")) or any(item.glob("*.sh")):
+                            # Has markdown or script files, likely a skill
+                            agent_skills.append(item)
+                    # Ignore files directly in skills directory (.DS_Store, README, etc.)
             
             if agent_skills:
                 skills_found[agent.name] = agent_skills
