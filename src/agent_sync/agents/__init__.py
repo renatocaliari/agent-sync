@@ -223,8 +223,9 @@ class PiDevAgent(BaseAgent):
     Paths:
       - Config: ~/.pi/agent/settings.json
       - Extensions: ~/.pi/agent/extensions/, ~/.pi/extensions/
-      - Global Skills: ~/.pi/agent/skills/, ~/.agents/skills/
-      - Project Skills: .pi/skills/, .agents/skills/
+      - Prompts: ~/.pi/agent/prompts/, ~/.pi/prompts/
+      - Themes: ~/.pi/agent/themes/, ~/.pi/themes/
+      - Skills: ~/.pi/agent/skills/, ~/.pi/skills/, ~/.agents/skills/
     """
 
     name = "pi.dev"
@@ -249,6 +250,22 @@ class PiDevAgent(BaseAgent):
         return [
             Path.home() / ".pi" / "agent" / "extensions",
             Path.home() / ".pi" / "extensions",
+        ]
+
+    @property
+    def prompts_paths(self) -> list[Path]:
+        """Pi.dev prompts directories."""
+        return [
+            Path.home() / ".pi" / "agent" / "prompts",
+            Path.home() / ".pi" / "prompts",
+        ]
+
+    @property
+    def themes_paths(self) -> list[Path]:
+        """Pi.dev themes directories."""
+        return [
+            Path.home() / ".pi" / "agent" / "themes",
+            Path.home() / ".pi" / "themes",
         ]
 
     @property
