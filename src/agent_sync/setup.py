@@ -250,8 +250,10 @@ class SetupWizard:
         """Step 5: Repository settings."""
         console.print(Panel.fit(
             "[bold]Step 5: Repository Settings[/bold]\n\n"
-            "Configure your sync repository.",
-            border_style="green",
+            "[yellow]⚠ SECURITY: Use PRIVATE repository for configs![/yellow]\n\n"
+            "Your configs may contain sensitive information.\n"
+            "Private repositories are FREE on GitHub.",
+            border_style="yellow",
         ))
         console.print()
         
@@ -261,11 +263,17 @@ class SetupWizard:
             default="agent-sync-configs",
         )
         
-        # Private or public
+        # Private or public (default: PRIVATE)
         self.is_private = Confirm.ask(
-            "Make repository private?",
-            default=True,
+            "Make repository PRIVATE?",
+            default=True,  # ← Default is PRIVATE for security
         )
+        
+        if not self.is_private:
+            console.print("\n[red]⚠️  WARNING: Public repository means anyone can see your configs![/red]")
+            if not Confirm.ask("Continue with public repository?", default=False):
+                self.is_private = True
+                console.print("[green]✓ Changed to private repository[/green]\n")
         
         console.print()
     
@@ -284,9 +292,15 @@ class SetupWizard:
         console.print("  • MCP credentials")
         console.print()
         
+        # If repo is public, don't even ask - just disable secrets
+        if not self.is_private:
+            console.print("[red]⚠️  Repository is PUBLIC. Secrets sync DISABLED for security.[/red]\n")
+            self.include_secrets = False
+            return
+        
         self.include_secrets = Confirm.ask(
             "Enable secrets synchronization?",
-            default=False,
+            default=False,  # ← Default is DISABLED for security
         )
         
         if self.include_secrets:
