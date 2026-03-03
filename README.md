@@ -88,6 +88,10 @@ That's it! Your configs and skills are now synced.
    ~/.gemini/tools/             ├──► ~/.agents/skills/
    ~/.pi/agent/skills/          │    (source of truth)
    ~/.qwen/skills/              ──┘
+   
+   → Moves all skills to central location
+   → Removes user symlinks from agent directories
+   → Creates fallback symlinks only when needed
 
 2. Configure agents (automatic)
    Claude Code: symlink → ~/.agents/skills/
