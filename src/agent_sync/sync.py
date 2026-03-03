@@ -284,7 +284,7 @@ CLI tool: https://github.com/yourusername/agent-sync
 ## Structure
 
 - `configs/` - Agent configurations
-- `skills/global/` - Shared skills (source of truth: ~/.agents/skills/)
+- `skills/` - Shared skills (source of truth: ~/.agents/skills/)
 - `prompts/` - Shared prompts (optional)
 
 ## Usage
@@ -303,7 +303,7 @@ agent-sync push
 
 ## Skills
 
-All skills are centralized in `~/.agents/skills/` and synced via `skills/global/`.
+All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
 """
         (self.repo_dir / "README.md").write_text(readme)
         
@@ -315,8 +315,8 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/global/
         for agent_name in target_agents:
             (self.repo_dir / "configs" / agent_name).mkdir(parents=True, exist_ok=True)
         
-        # Create global skills directory (always)
-        (self.repo_dir / "skills" / "global").mkdir(parents=True, exist_ok=True)
+        # Create skills directory (always)
+        (self.repo_dir / "skills").mkdir(parents=True, exist_ok=True)
     
     def _stage_agent_configs(self) -> None:
         """Stage agent configurations for commit."""
@@ -343,7 +343,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/global/
         # Always sync global skills
         global_skills_dir = Path.home() / ".agents" / "skills"
         if global_skills_dir.exists():
-            repo_skills_dir = self.repo_dir / "skills" / "global"
+            repo_skills_dir = self.repo_dir / "skills"
             repo_skills_dir.mkdir(parents=True, exist_ok=True)
             
             for skill_item in global_skills_dir.iterdir():
@@ -381,7 +381,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/global/
                             changes.append(f"{agent.name}: {config_file.name}")
         
         # Apply global skills
-        synced_skills_dir = self.repo_dir / "skills" / "global"
+        synced_skills_dir = self.repo_dir / "skills"
         global_skills_dir = Path.home() / ".agents" / "skills"
         
         if synced_skills_dir.exists():
