@@ -214,16 +214,26 @@ def skills():
 
 
 @skills.command()
-def centralize():
+@click.option("--copy", is_flag=True, help="Copy instead of moving skills")
+def centralize(copy: bool):
     """Centralize skills from all agents to ~/.agents/skills/."""
     from .skills import SkillsManager
     
-    console.print("\n[bold]📁 Centralizing Skills[/bold]\n")
+    move = not copy
+    action = "Copying" if copy else "Moving"
+    
+    console.print(f"\n[bold]📁 {action} Skills[/bold]\n")
     
     skills_mgr = SkillsManager()
-    skills_mgr.centralize()
+    skills_mgr.centralize(move=move)
     
-    console.print("\n[green]✓ Skills centralized to ~/.agents/skills/[/green]\n")
+    if move:
+        console.print("\n[green]✓ Skills moved to ~/.agents/skills/[/green]")
+        console.print("[yellow]⚠ Original skills removed from agent directories[/yellow]\n")
+    else:
+        console.print("\n[green]✓ Skills copied to ~/.agents/skills/[/green]")
+        console.print("[dim]Original skills kept in agent directories[/dim]\n")
+    
     console.print("💡 Run 'agent-sync push' to sync to GitHub\n")
 
 

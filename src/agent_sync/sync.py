@@ -431,12 +431,20 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
             sync_configs = sync_options.get("configs", True)
 
             # Apply configs
-            if sync_configs and synced_config_dir.exists() and agent.config_path:
+            if sync_configs and synced_config_dir.exists() and agent.config_path.parent.exists():
                 for config_file in synced_config_dir.glob("*"):
                     if config_file.is_file():
                         dest = agent.config_path.parent / config_file.name
-                        if not dest.exists() or dest.read_text() != config_file.read_text():
-                            shutil.copy2(config_file, dest)
+                        
+                        # Read synced content
+                        synced_content = config_file.read_text()
+                        
+                        # Restore secrets from local .env
+                        restored_content = self.scrubber.restore(synced_content)
+                        
+                        # Write restored content
+                        if not dest.exists() or dest.read_text() != restored_content:
+                            dest.write_text(restored_content)
                             changes.append(f"{agent.name}: {config_file.name}")
         
         # Apply global skills

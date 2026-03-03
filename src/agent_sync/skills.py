@@ -123,16 +123,18 @@ class SkillsManager:
         self.resolved_conflicts = resolved
         return resolved
     
-    def centralize(self, dry_run: bool = False) -> dict:
+    def centralize(self, dry_run: bool = False, move: bool = True) -> dict:
         """Centralize all skills to ~/.agents/skills/.
         
         Args:
-            dry_run: If True, don't actually copy files
+            dry_run: If True, don't actually move files
+            move: If True, move skills (delete from source). If False, copy.
         
         Returns:
-            dict with stats: copied, skipped, conflicts_resolved
+            dict with stats: moved, copied, skipped, conflicts_resolved
         """
         stats = {
+            "moved": 0,
             "copied": 0,
             "skipped": 0,
             "conflicts_resolved": 0,
@@ -171,8 +173,9 @@ class SkillsManager:
         resolved = self.resolve_conflicts(auto=True)
         stats["conflicts_resolved"] = len(conflicts)
         
-        # Copy skills to global directory
-        console.print("[bold]Centralizing skills to ~/.agents/skills/...[/bold]\n")
+        # Move/copy skills to global directory
+        action = "Moving" if move else "Copying"
+        console.print(f"[bold]{action} skills to ~/.agents/skills/...[/bold]\n")
         
         for agent_name, skill_paths in skills_found.items():
             for skill_path in skill_paths:
@@ -190,19 +193,39 @@ class SkillsManager:
                 try:
                     if not dry_run:
                         if skill_path.is_dir():
-                            shutil.copytree(skill_path, dest_path)
+                            if move:
+                                shutil.move(str(skill_path), str(dest_path))
+                            else:
+                                shutil.copytree(skill_path, dest_path)
                         else:
-                            shutil.copy2(skill_path, dest_path)
+                            if move:
+                                shutil.move(str(skill_path), str(dest_path))
+                            else:
+                                shutil.copy2(skill_path, dest_path)
+                        
+                        # Remove empty parent directories if moving
+                        if move and skill_path.is_dir():
+                            try:
+                                skill_path.parent.rmdir()  # Only if empty
+                            except OSError:
+                                pass  # Not empty, that's ok
                     
-                    stats["copied"] += 1
-                    console.print(f"  [green]✓[/green] {agent_name}: {skill_name}")
+                    if move:
+                        stats["moved"] += 1
+                        console.print(f"  [green]✓[/green] {agent_name}: {skill_name} [dim](moved)[/dim]")
+                    else:
+                        stats["copied"] += 1
+                        console.print(f"  [green]✓[/green] {agent_name}: {skill_name} [dim](copied)[/dim]")
                 
                 except Exception as e:
                     stats["errors"] += 1
                     console.print(f"  [red]✗[/red] {agent_name}: {skill_name} - {e}")
         
         console.print()
-        console.print(f"[green]✓ Centralized {stats['copied']} skills[/green]")
+        if move:
+            console.print(f"[green]✓ Moved {stats['moved']} skills[/green]")
+        else:
+            console.print(f"[green]✓ Copied {stats['copied']} skills[/green]")
         if stats["conflicts_resolved"] > 0:
             console.print(f"  Resolved [yellow]{stats['conflicts_resolved']}[/yellow] conflicts")
         if stats["skipped"] > 0:
