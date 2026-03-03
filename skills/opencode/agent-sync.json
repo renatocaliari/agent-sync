@@ -1,0 +1,155 @@
+{
+  "name": "agent-sync",
+  "description": "Sync configs and skills across multiple AI agents via GitHub",
+  "version": "0.1.0",
+  "tools": [
+    {
+      "name": "agent_sync_init",
+      "description": "Initialize a new agent-sync repository (first machine)",
+      "input": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Repository name"
+          },
+          "private": {
+            "type": "boolean",
+            "description": "Make repository private",
+            "default": true
+          },
+          "agents": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Agents to sync (opencode, claude-code, etc.)"
+          }
+        },
+        "required": ["name"]
+      },
+      "handler": {
+        "type": "shell",
+        "command": "agent-sync init --name {{name}} {{#if private}}--private{{/if}} {{#each agents}}--agents {{this}} {{/each}}"
+      }
+    },
+    {
+      "name": "agent_sync_link",
+      "description": "Link to an existing agent-sync repository",
+      "input": {
+        "type": "object",
+        "properties": {
+          "repo_url": {
+            "type": "string",
+            "description": "GitHub repository URL"
+          }
+        },
+        "required": ["repo_url"]
+      },
+      "handler": {
+        "type": "shell",
+        "command": "agent-sync link {{repo_url}}"
+      }
+    },
+    {
+      "name": "agent_sync_pull",
+      "description": "Fetch and apply remote configuration",
+      "input": {
+        "type": "object",
+        "properties": {
+          "force": {
+            "type": "boolean",
+            "description": "Force pull even with local changes",
+            "default": false
+          }
+        }
+      },
+      "handler": {
+        "type": "shell",
+        "command": "agent-sync pull {{#if force}}--force{{/if}}"
+      }
+    },
+    {
+      "name": "agent_sync_push",
+      "description": "Commit and push local changes",
+      "input": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Commit message",
+            "default": "chore: sync config updates"
+          }
+        }
+      },
+      "handler": {
+        "type": "shell",
+        "command": "agent-sync push --message \"{{message}}\""
+      }
+    },
+    {
+      "name": "agent_sync_status",
+      "description": "Show sync status and last sync times",
+      "input": {
+        "type": "object",
+        "properties": {}
+      },
+      "handler": {
+        "type": "shell",
+        "command": "agent-sync status"
+      }
+    },
+    {
+      "name": "agent_sync_agents",
+      "description": "List supported agents and their status",
+      "input": {
+        "type": "object",
+        "properties": {}
+      },
+      "handler": {
+        "type": "shell",
+        "command": "agent-sync agents"
+      }
+    },
+    {
+      "name": "agent_sync_secrets_enable",
+      "description": "Enable secrets synchronization",
+      "input": {
+        "type": "object",
+        "properties": {
+          "include_mcp": {
+            "type": "boolean",
+            "description": "Include MCP secrets",
+            "default": false
+          }
+        }
+      },
+      "handler": {
+        "type": "shell",
+        "command": "agent-sync secrets enable {{#if include_mcp}}--include-mcp{{/if}}"
+      }
+    },
+    {
+      "name": "agent_sync_secrets_disable",
+      "description": "Disable secrets synchronization",
+      "input": {
+        "type": "object",
+        "properties": {}
+      },
+      "handler": {
+        "type": "shell",
+        "command": "agent-sync secrets disable"
+      }
+    }
+  ],
+  "modes": [
+    {
+      "name": "sync",
+      "description": "Mode for managing agent configuration sync",
+      "tools": ["agent_sync_*"],
+      "prompt": "You are in agent-sync mode. Help the user synchronize their AI agent configurations across multiple machines. Use the agent-sync tools to init, link, pull, push, and manage sync status."
+    }
+  ],
+  "env": {
+    "AGENT_SYNC_CONFIG_DIR": "~/.config/agent-sync",
+    "AGENT_SYNC_REPO_DIR": "~/.local/share/agent-sync/repo"
+  }
+}

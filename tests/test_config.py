@@ -1,0 +1,108 @@
+"""Tests for agent-sync configuration management."""
+
+import pytest
+import yaml
+from pathlib import Path
+from unittest.mock import patch, MagicMock
+
+from agent_sync.config import Config, DEFAULT_CONFIG_DIR, DEFAULT_CONFIG_FILE
+
+
+class TestConfig:
+    """Test configuration management."""
+    
+    def test_config_initialization(self, tmp_path):
+        """Test config initializes with defaults."""
+        config_file = tmp_path / "config.yaml"
+        config = Config(config_path=config_file)
+        
+        assert config.repo_url is None
+        assert config.agents == []
+        assert config.include_secrets is False
+    
+    def test_config_save_and_load(self, tmp_path):
+        """Test config persists correctly."""
+        config_file = tmp_path / "config.yaml"
+        config = Config(config_path=config_file)
+        
+        # Set values
+        config.repo_url = "https://github.com/test/repo.git"
+        config.agents = ["opencode", "claude-code"]
+        config.include_secrets = True
+        
+        # Reload
+        config2 = Config(config_path=config_file)
+        
+        assert config2.repo_url == "https://github.com/test/repo.git"
+        assert config2.agents == ["opencode", "claude-code"]
+        assert config2.include_secrets is True
+    
+    def test_config_overrides(self, tmp_path):
+        """Test local overrides work correctly."""
+        config_file = tmp_path / "config.yaml"
+        overrides_file = tmp_path / "overrides.yaml"
+        
+        config = Config(config_path=config_file)
+        config.overrides_path = overrides_file
+        
+        # Set override
+        config.set_override("machine_name", "test-machine")
+        config.set_override("custom_path", "/tmp/test")
+        
+        # Reload and verify
+        config2 = Config(config_path=config_file)
+        config2.overrides_path = overrides_file
+        
+        assert config2.get_override("machine_name") == "test-machine"
+        assert config2.get_override("custom_path") == "/tmp/test"
+        assert config2.get_override("nonexistent", "default") == "default"
+    
+    def test_generate_default(self, tmp_path):
+        """Test default config generation."""
+        config_file = tmp_path / "config.yaml"
+        config = Config(config_path=config_file)
+        
+        result_path = config.generate_default()
+        
+        assert result_path == config_file
+        assert config.agents == [
+            "opencode",
+            "claude-code",
+            "gemini-cli",
+            "pi.dev",
+            "qwen-code",
+        ]
+        assert config.include_secrets is False
+    
+    def test_generate_default_with_agents(self, tmp_path):
+        """Test default config generation with specific agents."""
+        config_file = tmp_path / "config.yaml"
+        config = Config(config_path=config_file)
+        
+        result_path = config.generate_default(target_agents=["opencode", "qwen-code"])
+        
+        assert config.agents == ["opencode", "qwen-code"]
+    
+    def test_mcp_secrets_setting(self, tmp_path):
+        """Test MCP secrets configuration."""
+        config_file = tmp_path / "config.yaml"
+        config = Config(config_path=config_file)
+        
+        config.include_mcp_secrets = True
+        
+        config2 = Config(config_path=config_file)
+        assert config2.include_mcp_secrets is True
+    
+    def test_config_to_dict(self, tmp_path):
+        """Test config serialization."""
+        config_file = tmp_path / "config.yaml"
+        config = Config(config_path=config_file)
+        
+        config.repo_url = "https://github.com/test/repo.git"
+        config.agents = ["opencode"]
+        
+        result = config.to_dict()
+        
+        assert "repo_url" in result
+        assert "agents" in result
+        assert "overrides" in result
