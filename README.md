@@ -130,6 +130,7 @@ agent-sync skills list                # List all skills
 agent-sync skills centralize          # Centralize from agents
 agent-sync skills centralize --copy   # Copy instead of move
 agent-sync skills centralize --push   # Centralize + push
+agent-sync skills centralize --distribute  # Centralize + copy to all agents (backup/testing)
 
 # Configuration
 agent-sync config show    # View current config
@@ -140,6 +141,60 @@ agent-sync config reset   # Reset to defaults
 agent-sync status         # Show sync status
 agent-sync agents         # List all agents
 agent-sync check-update   # Check for CLI updates
+```
+
+---
+
+## 🛠️ CLI Commands Reference
+
+### `agent-sync skills centralize --help`
+
+```
+$ agent-sync skills centralize --help
+
+Usage: agent-sync skills centralize [OPTIONS]
+
+  Centralize skills from all agents to ~/.agents/skills/.
+
+  This command scans all agent directories for existing skills and centralizes
+  them to the global ~/.agents/skills/ directory (single source of truth).
+
+  Examples:
+    # Move skills (default - removes from agent directories)
+    agent-sync skills centralize
+    
+    # Copy skills (keeps originals in agent directories)
+    agent-sync skills centralize --copy
+    
+    # Move skills and push to GitHub automatically
+    agent-sync skills centralize --push
+    
+    # Copy skills and push to GitHub
+    agent-sync skills centralize --copy --push
+    
+    # Centralize AND copy to all agent directories (backup/testing)
+    agent-sync skills centralize --distribute
+
+  What happens:
+    1. Scans all agent directories for skills
+    2. Detects conflicts (same skill name in multiple agents)
+    3. Resolves conflicts by renaming with agent prefix
+    4. Moves/copies skills to ~/.agents/skills/
+    5. Optionally pushes to GitHub
+    6. With --distribute: copies all skills to all agent directories
+
+  After centralizing:
+    - Skills live in ~/.agents/skills/ (source of truth)
+    - Agents use symlinks or config to access global skills
+    - Original skill directories may be removed (if --copy not used)
+    - With --distribute: all agents have local copies for backup/testing
+
+Options:
+  --copy        Copy instead of moving skills
+  --push        Automatically push to GitHub after centralizing
+  --distribute  After centralizing, copy all skills to all agent directories
+                (for backup or testing)
+  --help        Show this message and exit.
 ```
 
 ---
