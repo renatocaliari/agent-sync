@@ -1,6 +1,6 @@
 [project]
 name = "agent-sync"
-version = "0.1.0"
+version = "0.2.0"
 description = "Unified CLI to sync configs and skills across multiple AI agents (opencode, claude, gemini, pi, qwen)"
 readme = "README.md"
 license = {text = "MIT"}
