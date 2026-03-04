@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.6.3] - 2026-03-04
+
+### Fixed
+- **Critical**: Native agents (qwen-code, pi.dev) keeping duplicate skills after `centralize`
+- `centralize()` now calls `configure_agents()` to clean up native agent duplicates
+- Ensures single source of truth in `~/.agents/skills/` for all agents
+
+### Changed
+- Native agents no longer have local skill copies (they read from `~/.agents/skills/` natively)
+
+---
+
 ## [0.6.2] - 2026-03-04
 
 ### Fixed
