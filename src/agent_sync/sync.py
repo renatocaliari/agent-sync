@@ -512,39 +512,35 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
         global_skills_dir = Path.home() / ".agents" / "skills"
         repo_skills_dir = self.repo_dir / "skills"
 
-        if not global_skills_dir.exists():
-            return
-
+        # Ensure repo skills directory exists
         repo_skills_dir.mkdir(parents=True, exist_ok=True)
 
-        # Copy all skills to repo
-        for skill_item in global_skills_dir.iterdir():
-            if skill_item.name.startswith("."):
-                continue
-
-            dest = repo_skills_dir / skill_item.name
-
-            if skill_item.is_dir():
-                if dest.exists():
-                    shutil.rmtree(dest)
-                shutil.copytree(skill_item, dest)
-            else:
-                shutil.copy2(skill_item, dest)
-        
-        # Always sync global skills
-        global_skills_dir = Path.home() / ".agents" / "skills"
-        if global_skills_dir.exists():
-            repo_skills_dir = self.repo_dir / "skills"
-            repo_skills_dir.mkdir(parents=True, exist_ok=True)
-            
-            for skill_item in global_skills_dir.iterdir():
-                if skill_item.is_dir() or (skill_item.is_file() and skill_item.suffix in [".md", ".py", ".sh", ".json"]):
-                    dest = repo_skills_dir / skill_item.name
-                    if skill_item.is_dir():
-                        shutil.copytree(skill_item, dest, dirs_exist_ok=True)
+        # 1. Remove skills from repo that no longer exist locally
+        if repo_skills_dir.exists():
+            for repo_skill in repo_skills_dir.iterdir():
+                if repo_skill.name.startswith("."):
+                    continue
+                if not (global_skills_dir / repo_skill.name).exists():
+                    if repo_skill.is_dir():
+                        shutil.rmtree(repo_skill)
                     else:
-                        shutil.copy2(skill_item, dest)
-    
+                        repo_skill.unlink()
+
+        # 2. Copy current skills to repo
+        if global_skills_dir.exists():
+            for skill_item in global_skills_dir.iterdir():
+                if skill_item.name.startswith("."):
+                    continue
+
+                dest = repo_skills_dir / skill_item.name
+
+                if skill_item.is_dir():
+                    if dest.exists():
+                        shutil.rmtree(dest)
+                    shutil.copytree(skill_item, dest)
+                else:
+                    shutil.copy2(skill_item, dest)
+
     def _should_exclude(self, filename: str) -> bool:
         """Check if a file should be excluded from sync."""
         import fnmatch
