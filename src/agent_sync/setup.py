@@ -45,16 +45,16 @@ class SetupWizard:
         
         # Step 1: Detect installed agents
         self._step_detect_agents()
-        
+
         # Step 2: Select agents to sync
         self._step_select_agents()
-        
-        # Step 3: Configure sync options per agent (configs only)
-        self._step_configure_agents()
-        
-        # Step 4: Centralize skills (automatic)
+
+        # Step 3: Centralize skills (single question for all agents)
         self._step_centralize_skills()
-        
+
+        # Step 4: Configure sync options (configs - with smart defaults)
+        self._step_configure_agents()
+
         # Step 5: Configure agents automatically
         self._step_auto_configure_agents()
 
@@ -172,59 +172,104 @@ class SetupWizard:
         console.print()
     
     def _step_configure_agents(self) -> None:
-        """Step 3: Configure sync options per agent (configs only)."""
+        """Step 4: Configure sync options (configs - with smart defaults).
+        
+        Asks once if user wants to sync configs from ALL agents.
+        Only asks individually if user declines.
+        """
         console.print(Panel.fit(
-            "[bold]Step 3: Configure Sync Options[/bold]\n\n"
+            "[bold]Step 4: Configure Sync Options[/bold]\n\n"
             "Choose what to sync for each agent.\n"
-            "[dim]Note: Skills are always synced to ~/.agents/skills/[/dim]",
+            "[dim]Note: Skills are already synced to ~/.agents/skills/ (Step 3)[/dim]",
             border_style="green",
         ))
         console.print()
-        
+
+        # First question: sync configs from ALL agents?
+        sync_all_configs = Confirm.ask(
+            "[bold]Sync configuration files from ALL selected agents?[/bold]\n"
+            "  [dim](e.g., settings.json, opencode.jsonc)[/dim]",
+            default=True,  # Default: YES, sync all
+        )
+
+        console.print()
+
+        if sync_all_configs:
+            # User said YES - enable configs for all agents
+            for agent_name in self.selected_agents:
+                if agent_name == "global-skills":
+                    continue
+
+                self.agent_configs[agent_name] = {
+                    "enabled": True,
+                    "sync": {
+                        "configs": True,
+                    }
+                }
+
+            console.print(f"[green]✓ Configs enabled for {len(self.selected_agents) - 1} agent(s)[/green]\n")
+        else:
+            # User said NO - ask individually
+            console.print("[yellow]Which agents should sync configs?[/yellow]\n")
+
+            for agent_name in self.selected_agents:
+                if agent_name == "global-skills":
+                    continue
+
+                agent = next((a for a in get_all_agents() if a.name == agent_name), None)
+                if not agent:
+                    continue
+
+                console.print(f"Configuring [cyan]{agent_name}:[/cyan]")
+
+                sync_configs = Confirm.ask(
+                    "  Sync configuration files?",
+                    default=True,
+                )
+
+                self.agent_configs[agent_name] = {
+                    "enabled": True,
+                    "sync": {
+                        "configs": sync_configs,
+                    }
+                }
+
+                console.print()
+
+        # Show summary
+        console.print("[bold]Summary:[/bold]\n")
         for agent_name in self.selected_agents:
             if agent_name == "global-skills":
                 continue
-            
-            agent = next((a for a in get_all_agents() if a.name == agent_name), None)
-            if not agent:
-                continue
-            
-            console.print(f"[cyan]Configuring {agent_name}:[/cyan]")
-            
-            # Sync configs?
-            sync_configs = Confirm.ask(
-                "  Sync configuration files?",
-                default=True,
-            )
-            
-            self.agent_configs[agent_name] = {
-                "enabled": True,
-                "sync": {
-                    "configs": sync_configs,
-                }
-            }
-            
-            console.print()
+
+            agent_config = self.agent_configs.get(agent_name, {})
+            sync_opts = agent_config.get("sync", {})
+            sync_configs = sync_opts.get("configs", False)
+
+            status = "[green]✓ configs[/green]" if sync_configs else "[dim]skills only[/dim]"
+            console.print(f"  • {agent_name}: {status}")
+
+        console.print()
     
     def _step_centralize_skills(self) -> None:
-        """Step 4: Centralize skills to ~/.agents/skills/ (automatic)."""
+        """Step 3: Centralize skills to ~/.agents/skills/ (single question)."""
         console.print(Panel.fit(
-            "[bold]Step 4: Centralizing Skills[/bold]\n\n"
+            "[bold]Step 3: Centralizing Skills[/bold]\n\n"
             "Scanning for existing skills in all agents...\n"
             "All skills will be centralized to ~/.agents/skills/",
             border_style="green",
         ))
         console.print()
-        
+
         skills_mgr = SkillsManager()
-        
+
         # Check if there are any skills to centralize
         skills_found = skills_mgr.scan_all_agents()
-        
+
         if skills_found:
             total = sum(len(s) for s in skills_found.values())
             console.print(f"Found [cyan]{total}[/cyan] skills across {len(skills_found)} agents.\n")
-            
+
             if Confirm.ask("Centralize all skills to ~/.agents/skills/?", default=True):
                 skills_mgr.centralize()
                 self.skills_centralized = True
@@ -234,11 +279,11 @@ class SetupWizard:
         else:
             console.print("[green]✓ No existing skills found. Global skills directory is empty.[/green]\n")
             self.skills_centralized = True
-        
+
         # Always add global-skills to selected agents
         if "global-skills" not in self.selected_agents:
             self.selected_agents.append("global-skills")
-        
+
         self.agent_configs["global-skills"] = {
             "enabled": True,
             "sync": {
