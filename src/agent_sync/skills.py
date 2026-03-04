@@ -366,7 +366,7 @@ class SkillsManager:
     
     def _configure_agent(self, agent: BaseAgent) -> dict:
         """Configure a single agent to use global skills.
-        
+
         Returns:
             dict with success, method, message
         """
@@ -374,18 +374,24 @@ class SkillsManager:
         if agent.supports_symlink():
             try:
                 self._create_symlink(agent)
-                return {
-                    "success": True,
-                    "method": "symlink",
-                    "message": f"Created symlink {agent.commands_path.name}/_global",
-                }
+                
+                # Verify symlink was created successfully
+                target_dir = agent.commands_path if hasattr(agent, 'commands_path') else agent.skills_path
+                symlink_path = target_dir / "_global"
+                
+                if symlink_path.is_symlink():
+                    return {
+                        "success": True,
+                        "method": "symlink",
+                        "message": f"Created symlink {target_dir.name}/_global",
+                    }
+                else:
+                    # Symlink creation failed, fall through to other methods
+                    pass
             except Exception as e:
-                return {
-                    "success": False,
-                    "method": "symlink",
-                    "message": f"Symlink failed: {e}",
-                }
-        
+                # Symlink failed, will try other methods
+                console.print(f"  [dim]Symlink failed for {agent.name}: {e}[/dim]")
+
         # Try config update
         elif agent.supports_config():
             try:

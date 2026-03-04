@@ -79,12 +79,12 @@ class BaseAgent(ABC):
     
     def supports_symlink(self) -> bool:
         """Check if this agent supports symlinks for skills.
-        
+
         Returns:
-            True if agent can use symlinks (e.g., Claude Code)
+            True if agent can use symlinks (Claude Code, Gemini CLI)
         """
-        # Claude Code supports symlinks in commands directory
-        return self.name == "claude-code"
+        # Claude Code and Gemini CLI support symlinks in commands/tools directory
+        return self.name in ["claude-code", "gemini-cli"]
     
     def supports_config(self) -> bool:
         """Check if this agent supports config-based skills paths.
@@ -187,29 +187,34 @@ class ClaudeCodeAgent(BaseAgent):
 
 class GeminiCliAgent(BaseAgent):
     """Gemini CLI agent integration.
-    
+
     Docs: https://gemini-cli-docs.pages.dev/
     Paths:
       - Config: ~/.gemini/settings.json
       - Project config: .gemini/settings.json
       - Tools: .gemini/ (custom tool scripts)
     """
-    
+
     name = "gemini-cli"
     config_dir = Path.home() / ".gemini"
     config_filename = "settings.json"
     skills_dir_name = "tools"
-    
+
     @property
     def config_path(self) -> Path:
         """Path to Gemini CLI settings file."""
         return self.config_dir / self.config_filename
-    
+
     @property
     def skills_path(self) -> Path:
         """Path to Gemini CLI tools directory."""
         return self.config_dir / "tools"
-    
+
+    @property
+    def commands_path(self) -> Path:
+        """Path to Gemini CLI commands directory (for symlink)."""
+        return self.config_dir / "tools"
+
     def is_available(self) -> bool:
         """Check if Gemini CLI is installed."""
         import shutil
