@@ -536,10 +536,18 @@ class SkillsManager:
 
     def get_summary(self) -> dict:
         """Get summary of skills configuration."""
+        skill_count = 0
+        
+        if self.global_skills_dir.exists():
+            for item in self.global_skills_dir.iterdir():
+                # Count only valid skills (directories with SKILL.md)
+                if item.is_dir() and (item / "SKILL.md").exists():
+                    skill_count += 1
+        
         return {
             "global_skills_dir": str(self.global_skills_dir),
             "exists": self.global_skills_dir.exists(),
-            "skill_count": len(list(self.global_skills_dir.glob("*"))) if self.global_skills_dir.exists() else 0,
+            "skill_count": skill_count,
         }
 
     def distribute_to_all_agents(self) -> dict:
