@@ -561,6 +561,21 @@ def centralize(copy: bool, push: bool, distribute: bool):
         console.print("💡 Run [green]agent-sync push[/green] to sync to GitHub\n")
 
 
+@skills.command()
+@click.option("--repo", "repo_url", help="GitHub repository URL for publishing skills (e.g., https://github.com/user/my-skills)")
+@click.option("--dry-run", is_flag=True, help="Show what would be published without actually publishing")
+@click.option("--interactive", "-i", is_flag=True, help="Interactive TUI to select which skills to publish")
+def publish(repo_url: Optional[str], dry_run: bool, interactive: bool):
+    """Publish selected skills to a public GitHub repository.
+    
+    Use --interactive to select which skills to publish via TUI.
+    """
+    from .publish import publish_skills
+    success = publish_skills(repo_url=repo_url, dry_run=dry_run, interactive=interactive)
+    if not success:
+        raise click.Abort()
+
+
 @main.command()
 @click.argument("repo_url")
 def link(repo_url: str):
