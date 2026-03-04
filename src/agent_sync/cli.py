@@ -102,7 +102,7 @@ def main():
     """
     🔄 agent-sync - Sync configs and skills across multiple AI agents.
     
-    Supported agents: opencode, claude-code, gemini-cli, pi.dev, qwen-code
+    Supported agents: opencode, claude-code, gemini-cli, pi.dev, qwen
     """
     pass
 
@@ -520,7 +520,7 @@ def centralize(copy: bool, push: bool, distribute: bool):
         if Confirm.ask("Continue with distribution?", default=True):
             dist_stats = skills_mgr.distribute_to_all_agents()
             console.print(f"\n[green]✓ Distributed {dist_stats['distributed']} skills to {dist_stats['agents_configured']} agents[/green]\n")
-            console.print("[dim]Note: Native agents (pi.dev, qwen-code) will still prefer ~/.agents/skills/[/dim]\n")
+            console.print("[dim]Note: Native agents (pi.dev, qwen) will still prefer ~/.agents/skills/[/dim]\n")
         else:
             console.print("\n[yellow]⚠ Distribution skipped[/yellow]\n")
 
