@@ -114,8 +114,7 @@ agent-sync setup
 4. **Centralize skills** (automatic) ← NEW
 5. **Configure agents** (automatic) ← NEW
 6. Repository GitHub
-7. Secrets (optional)
-8. **Detailed summary** ← NEW
+7. **Detailed summary** ← NEW
 
 ---
 
@@ -170,9 +169,9 @@ agent-sync pull                 # Download configs + skills
 | File | Changes |
 |------|---------|
 | `src/agent_sync/agents/__init__.py` | Added `supports_symlink()`, `supports_config()`, `supports_native()` |
-| `src/agent_sync/setup.py` | Steps 4, 5, 8 updated |
+| `src/agent_sync/setup.py` | Steps 4, 5, 7 updated |
 | `src/agent_sync/config.py` | Removed `sync.skills`, `include_global_skills` |
-| `src/agent_sync/sync.py` | Use `skills/`, always sync global skills, scrub secrets |
+| `src/agent_sync/sync.py` | Use `skills/`, always sync global skills |
 | `src/agent_sync/cli.py` | Added `skills centralize` |
 | `README.md` | Updated with new structure |
 
@@ -257,9 +256,6 @@ agents_config:
     enabled: true
     sync:
       configs: false
-
-include_secrets: false
-include_mcp_secrets: false
 # global_skills: always true (implicit)
 ```
 

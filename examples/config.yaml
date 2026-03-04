@@ -50,11 +50,6 @@ agents_config:
       configs: false   # No config file for global skills
       skills: true     # Sync skills directory
 
-# Secrets configuration
-# ⚠️ Only enable with PRIVATE repositories
-include_secrets: false
-include_mcp_secrets: false
-
 # What to sync (global settings)
 sync_paths:
   configs: true      # Agent configuration files

@@ -25,7 +25,6 @@ class SetupWizard:
         self.selected_agents: list[str] = []
         self.agent_configs: dict[str, dict] = {}
         self.include_global_skills = True  # Always true
-        self.include_secrets = False
         self.repo_name: str = ""
         self.is_private = True
         self.skills_centralized = False
@@ -58,14 +57,11 @@ class SetupWizard:
         
         # Step 5: Configure agents automatically
         self._step_auto_configure_agents()
-        
+
         # Step 6: Repository settings
         self._step_repo_settings()
-        
-        # Step 7: Secrets (optional)
-        self._step_secrets()
-        
-        # Step 8: Review and confirm
+
+        # Step 7: Review and confirm
         return self._step_review()
     
     def _step_detect_agents(self) -> None:
@@ -294,47 +290,11 @@ class SetupWizard:
                 console.print("[green]✓ Changed to private repository[/green]\n")
         
         console.print()
-    
-    def _step_secrets(self) -> None:
-        """Step 6: Secrets configuration."""
-        console.print(Panel.fit(
-            "[bold]Step 6: Secrets Configuration[/bold]\n\n"
-            "[yellow]⚠ Only enable secrets with PRIVATE repositories![/yellow]",
-            border_style="yellow",
-        ))
-        console.print()
-        
-        console.print("Secrets include:")
-        console.print("  • API keys")
-        console.print("  • Auth tokens")
-        console.print("  • MCP credentials")
-        console.print()
-        
-        # If repo is public, don't even ask - just disable secrets
-        if not self.is_private:
-            console.print("[red]⚠️  Repository is PUBLIC. Secrets sync DISABLED for security.[/red]\n")
-            self.include_secrets = False
-            return
-        
-        self.include_secrets = Confirm.ask(
-            "Enable secrets synchronization?",
-            default=False,  # ← Default is DISABLED for security
-        )
-        
-        if self.include_secrets:
-            include_mcp = Confirm.ask(
-                "  Include MCP secrets?",
-                default=False,
-            )
-        else:
-            include_mcp = False
-        
-        console.print()
-    
+
     def _step_review(self) -> bool:
-        """Step 8: Review configuration and show summary."""
+        """Step 7: Review configuration and show summary."""
         console.print(Panel.fit(
-            "[bold]Step 8: Summary[/bold]",
+            "[bold]Step 7: Summary[/bold]",
             border_style="blue",
         ))
         console.print()
@@ -447,14 +407,11 @@ class SetupWizard:
     def _save_configuration(self) -> None:
         """Save the configuration."""
         console.print("\n[bold]Saving configuration...[/bold]\n")
-        
+
         # Save agent-specific configs
         for agent_name, config in self.agent_configs.items():
             self.config.set_agent_config(agent_name, config)
-        
-        # Save global settings
-        self.config.include_secrets = self.include_secrets
-        
+
         console.print("[green]✓ Configuration saved to ~/.config/agent-sync/config.yaml[/green]\n")
     
     def get_repo_config(self) -> dict:
