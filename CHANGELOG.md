@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.0] - 2026-03-04
+
+### ✨ Added
+- **`--distribute` option for `skills centralize` command**
+  - Copy all skills from `~/.agents/skills/` to ALL agent directories
+  - Use cases:
+    - **Backup**: Local copies in each agent directory
+    - **Testing**: Verify agents read from local vs global
+    - **Debug**: Troubleshoot symlink/config issues
+  - Idempotent: Skips existing skills unless they differ
+  - Works with all agents (including native pi.dev, qwen-code)
+
+### 🐛 Fixed
+- **Native agents (pi.dev, qwen-code) receiving duplicate skill copies**
+  - BUG: `_configure_agent()` was not checking `supports_native()` before fallback copy
+  - IMPACT: Skills were duplicated in `~/.pi/agent/skills/` and `~/.qwen/skills/` (24 skills each)
+  - FIX: Added `supports_native()` check before fallback in `_configure_agent()`
+  - FIX: Added `_cleanup_native_agents_skills()` to remove previously copied duplicates
+  - RESULT: Native agents now correctly use `~/.agents/skills/` directly without local copies
+
+### 🔧 Changed
+- **`configure_agents()` output** - Now shows method used per agent:
+  - `symlink` - Claude Code
+  - `config` - Opencode
+  - `native` - Pi.dev, Qwen Code (no copy needed)
+  - `fallback` - Gemini CLI (only agent requiring copy)
+- **Documentation** - Added `--distribute` option to README and CLI help
+
+---
+
 ## [0.2.1] - 2026-03-04
 
 ### 🐛 Fixed
