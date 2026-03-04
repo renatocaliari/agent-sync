@@ -112,39 +112,70 @@ def main():
 @click.option("--private/--public", default=True, help="Make repository private")
 @click.option("--agents", multiple=True, help="Agents to sync (skips wizard if provided)")
 @click.option("--no-wizard", is_flag=True, help="Skip interactive wizard")
-def init(name: Optional[str], private: bool, agents: tuple[str, ...], no_wizard: bool):
-    """Initialize a new sync repository (first machine)."""
-    from .setup import run_setup_wizard
+@click.option("--force", is_flag=True, help="Force initialization even if already configured")
+def init(name: Optional[str], private: bool, agents: tuple[str, ...], no_wizard: bool, force: bool):
+    """Initialize a new sync repository (first machine).
     
+    Creates a new GitHub repository and configures agent-sync to sync to it.
+    
+    \b
+    Examples:
+      # Interactive wizard (creates new repo)
+      agent-sync init
+      
+      # Create specific repo name (non-interactive)
+      agent-sync init --name my-configs --private
+      
+      # Force re-initialize (overwrites existing config)
+      agent-sync init --name new-configs --force
+    
+    \b
+    ⚠️ SECURITY:
+      - Always use PRIVATE repositories for configs
+      - Configs may contain API keys and tokens
+      - GitHub private repos are FREE for personal use
+    """
+    from .setup import run_setup_wizard
+
     # Check if config already exists
     config = Config()
-    if config.repo_url:
+    if config.repo_url and not force:
         console.print("\n[yellow]⚠ Already configured![/yellow]")
         console.print(f"   Repository: {config.repo_url}")
-        console.print("\n💡 Use 'agent-sync setup' to reconfigure")
+        console.print("\n💡 Options:")
+        console.print("   - Use [green]agent-sync config repo[/green] to view/change repository")
+        console.print("   - Use [green]agent-sync setup[/green] to reconfigure agents")
+        console.print("   - Use [green]agent-sync init --force[/green] to overwrite existing config\n")
         return
-    
+
+    if config.repo_url and force:
+        console.print("\n[yellow]⚠ Forcing re-initialization![/yellow]")
+        console.print(f"   Existing repository: {config.repo_url}")
+        console.print("   This will overwrite your local configuration.\n")
+
     # Run wizard if not provided via CLI args
     if not name and not no_wizard:
         console.print("\n[bold]No configuration found. Running setup wizard...[/bold]\n")
         repo_config = run_setup_wizard()
-        
+
         if not repo_config:
             console.print("\n[yellow]Setup cancelled[/yellow]")
             raise click.Abort()
-        
+
         name = repo_config["name"]
         private = repo_config["private"]
         agents = repo_config["agents"]
-    
+
     if not name:
         console.print("[red]✗ Repository name is required[/red]")
+        console.print("\n💡 Provide a name with --name or use the wizard")
+        console.print("   Example: [green]agent-sync init --name my-configs[/green]\n")
         raise click.Abort()
-    
+
     console.print(f"\n🚀 Initializing sync repository: {name}")
-    
+
     sync_manager = SyncManager(config)
-    
+
     try:
         repo_url = sync_manager.init_repo(name=name, private=private, agents=agents)
         console.print(f"\n✅ Repository created: {repo_url}")
@@ -236,6 +267,66 @@ def show():
 
     # Show config file path
     console.print(f"[dim]Config file: {config.config_path}[/dim]\n")
+
+
+@config.command()
+@click.argument("repo_url", required=False)
+@click.option("--remove", is_flag=True, help="Remove repository configuration")
+def repo(repo_url: Optional[str], remove: bool):
+    """View or set the GitHub repository URL.
+    
+    \b
+    Examples:
+      # View current repository
+      agent-sync config repo
+      
+      # Set repository URL
+      agent-sync config repo https://github.com/user/repo.git
+      
+      # Remove repository configuration
+      agent-sync config repo --remove
+    """
+    config = Config()
+
+    if remove:
+        if not config.repo_url:
+            console.print("\n[yellow]No repository configured[/yellow]\n")
+            return
+        
+        old_url = config.repo_url
+        config.repo_url = None
+        console.print(f"\n[green]✓ Repository configuration removed[/green]")
+        console.print(f"  Was: {old_url}")
+        console.print("\n[dim]Your local files are still intact.[/dim]")
+        console.print("[dim]Run 'agent-sync config repo <url>' to configure again.[/dim]\n")
+        return
+
+    if repo_url:
+        # Set repository URL
+        if not repo_url.startswith("https://github.com/"):
+            console.print(f"\n[red]✗ Invalid repository URL[/red]")
+            console.print(f"   Expected: https://github.com/user/repo.git")
+            console.print(f"   Got: {repo_url}\n")
+            return
+        
+        config.repo_url = repo_url
+        console.print(f"\n[green]✓ Repository configured[/green]")
+        console.print(f"  URL: {repo_url}")
+        console.print("\n💡 Run 'agent-sync pull' to download configs")
+        console.print("   Run 'agent-sync push' to upload configs\n")
+        return
+
+    # View current repository
+    if not config.repo_url:
+        console.print("\n[yellow]⚠ Not configured yet[/yellow]\n")
+        console.print("Configure a repository with:")
+        console.print("  [green]agent-sync config repo https://github.com/user/repo.git[/green]\n")
+        console.print("Or create a new one with:")
+        console.print("  [green]agent-sync init --name my-configs[/green]\n")
+        return
+
+    console.print(f"\n[cyan]📦 Repository:[/cyan] {config.repo_url}\n")
+    console.print("[dim]Use 'agent-sync config repo --remove' to disconnect.[/dim]\n")
 
 
 @config.command()
