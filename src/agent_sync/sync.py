@@ -484,6 +484,16 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
             if agent.name == "pi.dev" and hasattr(agent, 'extensions_paths'):
                 for ext_path in agent.extensions_paths:
                     if ext_path.exists():
+                        # Copy extensions to repo
+                        repo_ext_dir = self.repo_dir / "configs" / agent.name / "extensions"
+                        repo_ext_dir.mkdir(parents=True, exist_ok=True)
+
+                        for ext_item in ext_path.iterdir():
+                            dest = repo_ext_dir / ext_item.name
+                            if ext_item.is_dir():
+                                shutil.copytree(ext_item, dest, dirs_exist_ok=True)
+                            else:
+                                shutil.copy2(ext_item, dest)
 
     def _stage_skills(self) -> None:
         """Stage skills for commit."""
@@ -510,18 +520,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                 shutil.copytree(skill_item, dest)
             else:
                 shutil.copy2(skill_item, dest)
-                        # Copy extensions to repo
-                        repo_ext_dir = self.repo_dir / "configs" / agent.name / "extensions"
-                        repo_ext_dir.mkdir(parents=True, exist_ok=True)
-                        
-                        for ext_item in ext_path.iterdir():
-                            if ext_item.is_file():
-                                dest = repo_ext_dir / ext_item.name
-                                shutil.copy2(ext_item, dest)
-                            elif ext_item.is_dir():
-                                dest = repo_ext_dir / ext_item.name
-                                shutil.copytree(ext_item, dest, dirs_exist_ok=True)
-            
+
             # Copy Pi.dev prompts if agent is pi.dev
             if agent.name == "pi.dev" and hasattr(agent, 'prompts_paths'):
                 for prompts_path in agent.prompts_paths:
