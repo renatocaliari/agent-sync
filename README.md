@@ -81,6 +81,69 @@ agent-sync pull
 
 ---
 
+## 🛠️ CLI Commands
+
+```
+$ agent-sync --help
+
+Usage: agent-sync [OPTIONS] COMMAND [ARGS]...
+
+  🔄 agent-sync - Sync configs and skills across multiple AI agents.
+
+  Supported agents: opencode, claude-code, gemini-cli, pi.dev, qwen-code
+
+Options:
+  --version  Show the version and exit.
+  --help     Show this message and exit.
+
+Commands:
+  agents           List supported agents and their status.
+  check-update     Check for available updates.
+  config           Manage configuration (view, edit, reset).
+  disable          Disable sync for a specific agent.
+  enable           Enable sync for a specific agent.
+  generate-config  Generate initial configuration file.
+  init             Initialize a new sync repository (first machine).
+  link             Link to an existing sync repository (additional...
+  pull             Fetch and apply remote configuration.
+  push             Commit and push local changes.
+  secrets          Manage secrets and environment variables.
+  setup            Run the interactive setup wizard to configure or...
+  skills           Manage global skills.
+  status           Show sync status and last sync times.
+  version          Show version information.
+```
+
+### Most Used Commands
+
+```bash
+# First time setup
+agent-sync setup          # Interactive wizard
+agent-sync push           # Upload to GitHub
+
+# Link other machines
+agent-sync link <url>     # Connect to existing repo
+agent-sync pull           # Download configs
+
+# Manage skills
+agent-sync skills list                # List all skills
+agent-sync skills centralize          # Centralize from agents
+agent-sync skills centralize --copy   # Copy instead of move
+agent-sync skills centralize --push   # Centralize + push
+
+# Configuration
+agent-sync config show    # View current config
+agent-sync config edit    # Edit manually
+agent-sync config reset   # Reset to defaults
+
+# Status & updates
+agent-sync status         # Show sync status
+agent-sync agents         # List all agents
+agent-sync check-update   # Check for CLI updates
+```
+
+---
+
 ## 🔐 Security
 
 **Your config files may contain API keys and tokens.**
@@ -267,12 +330,52 @@ All agents also support `~/.agents/skills/` for shared skills.
 
 ---
 
-## 📖 Documentation
+## 📍 Agent Configuration Paths
 
-- [Setup Wizard Guide](docs/SETUP_WIZARD.md) - Detailed walkthrough
-- [Reconfiguration](docs/RECONFIGURATION.md) - Changing settings later
-- [Agent Paths](docs/AGENT_PATHS.md) - Where each agent stores files
-- [Implementation](docs/IMPLEMENTATION_SUMMARY.md) - Technical details
+### Opencode
+- **Config:** `~/.config/opencode/opencode.json`
+- **Skills:** `~/.config/opencode/skills/`
+- **Docs:** https://opencode.ai/docs/
+
+### Claude Code
+- **Config:** `~/.claude/settings.json`
+- **Skills:** `~/.claude/commands/`
+- **Docs:** https://code.claude.com/docs/
+
+### Gemini CLI
+- **Config:** `~/.gemini/settings.json`
+- **Skills:** `~/.gemini/tools/`
+- **Docs:** https://gemini-cli-docs.pages.dev/
+
+### Pi.dev
+- **Config:** `~/.pi/settings.json`
+- **Skills:** `~/.pi/agent/skills/` or `~/.agents/skills/`
+- **Docs:** https://github.com/badlogic/pi-mono
+
+### Qwen Code
+- **Config:** `~/.qwen/settings.json`
+- **Skills:** `~/.qwen/skills/` or `~/.agents/skills/`
+- **Docs:** https://qwenlm.github.io/qwen-code-docs/
+
+---
+
+## 🔄 Reconfiguration
+
+Change settings at any time:
+
+```bash
+# Full reconfiguration
+agent-sync setup
+
+# Quick commands
+agent-sync enable <agent>       # Enable agent
+agent-sync disable <agent>      # Disable agent
+agent-sync config show          # View config
+agent-sync config edit          # Edit manually
+agent-sync config reset         # Reset defaults
+```
+
+See `agent-sync --help` for all commands.
 
 ---
 

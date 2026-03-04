@@ -11,13 +11,13 @@ from typing import Optional
 
 from . import __version__
 from .sync import SyncManager
-from .config import Config
+from .config import Config, DEFAULT_STATE_DIR
 
 console = Console()
 
 # Update check configuration
-UPDATE_CHECK_FILE = Path.home() / ".config" / "agent-sync" / ".last_update_check"
-UPDATE_PENDING_FILE = Path.home() / ".config" / "agent-sync" / ".pending_update"
+UPDATE_CHECK_FILE = DEFAULT_STATE_DIR / ".last_update_check"
+UPDATE_PENDING_FILE = DEFAULT_STATE_DIR / ".pending_update"
 
 
 def check_for_updates_async():
