@@ -245,6 +245,8 @@ class SyncManager:
             if not self.config.repo_url:
                 raise RuntimeError("Not linked to a repository. Run 'agent-sync link <url>' or 'agent-sync config repo <url>' first")
             
+            from rich.console import Console
+            console = Console()
             console.print(f"\n[bold]📥 Cloning repository...[/bold]\n")
             self.link_repo(self.config.repo_url)
 
