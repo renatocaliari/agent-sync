@@ -226,19 +226,21 @@ class SyncManager:
         
         self._save_state("linked", repo_url)
     
-    def pull(self, force: bool = False) -> list[str]:
+    def pull(self, force: bool = False, skills_only: bool = False, configs_only: bool = False) -> list[str]:
         """
         Fetch and apply remote configuration.
-        
+
         Args:
             force: Force pull even with local changes
-        
+            skills_only: Pull only skills (not configs)
+            configs_only: Pull only configs (not skills)
+
         Returns:
             List of applied changes
         """
         if not self.repo_dir.exists():
             raise RuntimeError("Not linked to a repository. Run 'agent-sync link' first")
-        
+
         # Check for local changes
         if not force:
             status = self._run_git("status", "--porcelain")
@@ -246,39 +248,62 @@ class SyncManager:
                 raise RuntimeError(
                     "You have local changes. Commit them first or use --force"
                 )
-        
+
         # Fetch and pull
         self._run_git("fetch", "origin")
         self._run_git("pull", "origin", "main")
-        
-        # Apply configs
-        changes = self._apply_synced_configs()
-        
+
+        changes = []
+
+        # Apply configs (or skip based on flags)
+        if not skills_only:
+            changes.extend(self._apply_synced_configs())
+        else:
+            console.print("[dim]Skipping configs (skills-only mode)[/dim]")
+
+        # Apply skills (or skip based on flags)
+        if not configs_only:
+            skill_changes = self._apply_synced_skills()
+            changes.extend(skill_changes)
+        else:
+            console.print("[dim]Skipping skills (configs-only mode)[/dim]")
+
         self._save_state("pulled", self.config.repo_url)
-        
+
         return changes
     
-    def push(self, message: str = "chore: sync config updates") -> list[str]:
+    def push(self, message: str = "chore: sync config updates", skills_only: bool = False, configs_only: bool = False) -> list[str]:
         """
         Commit and push local changes.
-        
+
         Args:
             message: Commit message
-        
+            skills_only: Push only skills (not configs)
+            configs_only: Push only configs (not skills)
+
         Returns:
             List of pushed files
         """
         if not self.repo_dir.exists():
             raise RuntimeError("Not linked to a repository. Run 'agent-sync init' or 'link' first")
-        
-        # Stage agent configs
-        self._stage_agent_configs()
-        
+
+        # Stage files based on flags
+        if skills_only:
+            # Stage only skills
+            self._stage_skills()
+        elif configs_only:
+            # Stage only configs
+            self._stage_agent_configs()
+        else:
+            # Stage everything (default)
+            self._stage_agent_configs()
+            self._stage_skills()
+
         # Check for changes
         status = self._run_git("status", "--porcelain")
         if not status:
             return []
-        
+
         # Get list of changed files
         changed_files = []
         for line in status.split("\n"):
@@ -286,14 +311,14 @@ class SyncManager:
                 parts = line.split()
                 if len(parts) >= 2:
                     changed_files.append(parts[-1])
-        
+
         # Commit and push
         self._run_git("add", ".")
         self._run_git("commit", "-m", message)
         self._run_git("push", "origin", "main")
-        
+
         self._save_state("pushed", self.config.repo_url)
-        
+
         return changed_files
     
     def get_status(self) -> dict:
@@ -427,7 +452,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
             # Skip if agent sync is disabled
             if not self.config.is_agent_enabled(agent.name):
                 continue
-            
+
             if not agent.is_available() and agent.name != "global-skills":
                 continue
 
@@ -439,10 +464,10 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
             if sync_configs and agent.config_path.parent.exists():
                 agent_config_dir = self.repo_dir / "configs" / agent.name
                 agent_config_dir.mkdir(parents=True, exist_ok=True)
-                
+
                 # Get config file patterns for this agent
                 patterns = self.CONFIG_PATTERNS.get(agent.name, ["*.json"])
-                
+
                 # Find all matching config files
                 for pattern in patterns:
                     for config_file in agent.config_path.parent.glob(pattern):
@@ -450,15 +475,41 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                             # Skip excluded files
                             if self._should_exclude(config_file.name):
                                 continue
-                            
+
                             # Copy config file as-is
                             dest = agent_config_dir / config_file.name
                             shutil.copy2(config_file, dest)
-            
+
             # Copy Pi.dev extensions if agent is pi.dev
             if agent.name == "pi.dev" and hasattr(agent, 'extensions_paths'):
                 for ext_path in agent.extensions_paths:
                     if ext_path.exists():
+
+    def _stage_skills(self) -> None:
+        """Stage skills for commit."""
+        from pathlib import Path
+
+        global_skills_dir = Path.home() / ".agents" / "skills"
+        repo_skills_dir = self.repo_dir / "skills"
+
+        if not global_skills_dir.exists():
+            return
+
+        repo_skills_dir.mkdir(parents=True, exist_ok=True)
+
+        # Copy all skills to repo
+        for skill_item in global_skills_dir.iterdir():
+            if skill_item.name.startswith("."):
+                continue
+
+            dest = repo_skills_dir / skill_item.name
+
+            if skill_item.is_dir():
+                if dest.exists():
+                    shutil.rmtree(dest)
+                shutil.copytree(skill_item, dest)
+            else:
+                shutil.copy2(skill_item, dest)
                         # Copy extensions to repo
                         repo_ext_dir = self.repo_dir / "configs" / agent.name / "extensions"
                         repo_ext_dir.mkdir(parents=True, exist_ok=True)
@@ -603,15 +654,24 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                                 else:
                                     shutil.copy2(theme_item, dest)
                                 changes.append(f"{agent.name}/themes: {theme_item.name}")
-        
-        # Apply global skills
+
+        return changes
+
+    def _apply_synced_skills(self) -> list[str]:
+        """Apply synced skills to local ~/.agents/skills/ directory."""
+        from pathlib import Path
+
+        changes = []
         synced_skills_dir = self.repo_dir / "skills"
         global_skills_dir = Path.home() / ".agents" / "skills"
-        
+
         if synced_skills_dir.exists():
             global_skills_dir.mkdir(parents=True, exist_ok=True)
-            
+
             for skill_item in synced_skills_dir.glob("*"):
+                if skill_item.name.startswith("."):
+                    continue
+                    
                 dest = global_skills_dir / skill_item.name
                 if not dest.exists() or (skill_item.is_file() and dest.read_text() != skill_item.read_text()):
                     if skill_item.is_dir():
@@ -619,7 +679,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                     else:
                         shutil.copy2(skill_item, dest)
                     changes.append(f"global-skills: {skill_item.name}")
-        
+
         return changes
     
     def _get_github_user(self) -> str:
