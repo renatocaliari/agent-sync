@@ -2,7 +2,7 @@
 
 **Centralize and sync AI agent configurations and skills across machines and agents**
 
-Supports: **opencode** • **claude-code** • **gemini-cli** • **pi.dev** • **qwen**
+Supports: **opencode** • **claude-code** • **gemini-cli** • **pi.dev** • **qwen-code**
 
 ---
 
@@ -90,7 +90,7 @@ Usage: agent-sync [OPTIONS] COMMAND [ARGS]...
 
   🔄 agent-sync - Sync configs and skills across multiple AI agents.
 
-  Supported agents: opencode, claude-code, gemini-cli, pi.dev, qwen
+  Supported agents: opencode, claude-code, gemini-cli, pi.dev, qwen-code
 
 Options:
   --version  Show the version and exit.
@@ -283,7 +283,8 @@ Options:
 │  • opencode                                         • opencode
 │  • claude-code                                      • claude-code
 │  • gemini-cli                                       • gemini-cli
-│  • qwen                                           • qwen
+│  • pi.dev                                           • pi.dev
+│  • qwen-code                                        • qwen-code
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -343,7 +344,7 @@ agent-sync-configs/
 │   │   ├── settings.json      # Main config
 │   │   ├── models.json        # Model configurations
 │   │   └── lsp-settings.json  # LSP configurations
-│   └── qwen/
+│   └── qwen-code/
 │       └── settings.json      # Config + MCP servers
 │
 └── skills/
@@ -437,7 +438,7 @@ All agents have access to the `agent-sync` command as long as it's in your PATH.
 | **claude-code** | `settings.json`, `claude.json` | `~/.claude/commands/` | Symlink |
 | **gemini-cli** | `settings.json` | `~/.gemini/tools/` | Copy |
 | **pi.dev** | `settings.json`, `models.json`, `lsp-settings.json` | `~/.pi/agent/skills/` | Native |
-| **qwen** | `settings.json` | `~/.qwen/skills/` | Native |
+| **qwen-code** | `settings.json` | `~/.qwen/skills/` | Native |
 
 All agents also support `~/.agents/skills/` for shared skills.
 
@@ -467,7 +468,7 @@ All agents also support `~/.agents/skills/` for shared skills.
 - **Skills:** `~/.pi/agent/skills/` or `~/.agents/skills/`
 - **Docs:** https://github.com/badlogic/pi-mono
 
-### Qwen
+### Qwen-code
 - **Config:** `~/.qwen/settings.json`
 - **Skills:** `~/.qwen/skills/` or `~/.agents/skills/`
 - **Docs:** https://qwenlm.github.io/qwen-code-docs/
