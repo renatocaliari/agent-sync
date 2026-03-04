@@ -238,6 +238,9 @@ class SyncManager:
         Returns:
             List of applied changes
         """
+        from rich.console import Console
+        console = Console()
+
         # If repo doesn't exist or is not a valid git repo, clone it automatically
         is_valid_git_repo = self.repo_dir.exists() and (self.repo_dir / ".git").exists()
         
@@ -245,8 +248,6 @@ class SyncManager:
             if not self.config.repo_url:
                 raise RuntimeError("Not linked to a repository. Run 'agent-sync link <url>' or 'agent-sync config repo <url>' first")
             
-            from rich.console import Console
-            console = Console()
             console.print(f"\n[bold]📥 Cloning repository...[/bold]\n")
             self.link_repo(self.config.repo_url)
 
