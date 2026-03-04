@@ -120,10 +120,11 @@ Commands:
 # First time setup
 agent-sync setup          # Interactive wizard
 agent-sync push           # Upload to GitHub
-
-# Link other machines
-agent-sync link <url>     # Connect to existing repo
+agent-sync push --skills-only      # Push only skills
+agent-sync push --configs-only     # Push only configs
 agent-sync pull           # Download configs
+agent-sync pull --skills-only      # Pull only skills
+agent-sync pull --configs-only     # Pull only configs
 
 # Manage skills
 agent-sync skills list                # List all skills
