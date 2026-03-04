@@ -5,13 +5,19 @@ import shutil
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
+from platformdirs import user_data_dir
 
 
 class SyncManager:
     """Manages synchronization with GitHub repository."""
-    
-    DEFAULT_REPO_DIR = Path.home() / ".local" / "share" / "agent-sync" / "repo"
-    STATE_FILE = Path.home() / ".local" / "state" / "agent-sync" / "sync-state.json"
+
+    # Cross-platform data directory
+    # Linux: ~/.local/share/agent-sync
+    # macOS: ~/Library/Application Support/agent-sync
+    # Windows: ~\AppData\Roaming\agent-sync
+    DATA_DIR = Path(user_data_dir("agent-sync", "renatocaliari"))
+    DEFAULT_REPO_DIR = DATA_DIR / "repo"
+    STATE_FILE = DATA_DIR / "sync-state.json"
     
     # Config file patterns per agent (supports multiple extensions)
     CONFIG_PATTERNS = {

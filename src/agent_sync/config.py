@@ -4,10 +4,17 @@ import os
 from pathlib import Path
 from typing import Optional
 import yaml
+from platformdirs import user_config_dir, user_data_dir
 
 
-DEFAULT_CONFIG_DIR = Path.home() / ".config" / "agent-sync"
+# Cross-platform directories
+# Linux: ~/.config/agent-sync, ~/.local/share/agent-sync
+# macOS: ~/Library/Application Support/agent-sync
+# Windows: ~\AppData\Roaming\agent-sync
+DEFAULT_CONFIG_DIR = Path(user_config_dir("agent-sync", "renatocaliari"))
 DEFAULT_CONFIG_FILE = DEFAULT_CONFIG_DIR / "config.yaml"
+# State files (last sync, update check) in data dir
+DEFAULT_STATE_DIR = Path(user_data_dir("agent-sync", "renatocaliari"))
 DEFAULT_OVERRIDES_FILE = DEFAULT_CONFIG_DIR / "overrides.yaml"
 
 
