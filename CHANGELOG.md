@@ -4,20 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [0.6.1] - 2026-03-04
+## [0.6.2] - 2026-03-04
 
 ### Fixed
-- `pull` now auto-clones repo if not exists locally (no manual clone needed)
-- Check for valid git repo (`.git/` exists) not just directory exists
-- Import console locally to avoid undefined error
+- `_stage_skills()` now removes skills deleted from `~/.agents/skills/`
+- `_stage_agent_configs()` now removes configs deleted locally (e.g., `.json` vs `.jsonc`)
+- `pull()` console import moved to function level (fixes undefined error)
 
 ### Changed
-- `agent-sync config repo <url>` + `agent-sync pull` now works seamlessly
-- No need for manual `git clone` or `agent-sync link` anymore
+- `push --skills-only` now syncs deletions (not just additions)
+- `push --configs-only` now syncs deletions (not just additions)
+
+### Use Cases Fixed
+- Delete skill locally → removed from repo on push ✅
+- Delete config file locally → removed from repo on push ✅
+- Example: remove `opencode.json`, keep `opencode.jsonc` → repo updated ✅
 
 ---
 
-## [0.6.0] - 2026-03-04
+## [0.6.1] - 2026-03-04
 
 ### Added
 - `push --skills-only` - Push only skills (not configs)
