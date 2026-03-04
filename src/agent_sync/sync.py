@@ -238,8 +238,10 @@ class SyncManager:
         Returns:
             List of applied changes
         """
-        # If repo doesn't exist locally, clone it automatically
-        if not self.repo_dir.exists():
+        # If repo doesn't exist or is not a valid git repo, clone it automatically
+        is_valid_git_repo = self.repo_dir.exists() and (self.repo_dir / ".git").exists()
+        
+        if not is_valid_git_repo:
             if not self.config.repo_url:
                 raise RuntimeError("Not linked to a repository. Run 'agent-sync link <url>' or 'agent-sync config repo <url>' first")
             
