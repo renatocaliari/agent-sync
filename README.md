@@ -134,6 +134,7 @@ agent-sync skills centralize --distribute  # Centralize + copy to all agents (ba
 
 # Configuration
 agent-sync config show    # View current config
+agent-sync config repo    # View/set repository URL
 agent-sync config edit    # Edit manually
 agent-sync config reset   # Reset to defaults
 
@@ -195,6 +196,65 @@ Options:
   --distribute  After centralizing, copy all skills to all agent directories
                 (for backup or testing)
   --help        Show this message and exit.
+```
+
+### `agent-sync config repo --help`
+
+```
+$ agent-sync config repo --help
+
+Usage: agent-sync config repo [OPTIONS] [REPO_URL]
+
+  View or set the GitHub repository URL.
+
+  Examples:
+    # View current repository
+    agent-sync config repo
+    
+    # Set repository URL
+    agent-sync config repo https://github.com/user/repo.git
+    
+    # Remove repository configuration
+    agent-sync config repo --remove
+
+Options:
+  --remove  Remove repository configuration
+  --help    Show this message and exit.
+```
+
+### `agent-sync init --help`
+
+```
+$ agent-sync init --help
+
+Usage: agent-sync init [OPTIONS]
+
+  Initialize a new sync repository (first machine).
+
+  Creates a new GitHub repository and configures agent-sync to sync to it.
+
+  Examples:
+    # Interactive wizard (creates new repo)
+    agent-sync init
+    
+    # Create specific repo name (non-interactive)
+    agent-sync init --name my-configs --private
+    
+    # Force re-initialize (overwrites existing config)
+    agent-sync init --name new-configs --force
+
+  ⚠️ SECURITY:
+    - Always use PRIVATE repositories for configs
+    - Configs may contain API keys and tokens
+    - GitHub private repos are FREE for personal use
+
+Options:
+  --name TEXT           Repository name (skips wizard if provided)
+  --private / --public  Make repository private
+  --agents TEXT         Agents to sync (skips wizard if provided)
+  --no-wizard           Skip interactive wizard
+  --force               Force initialization even if already configured
+  --help                Show this message and exit.
 ```
 
 ---
