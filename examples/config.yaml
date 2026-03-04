@@ -9,6 +9,7 @@ repo_url: https://github.com/username/my-agent-configs.git
 agents:
   - opencode
   - claude-code
+  - pi.dev
   - qwen-code
   - global-skills
 
@@ -37,13 +38,13 @@ agents_config:
     sync:
       configs: true
       skills: true
-  
+
   qwen-code:
     enabled: true
     sync:
       configs: true
       skills: true
-  
+
   global-skills:
     enabled: true      # Sync ~/.agents/skills/
     sync:
