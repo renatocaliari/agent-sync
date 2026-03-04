@@ -340,7 +340,8 @@ def list_skills():
 @skills.command()
 @click.option("--copy", is_flag=True, help="Copy instead of moving skills")
 @click.option("--push", is_flag=True, help="Automatically push to GitHub after centralizing")
-def centralize(copy: bool, push: bool):
+@click.option("--distribute", is_flag=True, help="After centralizing, copy all skills to all agent directories (for backup or testing)")
+def centralize(copy: bool, push: bool, distribute: bool):
     """Centralize skills from all agents to ~/.agents/skills/.
     
     This command scans all agent directories for existing skills and centralizes
@@ -359,6 +360,9 @@ def centralize(copy: bool, push: bool):
       
       # Copy skills and push to GitHub
       agent-sync skills centralize --copy --push
+      
+      # Centralize AND copy to all agent directories (backup/testing)
+      agent-sync skills centralize --distribute
     
     \b
     What happens:
@@ -367,12 +371,14 @@ def centralize(copy: bool, push: bool):
       3. Resolves conflicts by renaming with agent prefix
       4. Moves/copies skills to ~/.agents/skills/
       5. Optionally pushes to GitHub
+      6. With --distribute: copies all skills to all agent directories
     
     \b
     After centralizing:
       - Skills live in ~/.agents/skills/ (source of truth)
       - Agents use symlinks or config to access global skills
       - Original skill directories may be removed (if --copy not used)
+      - With --distribute: all agents have local copies for backup/testing
     """
     from .skills import SkillsManager
     from rich.prompt import Confirm
@@ -407,13 +413,29 @@ def centralize(copy: bool, push: bool):
     console.print("Where are my skills now?\n")
     console.print(f"  [bold cyan]~/.agents/skills/[/bold cyan] [dim]← Single source of truth[/dim]\n")
     console.print("All your skills are now in one place and will be synced to GitHub.\n")
-    
+
     if move:
         console.print("[dim]Note: Agent directories now use symlinks or config to read from ~/.agents/skills/[/dim]\n")
-    
+
+    # Optional: distribute skills to all agent directories
+    if distribute:
+        console.print("\n[bold]📤 Distributing Skills to All Agents[/bold]\n")
+        console.print("[yellow]⚠ This will copy ALL skills to ALL agent directories.[/yellow]\n")
+        console.print("Use this for:")
+        console.print("  • Backup: local copies in each agent directory")
+        console.print("  • Testing: verify agents read from local vs global")
+        console.print("  • Debug: troubleshoot symlink/config issues\n")
+
+        if Confirm.ask("Continue with distribution?", default=True):
+            dist_stats = skills_mgr.distribute_to_all_agents()
+            console.print(f"\n[green]✓ Distributed {dist_stats['distributed']} skills to {dist_stats['agents_configured']} agents[/green]\n")
+            console.print("[dim]Note: Native agents (pi.dev, qwen-code) will still prefer ~/.agents/skills/[/dim]\n")
+        else:
+            console.print("\n[yellow]⚠ Distribution skipped[/yellow]\n")
+
     # Ask if user wants to push
     should_push = push
-    
+
     if not should_push:
         should_push = Confirm.ask(
             "\n[bold]Would you like to push these changes to GitHub now?[/bold]",

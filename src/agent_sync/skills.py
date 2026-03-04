@@ -531,3 +531,75 @@ class SkillsManager:
             "exists": self.global_skills_dir.exists(),
             "skill_count": len(list(self.global_skills_dir.glob("*"))) if self.global_skills_dir.exists() else 0,
         }
+
+    def distribute_to_all_agents(self) -> dict:
+        """Copy all skills from ~/.agents/skills/ to all agent directories.
+        
+        This is useful for:
+        - Backup: local copies in each agent directory
+        - Testing: verify agents read from local vs global
+        - Debug: troubleshoot symlink/config issues
+        
+        Returns:
+            dict with 'distributed' count and 'agents_configured' count
+        """
+        import hashlib
+        
+        stats = {
+            "distributed": 0,
+            "agents_configured": 0,
+            "skipped": 0,
+        }
+        
+        if not self.global_skills_dir.exists():
+            console.print("[yellow]No skills found in ~/.agents/skills/[/yellow]\n")
+            return stats
+        
+        console.print(f"Source: [cyan]{self.global_skills_dir}[/cyan]\n")
+        
+        for agent in get_all_agents():
+            if agent.name == "global-skills":
+                continue
+            
+            console.print(f"  Distributing to {agent.name}...")
+            
+            # Ensure agent skills directory exists
+            agent.skills_path.mkdir(parents=True, exist_ok=True)
+            
+            agent_count = 0
+            for skill_item in self.global_skills_dir.iterdir():
+                if skill_item.name.startswith("."):
+                    continue  # Skip .DS_Store, etc.
+                
+                dest = agent.skills_path / skill_item.name
+                
+                if not dest.exists():
+                    # Copy if doesn't exist
+                    if skill_item.is_dir():
+                        shutil.copytree(skill_item, dest)
+                    else:
+                        shutil.copy2(skill_item, dest)
+                    agent_count += 1
+                    stats["distributed"] += 1
+                else:
+                    # Check if different (idempotent)
+                    if skill_item.is_file() and dest.is_file():
+                        src_hash = hashlib.md5(skill_item.read_bytes()).hexdigest()
+                        dest_hash = hashlib.md5(dest.read_bytes()).hexdigest()
+                        
+                        if src_hash != dest_hash:
+                            # Files differ, skip to avoid overwriting local changes
+                            console.print(f"    [yellow]⚠ {skill_item.name} differs, skipping[/yellow]")
+                        else:
+                            stats["skipped"] += 1
+                    else:
+                        stats["skipped"] += 1
+            
+            if agent_count > 0:
+                console.print(f"    [green]✓ {agent_count} skills copied[/green]")
+                stats["agents_configured"] += 1
+            else:
+                console.print(f"    [dim]No new skills to copy[/dim]")
+        
+        console.print()
+        return stats
