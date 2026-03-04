@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] - 2026-03-04
+
+### ✨ Added
+- **`agent-sync config repo` command** - View/set repository URL without wizard
+  - View: `agent-sync config repo`
+  - Set: `agent-sync config repo https://github.com/user/repo.git`
+  - Remove: `agent-sync config repo --remove`
+- **Safety check on `init`** - Prevents accidental overwrite of existing config
+  - Detects existing repository and shows helpful options
+  - `--force` flag to override and re-initialize
+  - Clear error messages with suggested commands
+
+### 🔧 Changed
+- **`init` command** - Now requires `--force` if already configured
+- **Documentation** - Updated README with `config repo` and `init --help` examples
+
+### 🛡️ Security
+- **Prevents accidental repository overwrite** - `init` won't overwrite without explicit `--force`
+- **Clear separation of concerns** - `config repo` for linking, `init` for creating new
+
+---
+
 ## [0.3.0] - 2026-03-04
 
 ### ✨ Added
