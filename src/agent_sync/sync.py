@@ -530,38 +530,6 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                 shutil.copytree(skill_item, dest)
             else:
                 shutil.copy2(skill_item, dest)
-
-            # Copy Pi.dev prompts if agent is pi.dev
-            if agent.name == "pi.dev" and hasattr(agent, 'prompts_paths'):
-                for prompts_path in agent.prompts_paths:
-                    if prompts_path.exists():
-                        # Copy prompts to repo
-                        repo_prompts_dir = self.repo_dir / "configs" / agent.name / "prompts"
-                        repo_prompts_dir.mkdir(parents=True, exist_ok=True)
-                        
-                        for prompt_item in prompts_path.iterdir():
-                            if prompt_item.is_file():
-                                dest = repo_prompts_dir / prompt_item.name
-                                shutil.copy2(prompt_item, dest)
-                            elif prompt_item.is_dir():
-                                dest = repo_prompts_dir / prompt_item.name
-                                shutil.copytree(prompt_item, dest, dirs_exist_ok=True)
-            
-            # Copy Pi.dev themes if agent is pi.dev
-            if agent.name == "pi.dev" and hasattr(agent, 'themes_paths'):
-                for themes_path in agent.themes_paths:
-                    if themes_path.exists():
-                        # Copy themes to repo
-                        repo_themes_dir = self.repo_dir / "configs" / agent.name / "themes"
-                        repo_themes_dir.mkdir(parents=True, exist_ok=True)
-                        
-                        for theme_item in themes_path.iterdir():
-                            if theme_item.is_file():
-                                dest = repo_themes_dir / theme_item.name
-                                shutil.copy2(theme_item, dest)
-                            elif theme_item.is_dir():
-                                dest = repo_themes_dir / theme_item.name
-                                shutil.copytree(theme_item, dest, dirs_exist_ok=True)
         
         # Always sync global skills
         global_skills_dir = Path.home() / ".agents" / "skills"
