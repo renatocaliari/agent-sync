@@ -44,10 +44,20 @@ class SyncManager:
         self.repo_dir = self.DEFAULT_REPO_DIR
         self.state_file = self.STATE_FILE
 
-        # Ensure directories exist
-        self.repo_dir.mkdir(parents=True, exist_ok=True)  # Create repo dir itself
-        self.repo_dir.parent.mkdir(parents=True, exist_ok=True)
-        self.state_file.parent.mkdir(parents=True, exist_ok=True)
+        # Ensure directories exist BEFORE any operations
+        try:
+            self.repo_dir.mkdir(parents=True, exist_ok=True)  # Create repo dir itself
+            self.repo_dir.parent.mkdir(parents=True, exist_ok=True)
+            self.state_file.parent.mkdir(parents=True, exist_ok=True)
+        except PermissionError as e:
+            raise RuntimeError(
+                f"Cannot create directory {self.repo_dir}. "
+                f"Check permissions or set XDG_DATA_HOME environment variable."
+            ) from e
+
+        # Verify directory was created
+        if not self.repo_dir.exists():
+            raise RuntimeError(f"Failed to create directory {self.repo_dir}")
     
     def _run_git(self, *args, cwd: Optional[Path] = None) -> str:
         """Run a git command and return output."""
@@ -71,31 +81,96 @@ class SyncManager:
     
     def init_repo(self, name: str, private: bool = True, agents: tuple[str, ...] = ()) -> str:
         """
-        Initialize a new sync repository.
-        
+        Initialize a new sync repository or link to existing one.
+
         Args:
             name: Repository name
             private: Whether repo should be private
             agents: List of agents to sync
-        
+
         Returns:
             Repository URL
         """
+        import json
+
         if not self._check_gh_installed():
             raise RuntimeError("GitHub CLI (gh) is required. Install with: brew install gh")
-        
+
         if not self._check_git_installed():
             raise RuntimeError("Git is required. Install with: brew install git")
-        
-        # Create repository on GitHub
+
+        # Ensure repo directory exists
+        self.repo_dir.mkdir(parents=True, exist_ok=True)
+
+        # Check if repo already exists on GitHub
+        repo_url = f"https://github.com/{self._get_github_user()}/{name}.git"
+        repo_name = f"{self._get_github_user()}/{name}"
+
+        result = subprocess.run(
+            ["gh", "repo", "view", repo_name, "--json", "name,isPrivate"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        if result.returncode == 0:
+            # Repo exists - check visibility
+            repo_info = json.loads(result.stdout)
+            is_private = repo_info.get("isPrivate", False)
+
+            if not is_private:
+                # Public repo - warn about security
+                from rich.console import Console
+                from rich.prompt import Confirm
+                console = Console()
+
+                console.print("\n[yellow]⚠️  WARNING: Repository is PUBLIC![/yellow]\n")
+                console.print("Your configs may contain:")
+                console.print("  • API keys")
+                console.print("  • Auth tokens")
+                console.print("  • MCP credentials\n")
+
+                if not Confirm.ask(
+                    "[bold red]Continue with public repository?[/bold red]\n"
+                    "This is NOT recommended for config sync.",
+                    default=False,
+                ):
+                    raise RuntimeError("User cancelled due to public repository warning")
+
+            # Clone existing repo
+            console = Console()
+            console.print(f"\n[bold]Linking to existing repository: {repo_name}[/bold]\n")
+
+            if self.repo_dir.exists() and any(self.repo_dir.iterdir()):
+                # Directory has content, use existing
+                console.print("[dim]Using existing local directory[/dim]\n")
+            else:
+                # Empty directory, clone
+                subprocess.run(
+                    ["git", "clone", f"https://github.com/{repo_name}.git", str(self.repo_dir)],
+                    check=True,
+                    capture_output=True,
+                )
+
+            # Update config
+            self.config.repo_url = repo_url
+            if agents:
+                self.config.agents = list(agents)
+            self._save_state("linked", repo_url)
+
+            return repo_url
+
+        # Repo doesn't exist - create it
         visibility = "private" if private else "public"
+
+        # Create repository on GitHub
         result = subprocess.run(
             ["gh", "repo", "create", name, f"--{visibility}", "--source", ".", "--remote", "origin"],
             cwd=self.repo_dir,
             capture_output=True,
             text=True,
         )
-        
+
         if result.returncode != 0:
             # Try alternative approach
             subprocess.run(
@@ -104,28 +179,28 @@ class SyncManager:
                 text=True,
                 check=True,
             )
-            
+
             # Initialize local git
             self._run_git("init")
             self._run_git("remote", "add", "origin", f"https://github.com/{self._get_github_user()}/{name}.git")
-        
+
         # Create initial structure
         self._create_repo_structure(agents)
-        
+
         # Initial commit
         self._run_git("add", ".")
         self._run_git("commit", "-m", "chore: initial sync structure")
         self._run_git("push", "-u", "origin", "main")
-        
+
         # Update config
         repo_url = f"https://github.com/{self._get_github_user()}/{name}.git"
         self.config.repo_url = repo_url
-        
+
         if agents:
             self.config.agents = list(agents)
-        
+
         self._save_state("initialized", repo_url)
-        
+
         return repo_url
     
     def link_repo(self, repo_url: str) -> None:
