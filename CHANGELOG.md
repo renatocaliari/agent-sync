@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.6.1] - 2026-03-04
+
+### Fixed
+- `pull` now auto-clones repo if not exists locally (no manual clone needed)
+- Check for valid git repo (`.git/` exists) not just directory exists
+- Import console locally to avoid undefined error
+
+### Changed
+- `agent-sync config repo <url>` + `agent-sync pull` now works seamlessly
+- No need for manual `git clone` or `agent-sync link` anymore
+
+---
+
 ## [0.6.0] - 2026-03-04
 
 ### Added
