@@ -233,13 +233,7 @@ def show():
         else:
             console.print(f"  ✗ {agent_name} [dim](disabled)[/dim]")
     console.print()
-    
-    # Show secrets
-    console.print("[bold]Secrets:[/bold]")
-    console.print(f"  Include secrets: {'⚠ Yes' if config.include_secrets else 'No'}")
-    console.print(f"  Include MCP: {'⚠ Yes' if config.include_mcp_secrets else 'No'}")
-    console.print()
-    
+
     # Show config file path
     console.print(f"[dim]Config file: {config.config_path}[/dim]\n")
 
@@ -347,7 +341,39 @@ def list_skills():
 @click.option("--copy", is_flag=True, help="Copy instead of moving skills")
 @click.option("--push", is_flag=True, help="Automatically push to GitHub after centralizing")
 def centralize(copy: bool, push: bool):
-    """Centralize skills from all agents to ~/.agents/skills/."""
+    """Centralize skills from all agents to ~/.agents/skills/.
+    
+    This command scans all agent directories for existing skills and centralizes
+    them to the global ~/.agents/skills/ directory (single source of truth).
+    
+    \b
+    Examples:
+      # Move skills (default - removes from agent directories)
+      agent-sync skills centralize
+      
+      # Copy skills (keeps originals in agent directories)
+      agent-sync skills centralize --copy
+      
+      # Move skills and push to GitHub automatically
+      agent-sync skills centralize --push
+      
+      # Copy skills and push to GitHub
+      agent-sync skills centralize --copy --push
+    
+    \b
+    What happens:
+      1. Scans all agent directories for skills
+      2. Detects conflicts (same skill name in multiple agents)
+      3. Resolves conflicts by renaming with agent prefix
+      4. Moves/copies skills to ~/.agents/skills/
+      5. Optionally pushes to GitHub
+    
+    \b
+    After centralizing:
+      - Skills live in ~/.agents/skills/ (source of truth)
+      - Agents use symlinks or config to access global skills
+      - Original skill directories may be removed (if --copy not used)
+    """
     from .skills import SkillsManager
     from rich.prompt import Confirm
     

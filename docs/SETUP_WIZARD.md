@@ -150,35 +150,11 @@ Make repository PRIVATE? [Y/n]: y
 
 **Important:**
 - ⚠️ Private repository recommended
-- ⚠️ Required if enabling secrets sync
 - ✅ Free on GitHub
 
 ---
 
-### Step 7: Secrets Configuration
-
-```
-Step 7: Secrets Configuration
-──────────────────────────────
-
-⚠ Only enable secrets with PRIVATE repositories!
-
-Secrets include:
-  • API keys
-  • Auth tokens
-  • MCP credentials
-
-Enable secrets synchronization? [y/N]: n
-```
-
-**By default:**
-- ✅ Secrets sync is **disabled** (secure by default)
-- ✅ API keys auto-scrubbed from configs
-- ✅ Stored locally in `~/.config/agent-sync/.env`
-
----
-
-### Step 8: Summary
+### Step 7: Summary
 
 ```
 ╔══════════════════════════════════════════════════════════╗
@@ -257,9 +233,6 @@ agents_config:
     enabled: true
     sync:
       configs: false
-
-include_secrets: false
-include_mcp_secrets: false
 ```
 
 ---
@@ -269,8 +242,7 @@ include_mcp_secrets: false
 1. **First time**: Use wizard to configure everything correctly
 2. **Reconfigure**: Run `agent-sync setup` anytime
 3. **Non-interactive**: Use flags `--name`, `--agents`, `--no-wizard`
-4. **Secrets**: Only enable in private repositories
-5. **Global skills**: Useful for shared skills across agents
+4. **Global skills**: Useful for shared skills across agents
 
 ---
 
