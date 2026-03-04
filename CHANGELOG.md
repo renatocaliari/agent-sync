@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.5.2] - 2026-03-04
+
+### Fixed
+- Critical: repo directory creation with error handling and verification
+- Check if repo exists on GitHub before creating
+- Security warning for public repos with explicit confirmation
+- Default to NO for public repo confirmation (safe by default)
+
+### Changed
+- `init_repo()` now links to existing repos automatically (if private)
+- Public repos require explicit user confirmation with security warning
+- Better error messages for directory creation failures
+
+---
+
 ## [0.5.1] - 2026-03-04
 
 ### Fixed
@@ -30,7 +45,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [0.3.0] - 2026-03-04
+## [0.4.0] - 2026-03-04
 
 ### Added
 - `skills centralize --distribute` - Copy skills to all agent directories
@@ -40,7 +55,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [0.2.0] - 2026-03-04
+## [0.3.0] - 2026-03-04
 
 ### Added
 - Cross-platform paths (Linux, macOS, Windows)
@@ -52,7 +67,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [0.1.0] - 2024-01-01
+## [0.2.0] - 2026-03-04
 
 ### Added
 - Initial release
