@@ -596,10 +596,27 @@ def link(repo_url: str):
 
 @main.command()
 @click.option("--force", is_flag=True, help="Force pull even with local changes")
-def pull(force: bool):
-    """Fetch and apply remote configuration."""
-    console.print("\n📥 Pulling remote configuration...")
+@click.option("--skills-only", is_flag=True, help="Pull only skills (not configs)")
+@click.option("--configs-only", is_flag=True, help="Pull only configs (not skills)")
+def pull(force: bool, skills_only: bool, configs_only: bool):
+    """Fetch and apply remote configuration.
     
+    \b
+    Examples:
+      # Pull everything (default)
+      agent-sync pull
+      
+      # Pull only skills
+      agent-sync pull --skills-only
+      
+      # Pull only configs
+      agent-sync pull --configs-only
+      
+      # Force pull (overwrite local changes)
+      agent-sync pull --force
+    """
+    console.print("\n📥 Pulling remote configuration...")
+
     # Check for updates asynchronously (once per week)
     check_for_updates_async()
 
@@ -607,7 +624,7 @@ def pull(force: bool):
     sync_manager = SyncManager(config)
 
     try:
-        changes = sync_manager.pull(force=force)
+        changes = sync_manager.pull(force=force, skills_only=skills_only, configs_only=configs_only)
         if changes:
             console.print(f"\n✅ Applied {len(changes)} changes:")
             for change in changes:
@@ -617,17 +634,34 @@ def pull(force: bool):
     except Exception as e:
         console.print(f"\n❌ Error: {e}", style="red")
         raise click.Abort()
-    
+
     # Show update notification if available
     show_pending_update_notification()
 
 
 @main.command()
 @click.option("-m", "--message", default="chore: sync config updates", help="Commit message")
-def push(message: str):
-    """Commit and push local changes."""
-    console.print("\n📤 Pushing local changes...")
+@click.option("--skills-only", is_flag=True, help="Push only skills (not configs)")
+@click.option("--configs-only", is_flag=True, help="Push only configs (not skills)")
+def push(message: str, skills_only: bool, configs_only: bool):
+    """Commit and push local changes.
     
+    \b
+    Examples:
+      # Push everything (default)
+      agent-sync push
+      
+      # Push only skills
+      agent-sync push --skills-only
+      
+      # Push only configs
+      agent-sync push --configs-only
+      
+      # Push with custom message
+      agent-sync push -m "feat: add new skill"
+    """
+    console.print("\n📤 Pushing local changes...")
+
     # Check for updates asynchronously (once per week)
     check_for_updates_async()
 
@@ -635,7 +669,7 @@ def push(message: str):
     sync_manager = SyncManager(config)
 
     try:
-        pushed = sync_manager.push(message=message)
+        pushed = sync_manager.push(message=message, skills_only=skills_only, configs_only=configs_only)
         if pushed:
             console.print(f"\n✅ Pushed {len(pushed)} files:")
             for file in pushed:
@@ -645,7 +679,7 @@ def push(message: str):
     except Exception as e:
         console.print(f"\n❌ Error: {e}", style="red")
         raise click.Abort()
-    
+
     # Show update notification if available
     show_pending_update_notification()
 
