@@ -238,8 +238,13 @@ class SyncManager:
         Returns:
             List of applied changes
         """
+        # If repo doesn't exist locally, clone it automatically
         if not self.repo_dir.exists():
-            raise RuntimeError("Not linked to a repository. Run 'agent-sync link' first")
+            if not self.config.repo_url:
+                raise RuntimeError("Not linked to a repository. Run 'agent-sync link <url>' or 'agent-sync config repo <url>' first")
+            
+            console.print(f"\n[bold]📥 Cloning repository...[/bold]\n")
+            self.link_repo(self.config.repo_url)
 
         # Check for local changes
         if not force:
