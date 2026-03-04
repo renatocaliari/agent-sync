@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.6.0] - 2026-03-04
+
+### Added
+- `push --skills-only` - Push only skills (not configs)
+- `push --configs-only` - Push only configs (not skills)
+- `pull --skills-only` - Pull only skills (not configs)
+- `pull --configs-only` - Pull only configs (not skills)
+
+### Changed
+- Updated README with new push/pull options
+
+---
+
 ## [0.5.2] - 2026-03-04
 
 ### Fixed
