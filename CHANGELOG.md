@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.0] - 2026-03-04
+
+### ✨ Added
+- **`agent-sync skills publish` command** - Publish skills to public GitHub repository
+  - Interactive TUI to select which skills to publish
+  - Dry-run mode (`--dry-run`) to preview before publishing
+  - Separate config file (`~/.config/agent-sync/publish.yaml`)
+  - Auto-creates public GitHub repository if doesn't exist
+  - Generates README with installation instructions for `npx skills add`
+
+### 🛡️ Security
+- **Only skill files published** - Validates only SKILL.md files (no configs, no API keys)
+- **Explicit confirmation required** - Default is NO for safety
+- **Repository visibility warning** - Warns if repo is private (others can't install)
+- **Separate publish config** - Never mixes with private agent-sync-configs
+- **Auto .gitignore** - Blocks configs, secrets, auth files
+
+### 🔧 Changed
+- **Version bump** - 0.4.0 → 0.5.0 (MINOR - new feature: skills publish)
+
+---
+
 ## [0.4.0] - 2026-03-04
 
 ### ✨ Added
