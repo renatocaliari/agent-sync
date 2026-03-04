@@ -306,9 +306,9 @@ class SetupWizard:
         console.print()
     
     def _step_repo_settings(self) -> None:
-        """Step 5: Repository settings."""
+        """Step 6: Repository settings."""
         console.print(Panel.fit(
-            "[bold]Step 5: Repository Settings[/bold]\n\n"
+            "[bold]Step 6: Repository Settings[/bold]\n\n"
             "[yellow]⚠ SECURITY: Use PRIVATE repository for configs![/yellow]\n\n"
             "Your configs may contain sensitive information.\n"
             "Private repositories are FREE on GitHub.",

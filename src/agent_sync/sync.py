@@ -43,8 +43,9 @@ class SyncManager:
         self.config = config
         self.repo_dir = self.DEFAULT_REPO_DIR
         self.state_file = self.STATE_FILE
-        
+
         # Ensure directories exist
+        self.repo_dir.mkdir(parents=True, exist_ok=True)  # Create repo dir itself
         self.repo_dir.parent.mkdir(parents=True, exist_ok=True)
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
     

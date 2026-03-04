@@ -46,11 +46,15 @@ class SkillsManager:
             # Scan agent's skills directory
             if agent.skills_path.exists():
                 for item in agent.skills_path.iterdir():
+                    # Skip hidden files (.DS_Store, .git, etc.)
+                    if item.name.startswith("."):
+                        continue
+                    
                     # Detect and skip symlinks (user-created or otherwise)
                     if item.is_symlink():
                         # Symlinks will be removed during centralize
                         continue
-                    
+
                     # Only sync directories (not files)
                     if item.is_dir():
                         # Check if it's a valid skill (has SKILL.md)
@@ -60,7 +64,7 @@ class SkillsManager:
                         elif any(item.glob("*.md")) or any(item.glob("*.py")) or any(item.glob("*.sh")):
                             # Has markdown or script files, likely a skill
                             agent_skills.append(item)
-                    # Ignore files directly in skills directory (.DS_Store, README, etc.)
+                    # Ignore files directly in skills directory
             
             if agent_skills:
                 skills_found[agent.name] = agent_skills
