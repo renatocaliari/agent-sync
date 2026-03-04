@@ -116,7 +116,7 @@ def main():
 def init(name: Optional[str], private: bool, agents: tuple[str, ...], no_wizard: bool, force: bool):
     """Initialize a new sync repository (first machine).
     
-    Creates a new GitHub repository and configures agent-sync to sync to it.
+    Runs the setup wizard and creates a new GitHub repository.
     
     \b
     Examples:
@@ -155,7 +155,7 @@ def init(name: Optional[str], private: bool, agents: tuple[str, ...], no_wizard:
 
     # Run wizard if not provided via CLI args
     if not name and not no_wizard:
-        console.print("\n[bold]No configuration found. Running setup wizard...[/bold]\n")
+        console.print("\n[bold]Running setup wizard...[/bold]\n")
         repo_config = run_setup_wizard()
 
         if not repo_config:
