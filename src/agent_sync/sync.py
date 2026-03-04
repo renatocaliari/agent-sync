@@ -92,6 +92,10 @@ class SyncManager:
             Repository URL
         """
         import json
+        from rich.console import Console
+        from rich.prompt import Confirm
+
+        console = Console()
 
         if not self._check_gh_installed():
             raise RuntimeError("GitHub CLI (gh) is required. Install with: brew install gh")
@@ -120,10 +124,6 @@ class SyncManager:
 
             if not is_private:
                 # Public repo - warn about security
-                from rich.console import Console
-                from rich.prompt import Confirm
-                console = Console()
-
                 console.print("\n[yellow]⚠️  WARNING: Repository is PUBLIC![/yellow]\n")
                 console.print("Your configs may contain:")
                 console.print("  • API keys")
@@ -138,7 +138,6 @@ class SyncManager:
                     raise RuntimeError("User cancelled due to public repository warning")
 
             # Clone existing repo
-            console = Console()
             console.print(f"\n[bold]Linking to existing repository: {repo_name}[/bold]\n")
 
             if self.repo_dir.exists() and any(self.repo_dir.iterdir()):
