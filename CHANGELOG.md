@@ -6,13 +6,71 @@ All notable changes to this project will be documented in this file.
 
 ## [0.6.3] - 2026-03-04
 
-### Fixed
-- **Critical**: Native agents (qwen-code, pi.dev) keeping duplicate skills after `centralize`
-- `centralize()` now calls `configure_agents()` to clean up native agent duplicates
-- Ensures single source of truth in `~/.agents/skills/` for all agents
+### 🎯 Major Refactor: Centralized Skills Architecture
+
+**Philosophy Change:**
+- Skills now exist ONLY in `~/.agents/skills/` (single source of truth)
+- No local copies in agent directories
+- Agents configured via native support, config, or symlink
 
 ### Changed
-- Native agents no longer have local skill copies (they read from `~/.agents/skills/` natively)
+
+- **`_configure_agent()` priority** (NEW ORDER):
+  1. **Native support** (pi.dev, qwen-code) - fastest, no setup
+  2. **Config update** (opencode) - PREFERRED (explicit, robust, cross-platform)
+  3. **Symlink** (claude-code, gemini-cli) - FALLBACK if config fails
+  4. **Error** - if no method works
+
+  **Why config is preferred:**
+  - ✅ Explicit - visible in config file
+  - ✅ Robust - survives reinstalls, doesn't break
+  - ✅ Cross-platform - works on Windows
+  - ✅ Versionable - can commit to repo
+  - ✅ Flexible - can add multiple paths
+
+  **Fallback behavior:**
+  - If config fails → tries symlink
+  - If symlink fails → returns error
+  - No silent failures
+
+- **`centralize()` behavior**:
+  - Moves ALL skills to `~/.agents/skills/`
+  - Removes ALL local skills from agent directories
+  - Configures agents to use centralized location
+  - No fallback copy (was creating duplicates)
+
+### Added
+
+- `_cleanup_agent_local_skills()` - Unified cleanup for all agents
+  - Removes local skills before configuration
+  - Preserves symlinks (like `_global`)
+  - Ensures clean agent directories
+
+### Removed
+
+- `_copy_skills()` - No longer needed (was creating duplicates)
+- `_cleanup_native_agents_skills()` - Replaced by unified cleanup
+
+### Migration
+
+If upgrading from v0.6.2 or earlier:
+```bash
+# Re-run centralize to clean up duplicates
+agent-sync skills centralize
+
+# Or use cleanup script
+./scripts/cleanup-duplicates.sh
+```
+
+### Agent Configuration Matrix
+
+| Agent | Method | Priority | Fallback? | Local Skills |
+|-------|--------|----------|-----------|--------------|
+| opencode | Config | 1st choice | → Symlink | ❌ None |
+| claude-code | Symlink | 2nd choice | (no config) | ❌ None |
+| gemini-cli | Symlink | 2nd choice | (no config) | ❌ None |
+| pi.dev | Native | 1st choice | N/A | ❌ None |
+| qwen-code | Native | 1st choice | N/A | ❌ None |
 
 ---
 

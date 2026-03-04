@@ -381,20 +381,48 @@ class SkillsManager:
                 f"  [{status_color}]{status_icon}[/{status_color}] {agent.name}: {result['message']}"
             )
 
-        # Clean up skills copied to native agents (pi.dev, qwen-code)
-        # This fixes the bug where native agents received fallback copy
-        self._cleanup_native_agents_skills()
-
         console.print()
         return results
 
     def _configure_agent(self, agent: BaseAgent) -> dict:
         """Configure a single agent to use global skills.
 
+        Priority:
+        1. Native support (pi.dev, qwen-code) - reads from ~/.agents/skills/
+        2. Config support (opencode) - update config file (PREFERRED)
+        3. Symlink support (claude-code, gemini-cli) - create symlink (FALLBACK)
+        4. No fallback copy - skills must be in ~/.agents/skills/
+
         Returns:
             dict with success, method, message
         """
-        # Try symlink first
+        # First, clean up any local skills (centralized approach)
+        self._cleanup_agent_local_skills(agent)
+
+        # 1. Native support (already uses ~/.agents/skills/)
+        if agent.supports_native():
+            return {
+                "success": True,
+                "method": "native",
+                "message": f"Reads from {self.global_skills_dir} (native support)",
+            }
+
+        # 2. Config support (preferred method - explicit, robust, cross-platform)
+        if agent.supports_config():
+            try:
+                self._update_config(agent)
+                return {
+                    "success": True,
+                    "method": "config",
+                    "message": "Updated config to include global skills",
+                }
+            except Exception as e:
+                # Config failed, log but continue to symlink fallback
+                console.print(
+                    f"  [dim]Config update failed for {agent.name}: {e}, trying symlink...[/dim]"
+                )
+
+        # 3. Symlink support (universal fallback - works for any agent)
         if agent.supports_symlink():
             try:
                 self._create_symlink(agent)
@@ -412,51 +440,54 @@ class SkillsManager:
                         "message": f"Created symlink {target_dir.name}/_global",
                     }
                 else:
-                    # Symlink creation failed, fall through to other methods
-                    pass
-            except Exception as e:
-                # Symlink failed, will try other methods
-                console.print(f"  [dim]Symlink failed for {agent.name}: {e}[/dim]")
-
-        # Try config update
-        elif agent.supports_config():
-            try:
-                self._update_config(agent)
-                return {
-                    "success": True,
-                    "method": "config",
-                    "message": "Updated config to include global skills",
-                }
+                    return {
+                        "success": False,
+                        "method": "symlink",
+                        "message": "Symlink creation failed (unknown error)",
+                    }
             except Exception as e:
                 return {
                     "success": False,
-                    "method": "config",
-                    "message": f"Config update failed: {e}",
+                    "method": "symlink",
+                    "message": f"Symlink failed: {e}",
                 }
 
-        # Native support (already uses ~/.agents/skills/)
-        elif agent.supports_native():
-            return {
-                "success": True,
-                "method": "native",
-                "message": f"Already uses {self.global_skills_dir} (no change needed)",
-            }
+        # 4. No supported method
+        return {
+            "success": False,
+            "method": "none",
+            "message": "No supported configuration method (needs manual setup)",
+        }
 
-        # Fallback: copy skills
-        else:
-            try:
-                self._copy_skills(agent)
-                return {
-                    "success": True,
-                    "method": "fallback",
-                    "message": "Using fallback (skills copied to agent path)",
-                }
-            except Exception as e:
-                return {
-                    "success": False,
-                    "method": "fallback",
-                    "message": f"Fallback failed: {e}",
-                }
+    def _cleanup_agent_local_skills(self, agent: BaseAgent) -> int:
+        """Remove all local skills from agent directory (centralized approach).
+
+        After centralize(), all skills live in ~/.agents/skills/.
+        Agent directories should only have symlinks or config pointing to it.
+
+        Returns:
+            Number of skills removed
+        """
+        if not agent.skills_path.exists():
+            return 0
+
+        removed_count = 0
+
+        for item in agent.skills_path.iterdir():
+            # Skip symlinks (like _global in claude-code)
+            if item.is_symlink():
+                continue
+
+            # Remove skill directories
+            if item.is_dir() and (item / "SKILL.md").exists():
+                shutil.rmtree(item)
+                removed_count += 1
+            # Remove skill files
+            elif item.is_file() and item.suffix in [".md", ".py", ".sh"]:
+                item.unlink()
+                removed_count += 1
+
+        return removed_count
 
     def _create_symlink(self, agent: BaseAgent) -> None:
         """Create symlink from agent path to global skills."""
@@ -493,78 +524,6 @@ class SkillsManager:
             config["skills"]["paths"].append(global_path)
 
         agent.save_config(config)
-
-    def _copy_skills(self, agent: BaseAgent) -> None:
-        """Copy skills from global to agent path (fallback)."""
-        import hashlib
-
-        if not self.global_skills_dir.exists():
-            return
-
-        agent.skills_path.mkdir(parents=True, exist_ok=True)
-
-        for skill_item in self.global_skills_dir.iterdir():
-            dest = agent.skills_path / skill_item.name
-
-            if not dest.exists():
-                # Copy if doesn't exist
-                if skill_item.is_dir():
-                    shutil.copytree(skill_item, dest)
-                else:
-                    shutil.copy2(skill_item, dest)
-            else:
-                # Check if different (idempotent)
-                if skill_item.is_file() and dest.is_file():
-                    src_hash = hashlib.md5(skill_item.read_bytes()).hexdigest()
-                    dest_hash = hashlib.md5(dest.read_bytes()).hexdigest()
-
-                    if src_hash != dest_hash:
-                        # Files differ, skip to avoid overwriting local changes
-                        console.print(
-                            f"  [yellow]⚠ {skill_item.name} differs in {agent.name}, skipping[/yellow]"
-                        )
-
-    def _cleanup_native_agents_skills(self) -> None:
-        """Remove skills copied to native agents (pi.dev, qwen-code).
-
-        Native agents already read from ~/.agents/skills/, so they don't need
-        local copies. This cleanup fixes the bug where native agents received
-        fallback copy before the supports_native() check was added.
-        """
-        for agent_name in ["pi.dev", "qwen-code"]:
-            agent = next((a for a in get_all_agents() if a.name == agent_name), None)
-            if not agent or not agent.supports_native():
-                continue
-
-            if not agent.skills_path.exists():
-                continue
-
-            console.print(
-                f"\n[bold]Cleaning up {agent_name} (native - no local copy needed)...[/bold]\n"
-            )
-
-            removed_count = 0
-            for item in agent.skills_path.iterdir():
-                if item.is_symlink():
-                    continue  # Skip symlinks (like _global in claude-code)
-
-                if item.is_dir() and (item / "SKILL.md").exists():
-                    # This is a skill directory, remove it
-                    shutil.rmtree(item)
-                    removed_count += 1
-                    console.print(f"  [green]✓[/green] Removed {item.name}")
-                elif item.is_file() and item.suffix in [".md", ".py", ".sh"]:
-                    # This is a skill file, remove it
-                    item.unlink()
-                    removed_count += 1
-                    console.print(f"  [green]✓[/green] Removed {item.name}")
-
-            if removed_count > 0:
-                console.print(
-                    f"\n[green]✓ Removed {removed_count} skills from {agent_name} (now uses ~/.agents/skills/)[/green]"
-                )
-            else:
-                console.print(f"  [dim]No skills to remove[/dim]")
 
     def get_summary(self) -> dict:
         """Get summary of skills configuration."""
