@@ -131,6 +131,8 @@ agent-sync skills centralize          # Centralize from agents
 agent-sync skills centralize --copy   # Copy instead of move
 agent-sync skills centralize --push   # Centralize + push
 agent-sync skills centralize --distribute  # Centralize + copy to all agents (backup/testing)
+agent-sync skills publish             # Publish skills to public GitHub (interactive)
+agent-sync skills publish --dry-run   # Preview before publishing
 
 # Configuration
 agent-sync config show    # View current config
@@ -255,6 +257,22 @@ Options:
   --no-wizard           Skip interactive wizard
   --force               Force initialization even if already configured
   --help                Show this message and exit.
+```
+
+### `agent-sync skills publish --help`
+
+```
+$ agent-sync skills publish --help
+
+Usage: agent-sync skills publish [OPTIONS]
+
+  Publish selected skills to a public GitHub repository.
+
+Options:
+  --repo TEXT        GitHub repository URL for publishing skills
+  --dry-run          Show what would be published without actually publishing
+  -i, --interactive  Interactive TUI to select which skills to publish
+  --help             Show this message and exit.
 ```
 
 ---
