@@ -478,7 +478,17 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                 # Get config file patterns for this agent
                 patterns = self.CONFIG_PATTERNS.get(agent.name, ["*.json"])
 
-                # Find all matching config files
+                # 1. Remove config files from repo that no longer exist locally
+                if agent_config_dir.exists():
+                    for pattern in patterns:
+                        for repo_config in agent_config_dir.glob(pattern):
+                            if repo_config.is_file():
+                                # Check if this file still exists locally
+                                local_file = agent.config_path.parent / repo_config.name
+                                if not local_file.exists():
+                                    repo_config.unlink()
+
+                # 2. Copy current config files to repo
                 for pattern in patterns:
                     for config_file in agent.config_path.parent.glob(pattern):
                         if config_file.is_file():
