@@ -207,7 +207,3 @@ Inspired by [opencode-synced](https://github.com/iHildy/opencode-synced), expand
 
 - **Issues:** [GitHub Issues](https://github.com/renatocaliari/agent-sync/issues)
 - **Discussions:** [GitHub Discussions](https://github.com/renatocaliari/agent-sync/discussions)
-
----
-
-**Full Source:** [v0.2.0 on GitHub](https://github.com/renatocaliari/agent-sync/tree/v0.2.0)
