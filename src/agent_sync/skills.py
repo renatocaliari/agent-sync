@@ -334,25 +334,29 @@ class SkillsManager:
     
     def configure_agents(self) -> dict[str, dict]:
         """Configure all agents to use global skills.
-        
+
         Returns:
             dict mapping agent name to configuration result
         """
         results = {}
-        
+
         console.print("\n[bold]Configuring agents to use global skills...[/bold]\n")
-        
+
         for agent in get_all_agents():
             if agent.name == "global-skills":
                 continue
-            
+
             result = self._configure_agent(agent)
             results[agent.name] = result
-            
+
             status_icon = "✓" if result["success"] else "⚠"
             status_color = "green" if result["success"] else "yellow"
             console.print(f"  [{status_color}]{status_icon}[/{status_color}] {agent.name}: {result['message']}")
-        
+
+        # Clean up skills copied to native agents (pi.dev, qwen-code)
+        # This fixes the bug where native agents received fallback copy
+        self._cleanup_native_agents_skills()
+
         console.print()
         return results
     
@@ -393,7 +397,15 @@ class SkillsManager:
                     "method": "config",
                     "message": f"Config update failed: {e}",
                 }
-        
+
+        # Native support (already uses ~/.agents/skills/)
+        elif agent.supports_native():
+            return {
+                "success": True,
+                "method": "native",
+                "message": f"Already uses {self.global_skills_dir} (no change needed)",
+            }
+
         # Fallback: copy skills
         else:
             try:
@@ -473,7 +485,45 @@ class SkillsManager:
                     if src_hash != dest_hash:
                         # Files differ, skip to avoid overwriting local changes
                         console.print(f"  [yellow]⚠ {skill_item.name} differs in {agent.name}, skipping[/yellow]")
-    
+
+    def _cleanup_native_agents_skills(self) -> None:
+        """Remove skills copied to native agents (pi.dev, qwen-code).
+        
+        Native agents already read from ~/.agents/skills/, so they don't need
+        local copies. This cleanup fixes the bug where native agents received
+        fallback copy before the supports_native() check was added.
+        """
+        for agent_name in ["pi.dev", "qwen-code"]:
+            agent = next((a for a in get_all_agents() if a.name == agent_name), None)
+            if not agent or not agent.supports_native():
+                continue
+            
+            if not agent.skills_path.exists():
+                continue
+            
+            console.print(f"\n[bold]Cleaning up {agent_name} (native - no local copy needed)...[/bold]\n")
+            
+            removed_count = 0
+            for item in agent.skills_path.iterdir():
+                if item.is_symlink():
+                    continue  # Skip symlinks (like _global in claude-code)
+                
+                if item.is_dir() and (item / "SKILL.md").exists():
+                    # This is a skill directory, remove it
+                    shutil.rmtree(item)
+                    removed_count += 1
+                    console.print(f"  [green]✓[/green] Removed {item.name}")
+                elif item.is_file() and item.suffix in [".md", ".py", ".sh"]:
+                    # This is a skill file, remove it
+                    item.unlink()
+                    removed_count += 1
+                    console.print(f"  [green]✓[/green] Removed {item.name}")
+            
+            if removed_count > 0:
+                console.print(f"\n[green]✓ Removed {removed_count} skills from {agent_name} (now uses ~/.agents/skills/)[/green]")
+            else:
+                console.print(f"  [dim]No skills to remove[/dim]")
+
     def get_summary(self) -> dict:
         """Get summary of skills configuration."""
         return {
