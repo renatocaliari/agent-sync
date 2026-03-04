@@ -4,25 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [0.5.0] - 2026-03-04
+## [0.5.1] - 2026-03-04
 
-### Added
-- `agent-sync skills publish` - Publish skills to public GitHub repository
-  - Interactive TUI to select skills
-  - Dry-run mode (`--dry-run`)
-  - Separate config (`~/.config/agent-sync/publish.yaml`)
-  - Auto-creates public GitHub repo
-  - Generates README with install instructions
+### Fixed
+- Create repo directory before use (critical error on `init`)
+- Filter `.DS_Store` and hidden files in skill scan
+- Fix step numbering in wizard (Step 6 was duplicated)
+- `get_summary()` counting all files instead of valid skills
 
-### Security
-- Only SKILL.md files published (no configs, no API keys)
-- Explicit confirmation required (default: NO)
-- Warns if repo is private
-- Auto .gitignore blocks configs/secrets
+### Changed
+- Add symlink support for Gemini CLI (was using fallback copy)
+- Verify symlink creation before returning success
+- Fall through to other methods if symlink fails
 
 ---
 
-## [0.4.0] - 2026-03-04
+## [0.5.0] - 2026-03-04
 
 ### Added
 - `agent-sync config repo` - View/set repository without wizard
