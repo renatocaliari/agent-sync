@@ -96,7 +96,38 @@ def show_pending_update_notification():
         pass  # Silently fail
 
 
-@click.group()
+class ExtendedHelpGroup(click.Group):
+    """Custom Click group to show subcommand options in the main help."""
+    
+    def format_commands(self, ctx, formatter):
+        commands = []
+        for subcommand in self.list_commands(ctx):
+            cmd = self.get_command(ctx, subcommand)
+            if cmd is None or cmd.hidden:
+                continue
+            
+            help_text = cmd.get_short_help_str()
+            
+            # Extract options
+            opts = []
+            for param in cmd.params:
+                if isinstance(param, click.Option):
+                    # Get the primary option name (e.g., --force)
+                    opt_name = param.opts[0]
+                    opts.append(opt_name)
+            
+            if opts:
+                # Add options summary to the help text
+                help_text += f" [{', '.join(opts)}]"
+            
+            commands.append((subcommand, help_text))
+
+        if commands:
+            with formatter.section("Commands"):
+                formatter.write_dl(commands)
+
+
+@click.group(cls=ExtendedHelpGroup)
 @click.version_option(version=__version__, prog_name="agent-sync")
 def main():
     """
@@ -230,7 +261,7 @@ def setup():
         console.print("\n[yellow]Setup cancelled[/yellow]")
 
 
-@main.group()
+@main.group(cls=ExtendedHelpGroup)
 def config():
     """Manage configuration (view, edit, reset)."""
     pass
@@ -374,7 +405,7 @@ def reset():
     console.print("\n💡 Run 'agent-sync setup' to reconfigure\n")
 
 
-@main.group()
+@main.group(cls=ExtendedHelpGroup)
 def skills():
     """Manage global skills."""
     pass
@@ -718,7 +749,7 @@ def status():
         raise click.Abort()
 
 
-@main.group()
+@main.group(cls=ExtendedHelpGroup)
 def secrets():
     """Manage secrets and environment variables.
     
