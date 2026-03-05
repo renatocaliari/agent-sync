@@ -97,7 +97,7 @@ def show_pending_update_notification():
 
 
 class ExtendedHelpGroup(click.Group):
-    """Custom Click group to show subcommand options in the main help."""
+    """Custom Click group to show subcommand options and sub-subcommands in the main help."""
     
     def format_commands(self, ctx, formatter):
         commands = []
@@ -108,17 +108,24 @@ class ExtendedHelpGroup(click.Group):
             
             help_text = cmd.get_short_help_str()
             
-            # Extract options
-            opts = []
-            for param in cmd.params:
-                if isinstance(param, click.Option):
-                    # Get the primary option name (e.g., --force)
-                    opt_name = param.opts[0]
-                    opts.append(opt_name)
-            
-            if opts:
-                # Add options summary to the help text
-                help_text += f" [{', '.join(opts)}]"
+            if isinstance(cmd, click.Group):
+                # For groups, list their subcommands and their options
+                sub_items = []
+                for sub_sub_name in cmd.list_commands(ctx):
+                    sub_sub_cmd = cmd.get_command(ctx, sub_sub_name)
+                    if sub_sub_cmd:
+                        sub_opts = [p.opts[0] for p in sub_sub_cmd.params if isinstance(p, click.Option)]
+                        if sub_opts:
+                            sub_items.append(f"{sub_sub_name} [{', '.join(sub_opts)}]")
+                        else:
+                            sub_items.append(sub_sub_name)
+                if sub_items:
+                    help_text += f" ({', '.join(sub_items)})"
+            else:
+                # For regular commands, just list their options
+                opts = [p.opts[0] for p in cmd.params if isinstance(p, click.Option)]
+                if opts:
+                    help_text += f" [{', '.join(opts)}]"
             
             commands.append((subcommand, help_text))
 
