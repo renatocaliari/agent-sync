@@ -83,7 +83,7 @@ def interactive_selection(skills: list, initial_selected: set) -> set:
         console.print("\n[bold]Controls:[/bold]")
         console.print("  • Enter numbers to toggle (e.g. [green]'1,3,5'[/green])")
         console.print("  • Type [cyan]'all'[/cyan] or [cyan]'none'[/cyan]")
-        console.print("  • Press [bold white]Enter[/bold] when done")
+        console.print("  • Press [bold white]Enter[/] when done")
         
         choice = Prompt.ask("\nSelection", default="done")
         
