@@ -36,7 +36,7 @@ class SetupWizard:
         
         console.print()
         console.print(Panel.fit(
-            f"🔄 [bold]Agent Sync v{__version__}[/bold] - Setup Wizard\n\n"
+            f"🔄 [bold]Agent Sync v{__version__}[/] - Setup Wizard\n\n"
             "This wizard will help you configure agent-sync.\n"
             "Global skills (~/.agents/skills/) are always enabled.",
             border_style="blue",
@@ -67,7 +67,7 @@ class SetupWizard:
     def _step_detect_agents(self) -> None:
         """Step 1: Detect installed agents."""
         console.print(Panel.fit(
-            "[bold]Step 1: Detecting Installed Agents[/bold]",
+            "[bold]Step 1: Detecting Installed Agents[/]",
             border_style="green",
         ))
         console.print()
@@ -117,7 +117,7 @@ class SetupWizard:
     def _step_select_agents(self) -> None:
         """Step 2: Select agents to sync."""
         console.print(Panel.fit(
-            "[bold]Step 2: Select Agents to Sync[/bold]\n\n"
+            "[bold]Step 2: Select Agents to Sync[/]\n\n"
             "Choose which agents you want to synchronize.",
             border_style="green",
         ))
@@ -178,7 +178,7 @@ class SetupWizard:
         Only asks individually if user declines.
         """
         console.print(Panel.fit(
-            "[bold]Step 4: Configure Sync Options[/bold]\n\n"
+            "[bold]Step 4: Configure Sync Options[/]\n\n"
             "Choose what to sync for each agent.\n"
             "[dim]Note: Skills are already synced to ~/.agents/skills/ (Step 3)[/dim]",
             border_style="green",
@@ -187,7 +187,7 @@ class SetupWizard:
 
         # First question: sync configs from ALL agents?
         sync_all_configs = Confirm.ask(
-            "[bold]Sync configuration files from ALL selected agents?[/bold]\n"
+            "[bold]Sync configuration files from ALL selected agents?[/]\n"
             "  [dim](e.g., settings.json, opencode.jsonc)[/dim]",
             default=True,  # Default: YES, sync all
         )
@@ -237,7 +237,7 @@ class SetupWizard:
                 console.print()
 
         # Show summary
-        console.print("[bold]Summary:[/bold]\n")
+        console.print("[bold]Summary:[/]\n")
         for agent_name in self.selected_agents:
             if agent_name == "global-skills":
                 continue
@@ -254,7 +254,7 @@ class SetupWizard:
     def _step_centralize_skills(self) -> None:
         """Step 3: Centralize skills to ~/.agents/skills/ (single question)."""
         console.print(Panel.fit(
-            "[bold]Step 3: Centralizing Skills[/bold]\n\n"
+            "[bold]Step 3: Centralizing Skills[/]\n\n"
             "Scanning for existing skills in all agents...\n"
             "All skills will be centralized to ~/.agents/skills/",
             border_style="green",
@@ -294,7 +294,7 @@ class SetupWizard:
     def _step_auto_configure_agents(self) -> None:
         """Step 5: Configure agents to use global skills (automatic)."""
         console.print(Panel.fit(
-            "[bold]Step 5: Configuring Agents[/bold]\n\n"
+            "[bold]Step 5: Configuring Agents[/]\n\n"
             "Automatically configuring agents to use global skills...",
             border_style="green",
         ))
@@ -308,7 +308,7 @@ class SetupWizard:
     def _step_repo_settings(self) -> None:
         """Step 6: Repository settings."""
         console.print(Panel.fit(
-            "[bold]Step 6: Repository Settings[/bold]\n\n"
+            "[bold]Step 6: Repository Settings[/]\n\n"
             "[yellow]⚠ SECURITY: Use PRIVATE repository for configs![/yellow]\n\n"
             "Your configs may contain sensitive information.\n"
             "Private repositories are FREE on GitHub.",
@@ -339,7 +339,7 @@ class SetupWizard:
     def _step_review(self) -> bool:
         """Step 7: Review configuration and show summary."""
         console.print(Panel.fit(
-            "[bold]Step 7: Summary[/bold]",
+            "[bold]Step 7: Summary[/]",
             border_style="blue",
         ))
         console.print()
@@ -349,7 +349,7 @@ class SetupWizard:
         
         # Confirm
         confirmed = Confirm.ask(
-            "\n[bold]Proceed with this configuration?[/bold]",
+            "\n[bold]Proceed with this configuration?[/]",
             default=True,
         )
         
@@ -384,7 +384,7 @@ class SetupWizard:
         console.print()
         
         # Per-agent summary
-        console.print("[bold]Per-Agent Summary:[/bold]\n")
+        console.print("[bold]Per-Agent Summary:[/]\n")
         
         for agent_name in self.selected_agents:
             if agent_name == "global-skills":
@@ -441,7 +441,7 @@ class SetupWizard:
         
         # Next steps
         console.print(Panel(
-            "[bold]Next Steps:[/bold]\n\n"
+            "[bold]Next Steps:[/]\n\n"
             "  1. [green]agent-sync config show[/green]   - Review configuration\n"
             "  2. [green]agent-sync push[/green]          - Push to GitHub\n"
             "  3. [green]agent-sync link <url>[/green]    - Link other machines",
@@ -451,7 +451,7 @@ class SetupWizard:
     
     def _save_configuration(self) -> None:
         """Save the configuration."""
-        console.print("\n[bold]Saving configuration...[/bold]\n")
+        console.print("\n[bold]Saving configuration...[/]\n")
 
         # Save agent-specific configs
         for agent_name, config in self.agent_configs.items():

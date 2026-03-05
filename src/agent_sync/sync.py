@@ -138,7 +138,7 @@ class SyncManager:
                     raise RuntimeError("User cancelled due to public repository warning")
 
             # Clone existing repo
-            console.print(f"\n[bold]Linking to existing repository: {repo_name}[/bold]\n")
+            console.print(f"\n[bold]Linking to existing repository: {repo_name}[/]\n")
 
             if self.repo_dir.exists() and any(self.repo_dir.iterdir()):
                 # Directory has content, use existing
@@ -248,7 +248,7 @@ class SyncManager:
             if not self.config.repo_url:
                 raise RuntimeError("Not linked to a repository. Run 'agent-sync link <url>' or 'agent-sync config repo <url>' first")
             
-            console.print(f"\n[bold]📥 Cloning repository...[/bold]\n")
+            console.print(f"\n[bold]📥 Cloning repository...[/]\n")
             self.link_repo(self.config.repo_url)
 
         # Check for local changes

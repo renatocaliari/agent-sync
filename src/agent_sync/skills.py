@@ -191,13 +191,13 @@ class SkillsManager:
             self.global_skills_dir.mkdir(parents=True, exist_ok=True)
 
         # Sync from repo to global skills directory first
-        console.print("[bold]📥 Syncing skills from repo to ~/.agents/skills/...[/bold]\n")
+        console.print("[bold]📥 Syncing skills from repo to ~/.agents/skills/...[/]\n")
         repo_synced = self._sync_from_repo()
         if repo_synced > 0:
             console.print(f"  [green]✓ Synced {repo_synced} skills from repo[/green]\n")
 
         # Scan all agents
-        console.print("[bold]📚 Scanning for existing skills...[/bold]\n")
+        console.print("[bold]📚 Scanning for existing skills...[/]\n")
         skills_found = self.scan_all_agents()
 
         if not skills_found:
@@ -227,7 +227,7 @@ class SkillsManager:
 
         # Move/copy skills to global directory
         action = "Moving" if move else "Copying"
-        console.print(f"[bold]{action} skills to ~/.agents/skills/...[/bold]\n")
+        console.print(f"[bold]{action} skills to ~/.agents/skills/...[/]\n")
 
         for agent_name, skill_paths in skills_found.items():
             for skill_path in skill_paths:
@@ -280,7 +280,7 @@ class SkillsManager:
         console.print()
 
         # Clean up user-created symlinks from agent directories
-        console.print("[bold]🧹 Cleaning up user symlinks...[/bold]\n")
+        console.print("[bold]🧹 Cleaning up user symlinks...[/]\n")
         stats["symlinks_removed"] = self._cleanup_user_symlinks()
 
         if stats["symlinks_removed"] > 0:
@@ -289,11 +289,11 @@ class SkillsManager:
             console.print("  [green]✓[/green] No user symlinks found\n")
 
         # Configure all agents to use global skills (cleans up native agent duplicates)
-        console.print("[bold]⚙️  Configuring agents to use global skills...[/bold]\n")
+        console.print("[bold]⚙️  Configuring agents to use global skills...[/]\n")
         self.configure_agents()
 
         # Show summary
-        console.print("[bold]📊 Summary:[/bold]\n")
+        console.print("[bold]📊 Summary:[/]\n")
         if move:
             console.print(f"  [green]✓ Moved {stats['moved']} skills[/green] to ~/.agents/skills/")
         else:
@@ -342,7 +342,7 @@ class SkillsManager:
         """Configure all agents to use global skills."""
         results = {}
 
-        console.print("\n[bold]Configuring agents to use global skills...[/bold]\n")
+        console.print("\n[bold]Configuring agents to use global skills...[/]\n")
 
         for agent in get_all_agents():
             if agent.name == "global-skills":

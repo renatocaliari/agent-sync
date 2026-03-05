@@ -80,7 +80,7 @@ def interactive_selection(skills: list, initial_selected: set) -> set:
         table = render_selection_table(skills, selected)
         console.print(table)
         
-        console.print("\n[bold]Controls:[/bold]")
+        console.print("\n[bold]Controls:[/]")
         console.print("  • Enter numbers to toggle (e.g. [green]'1,3,5'[/green])")
         console.print("  • Type [cyan]'all'[/cyan] or [cyan]'none'[/cyan]")
         console.print("  • Press [bold white]Enter[/] when done")
@@ -146,10 +146,10 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
             console.print(summary_table)
 
             # 2. INTUITIVE MENU (Numbered/Shortcut)
-            console.print("\n[bold]What would you like to do?[/bold]")
-            console.print("  [bold green]1[/bold]. Use this selection [dim](u)[/dim]")
-            console.print("  [bold cyan]2[/bold]. Edit selection [dim](e)[/dim]")
-            console.print("  [bold magenta]3[/bold]. Select ALL available [dim](a)[/dim]")
+            console.print("\n[bold]What would you like to do?[/]")
+            console.print("  [bold green]1[/]. Use this selection [dim](u)[/dim]")
+            console.print("  [bold cyan]2[/]. Edit selection [dim](e)[/dim]")
+            console.print("  [bold magenta]3[/]. Select ALL available [dim](a)[/dim]")
             
             choice = Prompt.ask("\nChoice", choices=["1", "2", "3", "u", "e", "a"], default="1")
             
@@ -162,9 +162,9 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
                 # This will fall through to the selection loop below
         else:
             # No saved config, ask if publish all or select
-            console.print("\n[bold]Publishing Mode[/bold]")
-            console.print("  [bold green]1[/bold]. Publish ALL available [dim](a)[/dim]")
-            console.print("  [bold cyan]2[/bold]. Select specific skills [dim](s)[/dim]")
+            console.print("\n[bold]Publishing Mode[/]")
+            console.print("  [bold green]1[/]. Publish ALL available [dim](a)[/dim]")
+            console.print("  [bold cyan]2[/]. Select specific skills [dim](s)[/dim]")
             
             mode = Prompt.ask("\nChoice", choices=["1", "2", "a", "s"], default="1")
             if mode in ["1", "a"]:
@@ -190,7 +190,7 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
                     summary_table.add_row(name)
                 console.print(summary_table)
                 
-                if Confirm.ask("\n[bold]Confirm this selection?[/bold]", default=True):
+                if Confirm.ask("\n[bold]Confirm this selection?[/]", default=True):
                     # Save selection to config
                     config.published_skills = list(selected_names)
                     break
@@ -208,7 +208,7 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
     # 4. Security & Repo Logic (Existing flow)
     console.print(Panel(
         "[bold yellow]⚠️  SECURITY WARNING[/bold yellow]\n\n"
-        "You are about to publish skills to a [bold]PUBLIC[/bold] repository.\n\n"
+        "You are about to publish skills to a [bold]PUBLIC[/] repository.\n\n"
         "What WILL be published:\n"
         "  ✓ SKILL.md files (skill definitions)\n"
         "  ✓ .md, .py, .sh files (skill scripts)\n"
@@ -230,7 +230,7 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
     
     repo_url = repo_url or publish_config.get("repo_url")
     if not repo_url:
-        repo_url = Prompt.ask("\n[bold]Enter GitHub repository URL for publishing[/bold]")
+        repo_url = Prompt.ask("\n[bold]Enter GitHub repository URL for publishing[/]")
         if not repo_url or not repo_url.startswith("https://github.com/"):
             console.print("\n[red]✗ Invalid repository URL[/red]\n")
             return False
@@ -273,7 +273,7 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
         (tmp_path / "README.md").write_text(generate_readme(selected_skills, repo_url))
         (tmp_path / ".gitignore").write_text("*.json\n*.yaml\n*.yml\n.env\n*auth*\n*token*\n*key*\n*secret*\n*credentials*\n")
         
-        console.print(f"\n[bold]📤 Publishing {len(selected_skills)} skills...[/bold]")
+        console.print(f"\n[bold]📤 Publishing {len(selected_skills)} skills...[/]")
         
         try:
             # Ensure repo exists
@@ -287,7 +287,7 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
             subprocess.run(["git", "push", "-u", "origin", "main", "--force"], cwd=tmp_path, capture_output=True, check=True)
             
             console.print(f"\n[green]✓ Successfully published to {repo_url}![/green]")
-            console.print(f"💡 Others can install with: [bold]npx skills add {repo_name}[/bold]\n")
+            console.print(f"💡 Others can install with: [bold]npx skills add {repo_name}[/]\n")
             return True
         except Exception as e:
             console.print(f"\n[red]✗ Failed to publish: {e}[/red]\n")
