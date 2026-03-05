@@ -818,80 +818,101 @@ def update():
     import subprocess
     from rich.prompt import Confirm
     from rich.panel import Panel
-    
+    from packaging import version
+
     console.print("[bold]🔍 Checking for updates...[/]\n")
-    
+
     current = __version__
-    
+
     try:
         # Try with GITHUB_TOKEN if available (for private repos)
         headers = {}
         token = os.environ.get("GITHUB_TOKEN")
         if token:
             headers["Authorization"] = f"token {token}"
-        
+
         response = requests.get(
             "https://api.github.com/repos/renatocaliari/agent-sync/releases/latest",
             headers=headers,
             timeout=5,
         )
-        
+
         if response.status_code == 404:
             console.print(f"[dim]Current version: v{current}[/dim]")
             console.print("[yellow]⚠ No official releases found on GitHub[/yellow]\n")
             return
-        
+
         response.raise_for_status()
         latest_data = response.json()
         latest = latest_data["tag_name"].lstrip("v")
-        
-        if latest > current:
-            console.print(f"✨ [green]Update available:[/green] [bold]v{latest}[/] (Current: v{current})")
+
+        # Use proper version comparison (handles dev versions correctly)
+        try:
+            current_ver = version.parse(current)
+            latest_ver = version.parse(latest)
             
-            if Confirm.ask("\nDo you want to update now?", default=True):
-                console.print("\n🚀 [bold]Updating agent-sync...[/]")
-                
-                # Execution logic with captured output for better UX
-                def run_upgrade(cmd_list):
-                    return subprocess.run(cmd_list, capture_output=True, text=True)
+            # Skip update check if current is a dev version
+            if current_ver.is_devrelease:
+                console.print(f"[dim]Current version: v{current} (development)[/dim]")
+                console.print("[yellow]⚠ You are running a development version.[/yellow]")
+                console.print("Update manually with: [cyan]pipx upgrade agent-sync[/cyan]\n")
+                return
+            
+            if latest_ver > current_ver:
+                console.print(f"✨ [green]Update available:[/green] [bold]v{latest}[/] (Current: v{current})")
+            else:
+                console.print(f"✓ [green]Up to date:[/green] [bold]v{current}[/]\n")
+                return
+        except Exception:
+            # Fallback to string comparison if packaging fails
+            if latest > current:
+                console.print(f"✨ [green]Update available:[/green] [bold]v{latest}[/] (Current: v{current})")
+            else:
+                console.print(f"✓ [green]Up to date:[/green] [bold]v{current}[/]\n")
+                return
 
-                # 1. Try PIPX
-                res = run_upgrade(["pipx", "upgrade", "agent-sync"])
-                if res.returncode == 0:
-                    console.print("\n[bold green]✅ Updated successfully via pipx![/bold green]\n")
-                    return
+        if Confirm.ask("\nDo you want to update now?", default=True):
+            console.print("\n🚀 [bold]Updating agent-sync...[/]")
+            
+            # Execution logic with captured output for better UX
+            def run_upgrade(cmd_list):
+                return subprocess.run(cmd_list, capture_output=True, text=True)
 
-                # 2. Try PIP with safety flag
-                cmd_pip = ["python3", "-m", "pip", "install", "--upgrade", "git+https://github.com/renatocaliari/agent-sync.git", "--break-system-packages"]
-                res = run_upgrade(cmd_pip)
-                if res.returncode == 0:
-                    console.print("\n[bold green]✅ Updated successfully via pip![/bold green]\n")
-                    return
+            # 1. Try PIPX
+            res = run_upgrade(["pipx", "upgrade", "agent-sync"])
+            if res.returncode == 0:
+                console.print("\n[bold green]✅ Updated successfully via pipx![/bold green]\n")
+                return
 
-                # 3. If all fails, show a beautiful help panel
-                error_msg = res.stderr or res.stdout
-                is_managed = "externally-managed-environment" in error_msg
-                
-                instruction = ""
-                if is_managed:
-                    instruction = (
-                        "[yellow]Your Python environment is managed by the OS (macOS/Linux).[/yellow]\n\n"
-                        "[bold]Please run one of these commands manually:[/]\n\n"
-                        "  [cyan]pipx upgrade agent-sync[/cyan] (Recommended)\n"
-                        "  [cyan]python3 -m pip install --upgrade git+https://github.com/renatocaliari/agent-sync.git --break-system-packages[/cyan]"
-                    )
-                else:
-                    instruction = (
-                        f"[red]Update failed with error:[/red] {error_msg[:100]}...\n\n"
-                        "[bold]Try manual update:[/]\n"
-                        "  [cyan]pipx upgrade agent-sync[/cyan]"
-                    )
+            # 2. Try PIP with safety flag
+            cmd_pip = ["python3", "-m", "pip", "install", "--upgrade", "git+https://github.com/renatocaliari/agent-sync.git", "--break-system-packages"]
+            res = run_upgrade(cmd_pip)
+            if res.returncode == 0:
+                console.print("\n[bold green]✅ Updated successfully via pip![/bold green]\n")
+                return
 
-                console.print("\n")
-                console.print(Panel(instruction, title="[bold red]Update Required[/bold red]", expand=False))
-                console.print("\n")
-        else:
-            console.print(f"✓ [green]Up to date:[/green] [bold]v{current}[/]\n")
+            # 3. If all fails, show a beautiful help panel
+            error_msg = res.stderr or res.stdout
+            is_managed = "externally-managed-environment" in error_msg
+
+            instruction = ""
+            if is_managed:
+                instruction = (
+                    "[yellow]Your Python environment is managed by the OS (macOS/Linux).[/yellow]\n\n"
+                    "[bold]Please run one of these commands manually:[/]\n\n"
+                    "  [cyan]pipx upgrade agent-sync[/cyan] (Recommended)\n"
+                    "  [cyan]python3 -m pip install --upgrade git+https://github.com/renatocaliari/agent-sync.git --break-system-packages[/cyan]"
+                )
+            else:
+                instruction = (
+                    f"[red]Update failed with error:[/red] {error_msg[:100]}...\n\n"
+                    "[bold]Try manual update:[/]\n"
+                    "  [cyan]pipx upgrade agent-sync[/cyan]"
+                )
+
+            console.print("\n")
+            console.print(Panel(instruction, title="[bold red]Update Required[/bold red]", expand=False))
+            console.print("\n")
             
     except Exception as e:
         console.print(f"[dim]Current version: v{current}[/dim]")
