@@ -22,19 +22,19 @@
 
 | Agent | Config Files | Skills Path | Method |
 |-------|-------------|-------------|--------|
-| **opencode** | `opencode.json` | `~/.config/opencode/skills/` | Config |
-| **pi.dev** | `settings.json`, `models.json` | `~/.pi/agent/skills/` | Native |
 | **claude-code** | `settings.json` | `~/.claude/commands/` | Copy |
 | **gemini-cli** | `settings.json` | `~/.gemini/tools/` | Copy |
+| **opencode** | `opencode.json` | `~/.config/opencode/skills/` | Config |
+| **pi.dev** | `settings.json`, `models.json` | `~/.pi/agent/skills/` | Native |
 | **qwen-code** | `settings.json` | `~/.qwen/skills/` | Copy |
 
 ### VS Code Extensions & IDEs
 
 | Agent | Config Files | Skills/Rules Path | Method |
 |-------|-------------|-------------------|--------|
-| **roocode** | `custom_modes.yaml` | `~/.roo/skills/`, `~/.agents/skills/` | Native |
 | **cline** | `state.json` | `~/.cline/skills/` | Copy |
 | **cursor** | `settings.json` | `~/.cursor/skills/` | Native |
+| **roocode** | `custom_modes.yaml` | `~/.roo/skills/`, `~/.agents/skills/` | Native |
 | **windsurf** | `config.json` | `~/.codeium/windsurf/skills/` | Copy |
 
 **Notes:**
