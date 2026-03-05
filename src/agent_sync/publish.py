@@ -246,7 +246,7 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
         console.print(f"\n[blue]🔍 DRY RUN: Would publish {len(selected_skills)} skills to {repo_url}[/blue]\n")
         return True
 
-    if not Confirm.ask("\n[bold red]Confirm publishing to GitHub?[/bold red]", default=False):
+    if not Confirm.ask("\n[bold red]Confirm publishing to GitHub?[/bold red]", default=True):
         console.print("\n[yellow]Publish cancelled[/yellow]\n")
         return False
 
@@ -285,6 +285,30 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
             return False
 
 
+def strip_frontmatter(content: str) -> str:
+    """Remove YAML frontmatter and excessive titles from markdown content."""
+    import re
+    
+    # 1. Remove YAML frontmatter (--- ... ---)
+    content = re.sub(r'^---\s*\n.*?\n---\s*\n', '', content, flags=re.DOTALL)
+    
+    # 2. Convert H1 titles to H4 or simple bold to avoid huge titles in main README
+    lines = content.split('\n')
+    cleaned_lines = []
+    
+    for line in lines:
+        # Change # Title to #### Title
+        if line.startswith('# '):
+            cleaned_lines.append('#### ' + line[2:])
+        # Change ## Title to #### Title
+        elif line.startswith('## '):
+            cleaned_lines.append('#### ' + line[3:])
+        else:
+            cleaned_lines.append(line)
+            
+    return '\n'.join(cleaned_lines).strip()
+
+
 def generate_readme(selected_skills: list, repo_url: str) -> str:
     """Generate README.md for the skills repository."""
     repo_name = repo_url.replace("https://github.com/", "").replace(".git", "")
@@ -308,10 +332,17 @@ npx skills add {repo_name}
         readme_content += f"### {skill['name']}\n\n"
         skill_md = skill["path"] / "SKILL.md"
         if skill_md.exists():
-            # Read first few lines of SKILL.md for description
             try:
-                content = skill_md.read_text()[:500]
-                readme_content += f"{content}...\n\n"
+                raw_content = skill_md.read_text()
+                # Take first 500 chars after stripping junk
+                clean_content = strip_frontmatter(raw_content)
+                
+                # Limit length but try to end at a paragraph/sentence
+                summary = clean_content[:500]
+                if len(clean_content) > 500:
+                    summary += "..."
+                
+                readme_content += f"{summary}\n\n"
             except Exception:
                 readme_content += f"Custom skill for AI agents.\n\n"
         else:
