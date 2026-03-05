@@ -30,8 +30,8 @@
 
 ### VS Code Extensions & IDEs
 
-| Agent | Config Files | Skills/Rules Path | Method |
-|-------|-------------|-------------------|--------|
+| Agent | Config Files | Skills Path | Method |
+|-------|-------------|-------------|--------|
 | **cline** | `state.json` | `~/.cline/skills/` | Copy |
 | **cursor** | `settings.json` | `~/.cursor/skills/` | Native |
 | **roocode** | `custom_modes.yaml` | `~/.roo/skills/`, `~/.agents/skills/` | Native |
