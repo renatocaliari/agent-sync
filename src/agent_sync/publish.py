@@ -295,23 +295,26 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
 
 
 def strip_frontmatter(content: str) -> str:
-    """Remove YAML frontmatter and excessive titles from markdown content."""
+    """Remove YAML frontmatter, tags, and excessive titles from markdown content."""
     import re
     
-    # 1. Remove YAML frontmatter (--- ... ---)
+    # 1. Remove YAML frontmatter (--- ... ---) including variations with different spacing
     content = re.sub(r'^---\s*\n.*?\n---\s*\n', '', content, flags=re.DOTALL)
     
-    # 2. Convert H1 titles to H4 or simple bold to avoid huge titles in main README
+    # 2. Specifically remove common frontmatter-like fields if they appear at the top
+    # (Sometimes LLMs or users might write them without the --- markers)
+    content = re.sub(r'^(name|description|tags|version|author):.*?\n', '', content, flags=re.MULTILINE | re.IGNORECASE)
+    
+    # 3. Convert titles to plain text or smaller headers to avoid huge titles
     lines = content.split('\n')
     cleaned_lines = []
     
     for line in lines:
-        # Change # Title to #### Title
-        if line.startswith('# '):
-            cleaned_lines.append('#### ' + line[2:])
-        # Change ## Title to #### Title
-        elif line.startswith('## '):
-            cleaned_lines.append('#### ' + line[3:])
+        # Strip leading # headers and keep text
+        if line.startswith('#'):
+            clean_line = line.lstrip('#').strip()
+            if clean_line:
+                cleaned_lines.append(f"**{clean_line}**")
         else:
             cleaned_lines.append(line)
             
@@ -322,7 +325,8 @@ def generate_readme(selected_skills: list, repo_url: str) -> str:
     """Generate README.md for the skills repository."""
     repo_name = repo_url.replace("https://github.com/", "").replace(".git", "")
     
-    readme_content = f"""# My Skills
+    # 1. Header & Installation
+    readme_content = f"""# My Agent Skills
 
 A collection of custom skills for AI agents.
 
@@ -334,30 +338,6 @@ Install these skills with:
 npx skills add {repo_name}
 ```
 
-## Skills
-
-"""
-    for skill in selected_skills:
-        readme_content += f"### {skill['name']}\n\n"
-        skill_md = skill["path"] / "SKILL.md"
-        if skill_md.exists():
-            try:
-                raw_content = skill_md.read_text()
-                # Take first 500 chars after stripping junk
-                clean_content = strip_frontmatter(raw_content)
-                
-                # Limit length but try to end at a paragraph/sentence
-                summary = clean_content[:500]
-                if len(clean_content) > 500:
-                    summary += "..."
-                
-                readme_content += f"{summary}\n\n"
-            except Exception:
-                readme_content += f"Custom skill for AI agents.\n\n"
-        else:
-            readme_content += f"Custom skill for AI agents.\n\n"
-    
-    readme_content += f"""
 ## About
 
 This repository contains custom skills created for use with [agent-sync](https://github.com/renatocaliari/agent-sync).
@@ -369,19 +349,29 @@ Skills are compatible with:
 - Pi.dev
 - Qwen Code
 
-## Security
+## Skills
 
-This repository contains ONLY skill files (SKILL.md, .md, .py, .sh).
-
-**NEVER contains:**
-- Configuration files (settings.json, config.yaml, etc.)
-- API keys or tokens
-- Authentication credentials
-- .env files
-
-## License
-
-Add your license here.
 """
+    # 2. Skills list (at the end)
+    for skill in selected_skills:
+        readme_content += f"### {skill['name']}\n\n"
+        skill_md = skill["path"] / "SKILL.md"
+        
+        if skill_md.exists():
+            try:
+                raw_content = skill_md.read_text()
+                # Take first 500 chars after stripping junk
+                clean_content = strip_frontmatter(raw_content)
+                
+                # Limit length
+                summary = clean_content[:500]
+                if len(clean_content) > 500:
+                    summary += "..."
+                
+                readme_content += f"{summary}\n\n---\n\n"
+            except Exception:
+                readme_content += f"Custom skill for AI agents.\n\n---\n\n"
+        else:
+            readme_content += f"Custom skill for AI agents.\n\n---\n\n"
     
     return readme_content
