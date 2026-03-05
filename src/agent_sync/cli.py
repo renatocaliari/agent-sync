@@ -88,7 +88,7 @@ def show_pending_update_notification():
     
     try:
         latest, timestamp = UPDATE_PENDING_FILE.read_text().split("|")
-        console.print(f"\n[dim]✨ Update available: v{latest} (pipx upgrade agent-sync)[/dim]\n")
+        console.print(f"\n[dim]✨ Update available: v{latest} (Run 'agent-sync update' to install)[/dim]\n")
         
         # Clear notification
         UPDATE_PENDING_FILE.unlink()
@@ -759,11 +759,13 @@ def secrets():
     pass
 
 
-@main.command("check-update")
-def check_update():
-    """Check for available updates."""
+@main.command()
+def update():
+    """Check for available updates and install them."""
     import requests
     import os
+    import subprocess
+    from rich.prompt import Confirm
     
     console.print("[bold]🔍 Checking for updates...[/bold]\n")
     
@@ -785,21 +787,35 @@ def check_update():
         # If 404, repo is private or no releases yet
         if response.status_code == 404:
             console.print(f"[dim]Current version: v{current}[/dim]")
-            console.print("[yellow]⚠ Repository is private or no releases yet[/yellow]\n")
-            console.print("[dim]Tip: Set GITHUB_TOKEN env var to check updates for private repos[/dim]\n")
+            console.print("[yellow]⚠ No official releases found on GitHub[/yellow]\n")
             return
         
         response.raise_for_status()
         
-        latest = response.json()["tag_name"].lstrip("v")
+        latest_data = response.json()
+        latest = latest_data["tag_name"].lstrip("v")
         
         if latest > current:
-            console.print(f"✨ [green]Update available:[/green] [bold]v{latest}[/bold]")
-            console.print(f"   Current: [yellow]v{current}[/yellow]\n")
-            console.print("   Run one of:\n")
-            console.print("     [green]pipx upgrade agent-sync[/green]")
-            console.print("     [green]pip install --upgrade agent-sync[/green]")
-            console.print("     [green]npx skills update renatocaliari/agent-sync -g[/green]\n")
+            console.print(f"✨ [green]Update available:[/green] [bold]v{latest}[/bold] (Current: v{current})")
+            
+            if Confirm.ask("\nDo you want to update now?", default=True):
+                console.print("\n🚀 [bold]Updating agent-sync...[/bold]")
+                
+                # Check if installed via pipx or pip
+                is_pipx = "pipx" in subprocess.check_output(["which", "agent-sync"]).decode()
+                
+                cmd = []
+                if is_pipx:
+                    cmd = ["pipx", "upgrade", "agent-sync"]
+                else:
+                    cmd = ["pip", "install", "--upgrade", "git+https://github.com/renatocaliari/agent-sync.git"]
+                
+                try:
+                    subprocess.run(cmd, check=True)
+                    console.print("\n[bold green]✅ agent-sync updated successfully![/bold green]")
+                except subprocess.CalledProcessError:
+                    console.print("\n[red]✗ Update failed.[/red] Please try manually:")
+                    console.print(f"   {' '.join(cmd)}")
         else:
             console.print(f"✓ [green]Up to date:[/green] [bold]v{current}[/bold]\n")
             

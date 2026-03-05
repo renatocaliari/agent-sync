@@ -47,7 +47,7 @@ agent-sync --version
 ### Check for Updates
 
 ```bash
-agent-sync check-update
+agent-sync update
 # or
 pipx upgrade git+https://github.com/renatocaliari/agent-sync.git
 ```
@@ -98,7 +98,7 @@ Options:
 
 Commands:
   agents           List supported agents and their status.
-  check-update     Check for available updates.
+  update           Check for available updates and install them.
   config           Manage configuration (view, edit, reset).
   disable          Disable sync for a specific agent.
   enable           Enable sync for a specific agent.
@@ -136,7 +136,7 @@ agent-sync config reset   # Reset to defaults
 # Status & updates
 agent-sync status         # Show sync status
 agent-sync agents         # List all agents
-agent-sync check-update   # Check for CLI updates
+agent-sync update         # Check and install updates
 ```
 
 ---
