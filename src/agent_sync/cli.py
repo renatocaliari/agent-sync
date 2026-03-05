@@ -489,9 +489,8 @@ def list_skills():
 @click.argument("skill_names", nargs=-1, required=False)
 @click.option("--dry-run", is_flag=True, help="Show what would be deleted without actually deleting")
 @click.option("--push", is_flag=True, help="Automatically push to GitHub after deleting")
-@click.option("--all", "delete_all", is_flag=True, help="Delete ALL skills (use with caution!)")
 @click.option("--interactive/--no-interactive", default=True, help="Toggle interactive TUI selection")
-def delete(skill_names: tuple[str, ...], dry_run: bool, push: bool, delete_all: bool, interactive: bool):
+def delete(skill_names: tuple[str, ...], dry_run: bool, push: bool, interactive: bool):
     """Delete skills from hub and all agent directories.
     
     \b
@@ -501,9 +500,6 @@ def delete(skill_names: tuple[str, ...], dry_run: bool, push: bool, delete_all: 
       
       # Delete specific skills
       agent-sync skills delete my-skill another-skill
-      
-      # Delete all skills (DANGEROUS!)
-      agent-sync skills delete --all
       
       # Dry run (see what would be deleted)
       agent-sync skills delete my-skill --dry-run
@@ -516,9 +512,12 @@ def delete(skill_names: tuple[str, ...], dry_run: bool, push: bool, delete_all: 
       1. Deletes skills from ~/.agents/skills/ (hub)
       2. Deletes copies from all agent directories
       3. Optionally pushes changes to GitHub
+    
+    \b
+    Note: To delete ALL skills, use interactive mode and type 'all'.
     """
     from .skills_delete import SkillsDeleter
-    from rich.prompt import Confirm
+    from rich.prompt import Confirm, Prompt
     from rich.table import Table
     from rich import box
     
@@ -534,9 +533,7 @@ def delete(skill_names: tuple[str, ...], dry_run: bool, push: bool, delete_all: 
     # Determine which skills to delete
     skills_to_delete = set()
     
-    if delete_all:
-        skills_to_delete = set(all_skills)
-    elif skill_names:
+    if skill_names:
         skills_to_delete = set(skill_names)
     elif interactive:
         # Interactive TUI selection
@@ -605,14 +602,9 @@ def delete(skill_names: tuple[str, ...], dry_run: bool, push: bool, delete_all: 
     console.print()
     
     if not dry_run:
-        if delete_all:
-            if not Confirm.ask("[bold red]Are you sure you want to delete ALL skills? This cannot be undone![/bold red]", default=False):
-                console.print("\n[yellow]Deletion cancelled.[/yellow]\n")
-                return
-        else:
-            if not Confirm.ask("Continue with deletion?", default=True):
-                console.print("\n[yellow]Deletion cancelled.[/yellow]\n")
-                return
+        if not Confirm.ask("Continue with deletion?", default=True):
+            console.print("\n[yellow]Deletion cancelled.[/yellow]\n")
+            return
     
     # Delete skills
     stats = deleter.delete_skills(list(skills_to_delete), dry_run=dry_run)
