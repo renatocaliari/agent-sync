@@ -327,26 +327,16 @@ class SetupWizard:
             border_style="yellow",
         ))
         console.print()
-        
+
         # Repository name
         self.repo_name = Prompt.ask(
             "Repository name",
-            default="agent-sync-configs",
+            default="agent-sync-private-configs",
         )
-        
-        # Private or public (default: PRIVATE)
-        self.is_private = Confirm.ask(
-            "Make repository PRIVATE?",
-            default=True,  # ← Default is PRIVATE for security
-        )
-        
-        if not self.is_private:
-            console.print("\n[red]⚠️  WARNING: Public repository means anyone can see your configs![/red]")
-            if not Confirm.ask("Continue with public repository?", default=False):
-                self.is_private = True
-                console.print("[green]✓ Changed to private repository[/green]\n")
-        
-        console.print()
+
+        # Always private for security
+        self.is_private = True
+        console.print("[dim]Repository will be PRIVATE (for security)[/dim]\n")
 
     def _step_review(self) -> bool:
         """Step 7: Review configuration and show summary."""
