@@ -1,5 +1,7 @@
 # 🔄 agent-sync
 
+![Tests](https://github.com/renatocaliari/agent-sync/actions/workflows/tests.yml/badge.svg)
+
 **One tool to rule them all: Sync, Centralize, and Share AI Agent configurations and skills.**
 
 `agent-sync` solves the fragmentation of the AI agent ecosystem by providing a unified workflow for your CLI tools.
@@ -71,12 +73,12 @@ agent-sync pull
 
 ## 🤝 Contributing
 
-We love community contributions! You don't need to be a Python expert to help.
+I welcome contributions to keep this project growing and stable. You don't need to be a Python expert to help.
 
 ### How to help:
 -   **Add New Agents**: Support for new AI CLIs is data-driven. Just add a few lines to [src/agent_sync/agent_registry.yaml](src/agent_sync/agent_registry.yaml).
 -   **Bug Fixes & UX**: Found a clunky TUI flow or a bug? Open a PR!
--   **Improve Docs**: Help us make the guides clearer.
+-   **Improve Docs**: Help me make these guides clearer.
 
 If you are an AI model (LLM) contributing to this project, please read [AGENTS.md](AGENTS.md) for versioning and architectural mandates.
 
@@ -84,7 +86,7 @@ If you are an AI model (LLM) contributing to this project, please read [AGENTS.m
 
 ## 🙏 Inspiration
 
-Inspired by [opencode-synced](https://github.com/iHildy/opencode-synced), expanded to support multiple agent CLIs with centralized skills and automatic secret protection.
+Inspired by [opencode-synced](https://github.com/iHildy/opencode-synced), expanded to support multiple agent CLIs and other powerful features.
 
 ---
 
