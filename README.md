@@ -60,6 +60,33 @@ agent-sync pull
 
 ---
 
+## 📁 Recommended Repository Names
+
+Use these standard names for consistency:
+
+| Purpose | Repository Name | Example |
+|---------|----------------|---------|
+| **CLI Tool** | `agent-sync` | `renatocaliari/agent-sync` |
+| **Private Configs** | `agent-sync-private-configs` | `renatocaliari/agent-sync-private-configs` |
+| **Public Skills** | `agent-sync-public-skills` | `renatocaliari/agent-sync-public-skills` |
+
+**Why these names?**
+- ✅ **Consistent** - All start with `agent-sync-`
+- ✅ **Clear** - "private" and "public" make purpose obvious
+- ✅ **Discoverable** - Easy to find via GitHub search
+- ✅ **Standard** - Follows common naming patterns
+
+**Example Setup:**
+```bash
+# Initialize private configs
+agent-sync init --name agent-sync-private-configs --private
+
+# Publish skills to public repo
+agent-sync skills publish --repo renatocaliari/agent-sync-public-skills
+```
+
+---
+
 ## 🛠️ CLI Commands
 
 `agent-sync` uses a categorized help structure. Run `agent-sync --help` to see all options.
@@ -73,7 +100,10 @@ agent-sync pull
 - `agents` - List supported agents and their sync method
 - `enable` / `disable` - Toggle sync for specific agents
 - `skills list` - List all centralized skills
+- `skills diff` - Show differences between local and remote skills
+- `skills reconcile` - Resolve local vs remote divergences
 - `skills centralize` - Move skills from agents to global hub
+- `skills delete` - Delete skills from hub and agents (interactive)
 - `skills publish` - Share selected skills to a public repo
 
 #### 🛠️ System
