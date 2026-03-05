@@ -37,17 +37,11 @@ def get_available_skills() -> list[dict]:
         if item.name.startswith("."):
             continue
         
-        if item.is_dir() and (item / "SKILL.md").exists():
+        # We consider anything in the skills directory a publishable unit
+        if item.is_dir() or (item.is_file() and item.suffix in [".md", ".py", ".sh"]):
             skills_list.append({
                 "name": item.name,
-                "path": item,
-                "valid": True
-            })
-        elif item.is_file() and item.suffix in [".md", ".py", ".sh"]:
-            skills_list.append({
-                "name": item.name,
-                "path": item,
-                "valid": False
+                "path": item
             })
     return sorted(skills_list, key=lambda x: x["name"])
 
@@ -58,13 +52,11 @@ def render_selection_table(skills: list, selected_names: set) -> Table:
     table.add_column("ID", justify="right", style="dim", width=4)
     table.add_column("Pub", justify="center", width=5)
     table.add_column("Skill Name", style="cyan")
-    table.add_column("Type", style="dim")
 
     for i, skill in enumerate(skills, 1):
         is_selected = skill["name"] in selected_names
         status = "[bold green]✓[/]" if is_selected else "[red]○[/]"
-        skill_type = "Full Skill" if skill["valid"] else "Script/MD"
-        table.add_row(str(i), status, skill["name"], skill_type)
+        table.add_row(str(i), status, skill["name"])
     
     return table
 
@@ -186,22 +178,18 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
                     else:
                         selected_names = interactive_selection(available_skills, selected_names)
                 else:
-                    # User was editing/selecting all, but didn't confirm summary
-                    # Return to main menu if confirmed is False
-                    pass
+                    selected_names = interactive_selection(available_skills, selected_names)
                 
                 confirmed = show_selection_summary(selected_names)
             
-            # CRITICAL UX FIX: If user said NO to summary, reset state to show main menu again
             if not confirmed:
                 selected_names = set()
                 console.clear()
             else:
-                # Save final selection to config
                 config.published_skills = list(selected_names)
     else:
-        # Non-interactive
-        selected_names = set(saved_selection) if saved_selection else {s["name"] for s in available_skills if s["valid"]}
+        # Non-interactive: use saved selection or all available
+        selected_names = set(saved_selection) if saved_selection else available_names
     
     # Final skill objects
     selected_skills = [s for s in available_skills if s["name"] in selected_names]
