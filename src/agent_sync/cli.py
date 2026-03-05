@@ -486,15 +486,19 @@ def list_skills():
 
 
 @skills.command()
-@click.argument("skill_names", nargs=-1, required=True)
+@click.argument("skill_names", nargs=-1, required=False)
 @click.option("--dry-run", is_flag=True, help="Show what would be deleted without actually deleting")
 @click.option("--push", is_flag=True, help="Automatically push to GitHub after deleting")
 @click.option("--all", "delete_all", is_flag=True, help="Delete ALL skills (use with caution!)")
-def delete(skill_names: tuple[str, ...], dry_run: bool, push: bool, delete_all: bool):
+@click.option("--interactive/--no-interactive", default=True, help="Toggle interactive TUI selection")
+def delete(skill_names: tuple[str, ...], dry_run: bool, push: bool, delete_all: bool, interactive: bool):
     """Delete skills from hub and all agent directories.
     
     \b
     Examples:
+      # Interactive selection (default)
+      agent-sync skills delete
+      
       # Delete specific skills
       agent-sync skills delete my-skill another-skill
       
@@ -515,49 +519,103 @@ def delete(skill_names: tuple[str, ...], dry_run: bool, push: bool, delete_all: 
     """
     from .skills_delete import SkillsDeleter
     from rich.prompt import Confirm
+    from rich.table import Table
+    from rich import box
     
     deleter = SkillsDeleter()
     
-    # Get list of skills to delete
-    if delete_all:
-        skill_names = tuple(deleter.list_skills())
-        if not skill_names:
-            console.print("[yellow]No skills found to delete.[/yellow]\n")
-            return
-        
-        console.print(f"[bold red]⚠ WARNING: You are about to delete ALL {len(skill_names)} skills![/bold red]\n")
-        console.print("Skills to be deleted:")
-        for name in skill_names:
-            console.print(f"  • {name}")
-        console.print()
-        
-        if not dry_run:
-            if not Confirm.ask("[bold red]Are you sure you want to continue?[/bold red]", default=False):
-                console.print("\n[yellow]Deletion cancelled.[/yellow]\n")
-                return
+    # Get list of all available skills
+    all_skills = deleter.list_skills()
     
-    if not skill_names:
-        console.print("[yellow]No skills specified.[/yellow]\n")
-        console.print("Usage: [green]agent-sync skills delete <skill-name> [skill-name...][/green]\n")
+    if not all_skills:
+        console.print("[yellow]No skills found in ~/.agents/skills/[/yellow]\n")
         return
     
-    # Show what will be deleted
-    action = "[yellow]Would delete[/yellow]" if dry_run else "[red]Deleting[/red]"
-    console.print(f"\n[bold]{action} {len(skill_names)} skill(s):[/]\n")
+    # Determine which skills to delete
+    skills_to_delete = set()
     
-    for name in skill_names:
+    if delete_all:
+        skills_to_delete = set(all_skills)
+    elif skill_names:
+        skills_to_delete = set(skill_names)
+    elif interactive:
+        # Interactive TUI selection
+        console.print("\n[bold red]🗑 Select Skills to Delete[/bold red]\n")
+        
+        selected = set()
+        
+        while True:
+            # Render table
+            table = Table(box=box.SIMPLE)
+            table.add_column("#", style="dim", width=4)
+            table.add_column("Status", style="green", width=8)
+            table.add_column("Skill Name", style="cyan")
+            
+            for idx, name in enumerate(sorted(all_skills), 1):
+                status = "[red]✓ DEL[/]" if name in selected else ""
+                table.add_row(f"{idx}.", status, name)
+            
+            console.print(table)
+            
+            console.print(f"\n[dim]Selected: {len(selected)} / {len(all_skills)} skills[/dim]\n")
+            
+            console.print("[bold]Controls:[/bold]")
+            console.print("  • Enter numbers to toggle (e.g. [green]'1,3,5'[/green])")
+            console.print("  • Type [cyan]'all'[/cyan] or [cyan]'none'[/cyan]")
+            console.print("  • Press [bold white]Enter[/] when done")
+            
+            choice = Prompt.ask("\nSelection", default="done")
+            
+            if choice.lower() in ["done", ""]:
+                break
+            elif choice.lower() == "all":
+                selected = set(all_skills)
+            elif choice.lower() == "none":
+                selected = set()
+            else:
+                try:
+                    indices = [int(x.strip()) - 1 for x in choice.split(",")]
+                    for idx in indices:
+                        if 0 <= idx < len(all_skills):
+                            name = all_skills[idx]
+                            if name in selected:
+                                selected.remove(name)
+                            else:
+                                selected.add(name)
+                except ValueError:
+                    pass
+        
+        skills_to_delete = selected
+    else:
+        console.print("[yellow]No skills specified.[/yellow]\n")
+        console.print("Usage: [green]agent-sync skills delete <skill-name> [skill-name...][/green]\n")
+        console.print("Or run interactively: [green]agent-sync skills delete[/green]\n")
+        return
+    
+    if not skills_to_delete:
+        console.print("[yellow]No skills selected for deletion.[/yellow]\n")
+        return
+    
+    # Show confirmation
+    console.print(f"\n[bold red]⚠ Skills to be deleted ({len(skills_to_delete)}):[/]\n")
+    
+    for name in sorted(skills_to_delete):
         console.print(f"  • {name}")
     
     console.print()
     
     if not dry_run:
-        if not delete_all:
+        if delete_all:
+            if not Confirm.ask("[bold red]Are you sure you want to delete ALL skills? This cannot be undone![/bold red]", default=False):
+                console.print("\n[yellow]Deletion cancelled.[/yellow]\n")
+                return
+        else:
             if not Confirm.ask("Continue with deletion?", default=True):
                 console.print("\n[yellow]Deletion cancelled.[/yellow]\n")
                 return
     
     # Delete skills
-    stats = deleter.delete_skills(list(skill_names), dry_run=dry_run)
+    stats = deleter.delete_skills(list(skills_to_delete), dry_run=dry_run)
     
     # Show summary
     console.print(f"\n[bold]📊 Summary:[/]\n")
