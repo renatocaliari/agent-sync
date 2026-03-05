@@ -55,9 +55,25 @@ class Config:
                 self._overrides = yaml.safe_load(f) or {}
     
     def save(self) -> None:
-        """Save configuration to file."""
+        """Save configuration to file with help header."""
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        header = (
+            "# agent-sync - User Configuration\n"
+            "# -------------------------------\n"
+            "# repo_url: Your GitHub configs repository (private recommended)\n"
+            "# agents: List of agents enabled for sync\n"
+            "# agents_config:\n"
+            "#   <agent-name>:\n"
+            "#     skills_method: native | config | copy\n"
+            "#       - native: Agent reads from ~/.agents/skills/\n"
+            "#       - config: Updates agent's own JSON config with global path\n"
+            "#       - copy:   Copies skills to agent folder (fallback)\n"
+            "# -------------------------------\n\n"
+        )
+        
         with open(self.config_path, "w") as f:
+            f.write(header)
             yaml.dump(self._config, f, default_flow_style=False, sort_keys=False)
     
     def save_overrides(self) -> None:

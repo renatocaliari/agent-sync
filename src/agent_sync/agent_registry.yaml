@@ -1,5 +1,25 @@
-# Agent Registry for agent-sync
-# Defines how each agent is configured and where its skills are located.
+# agent-sync - Global Agent Registry
+# --------------------------------------
+# This file defines how each AI agent integration works.
+# 
+# SCHEMA:
+#   method: 
+#     - native: Agent reads directly from ~/.agents/skills/
+#     - config: Agent supports custom skill paths in its own config file
+#     - copy:   Fallback method. agent-sync copies skills to the agent's folder
+#
+#   skills_dir_name: The folder name where the agent expects skills (tools/commands)
+#
+#   check: How to detect if the agent is installed
+#     - binary: Check if a command exists in PATH
+#     - path:   Check if a specific file exists
+#     - always: true (for internal components)
+#
+#   config_update (required for method: config):
+#     - path: Dot-notation to the key in the JSON config (e.g., "skills.paths")
+#     - action: "append" (for lists) or "set" (for single values)
+#
+#   extra_paths (optional): Additional folders to sync (used by pi.dev)
 
 opencode:
   method: config
