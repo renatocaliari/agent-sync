@@ -203,9 +203,20 @@ class SkillsManager:
         if not skills_found:
             console.print("[yellow]No new skills found in agent directories.[/yellow]\n")
 
-        # Show what was found
-        total_skills = sum(len(skills) for skills in skills_found.values())
-        console.print(f"Found [cyan]{total_skills}[/cyan] skills:\n")
+        # Show what was found (deduplicated)
+        unique_skill_names = set()
+        for agent_skills in skills_found.values():
+            for skill_path in agent_skills:
+                unique_skill_names.add(skill_path.name)
+        
+        total_unique = len(unique_skill_names)
+        total_copies = sum(len(skills) for skills in skills_found.values())
+        
+        if total_copies > total_unique:
+            console.print(f"Found [cyan]{total_unique}[/cyan] unique skills "
+                         f"([dim]{total_copies} copies[/dim]):\n")
+        else:
+            console.print(f"Found [cyan]{total_unique}[/cyan] skills:\n")
 
         for agent_name, skill_paths in skills_found.items():
             console.print(f"  • {agent_name}: [green]{len(skill_paths)}[/green] skills")
