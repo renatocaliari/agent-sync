@@ -141,6 +141,32 @@ class SkillsManager:
         self.resolved_conflicts = resolved
         return resolved
 
+    def _sync_from_repo(self) -> int:
+        """Sync skills from git repo to global skills directory.
+
+        Returns:
+            Number of skills synced from repo
+        """
+        from .sync import SyncManager
+
+        repo_skills_dir = SyncManager.DEFAULT_REPO_DIR / "skills"
+
+        if not repo_skills_dir.exists():
+            return 0
+
+        synced = 0
+        for skill_dir in repo_skills_dir.iterdir():
+            if skill_dir.name.startswith("."):
+                continue
+
+            dest = self.global_skills_dir / skill_dir.name
+            if not dest.exists():
+                if skill_dir.is_dir():
+                    shutil.copytree(skill_dir, dest)
+                    synced += 1
+
+        return synced
+
     def centralize(self, dry_run: bool = False, move: bool = True) -> dict:
         """Centralize all skills to ~/.agents/skills/.
 
@@ -164,13 +190,18 @@ class SkillsManager:
         if not dry_run:
             self.global_skills_dir.mkdir(parents=True, exist_ok=True)
 
+        # Sync from repo to global skills directory first
+        console.print("[bold]📥 Syncing skills from repo to ~/.agents/skills/...[/bold]\n")
+        repo_synced = self._sync_from_repo()
+        if repo_synced > 0:
+            console.print(f"  [green]✓ Synced {repo_synced} skills from repo[/green]\n")
+
         # Scan all agents
-        console.print("\n[bold]📚 Scanning for existing skills...[/bold]\n")
+        console.print("[bold]📚 Scanning for existing skills...[/bold]\n")
         skills_found = self.scan_all_agents()
 
         if not skills_found:
-            console.print("[yellow]No existing skills found in any agent.[/yellow]\n")
-            return stats
+            console.print("[yellow]No new skills found in agent directories.[/yellow]\n")
 
         # Show what was found
         total_skills = sum(len(skills) for skills in skills_found.values())
@@ -388,10 +419,10 @@ class SkillsManager:
         """Configure a single agent to use global skills.
 
         Priority:
-        1. Native support (pi.dev, qwen-code) - reads from ~/.agents/skills/
+        1. Native support (pi.dev) - reads from ~/.agents/skills/
         2. Config support (opencode) - update config file (PREFERRED)
         3. Symlink support (claude-code, gemini-cli) - create symlink (FALLBACK)
-        4. No fallback copy - skills must be in ~/.agents/skills/
+        4. Copy fallback (qwen-code) - copy skills to agent directory
 
         Returns:
             dict with success, method, message
@@ -452,12 +483,28 @@ class SkillsManager:
                     "message": f"Symlink failed: {e}",
                 }
 
-        # 4. No supported method
-        return {
-            "success": False,
-            "method": "none",
-            "message": "No supported configuration method (needs manual setup)",
-        }
+        # 4. Copy fallback (for agents that don't support other methods)
+        # Used by qwen-code which only supports ~/.qwen/skills/
+        try:
+            copied = self._copy_skills_to_agent(agent)
+            if copied > 0:
+                return {
+                    "success": True,
+                    "method": "copy",
+                    "message": f"Copied {copied} skills to {agent.skills_path}",
+                }
+            else:
+                return {
+                    "success": True,
+                    "method": "copy",
+                    "message": f"Skills already in {agent.skills_path}",
+                }
+        except Exception as e:
+            return {
+                "success": False,
+                "method": "copy",
+                "message": f"Copy failed: {e}",
+            }
 
     def _cleanup_agent_local_skills(self, agent: BaseAgent) -> int:
         """Remove all local skills from agent directory (centralized approach).
@@ -488,6 +535,37 @@ class SkillsManager:
                 removed_count += 1
 
         return removed_count
+
+    def _copy_skills_to_agent(self, agent: BaseAgent) -> int:
+        """Copy all skills from global dir to agent skills directory.
+
+        This is used as a fallback for agents that don't support symlinks
+        or config-based paths (like qwen-code).
+
+        Returns:
+            Number of skills copied
+        """
+        if not self.global_skills_dir.exists():
+            return 0
+
+        agent.skills_path.mkdir(parents=True, exist_ok=True)
+        copied = 0
+
+        for skill_dir in self.global_skills_dir.iterdir():
+            if skill_dir.name.startswith("."):
+                continue
+
+            dest = agent.skills_path / skill_dir.name
+
+            # Skip if already exists (don't overwrite)
+            if dest.exists():
+                continue
+
+            if skill_dir.is_dir():
+                shutil.copytree(skill_dir, dest)
+                copied += 1
+
+        return copied
 
     def _create_symlink(self, agent: BaseAgent) -> None:
         """Create symlink from agent path to global skills."""
