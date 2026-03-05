@@ -11,72 +11,72 @@ GLOBAL_SKILLS_DIR = Path.home() / ".agents" / "skills"
 
 class BaseAgent(ABC):
     """Base class for agent integrations."""
-    
+
     name: str = "base"
     config_dir: Path = Path.home() / ".config"
     config_filename: str = "config.json"
     skills_dir_name: str = "skills"
     enabled: bool = True  # Whether this agent sync is enabled
-    
+
     @property
     def config_path(self) -> Path:
         """Path to agent configuration file."""
         return self.config_dir / self.name / self.config_filename
-    
+
     @property
     def skills_path(self) -> Path:
         """Path to agent-specific skills directory."""
         return self.config_dir / self.name / self.skills_dir_name
-    
+
     @property
     def tools_path(self) -> Path:
         """Path to agent-specific tools directory."""
         return self.config_dir / self.name / "tools"
-    
+
     @property
     def commands_path(self) -> Path:
         """Path to agent-specific commands directory."""
         return self.config_dir / self.name / "commands"
-    
+
     @property
     def global_skills_path(self) -> Path:
         """Path to global ~/.agents/skills directory."""
         return GLOBAL_SKILLS_DIR
-    
+
     @abstractmethod
     def is_available(self) -> bool:
         """Check if this agent is installed/configured."""
         pass
-    
+
     def get_config(self) -> Optional[dict]:
         """Load agent configuration."""
         import json
-        
+
         if self.config_path.exists():
             with open(self.config_path) as f:
                 return json.load(f)
         return None
-    
+
     def save_config(self, config: dict) -> None:
         """Save agent configuration."""
         import json
-        
+
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
         with open(self.config_path, "w") as f:
             json.dump(config, f, indent=2)
-    
+
     def enable(self) -> None:
         """Enable sync for this agent."""
         self.enabled = True
-    
+
     def disable(self) -> None:
         """Disable sync for this agent."""
         self.enabled = False
-    
+
     def is_enabled(self) -> bool:
         """Check if sync is enabled for this agent."""
         return self.enabled
-    
+
     def supports_symlink(self) -> bool:
         """Check if this agent supports symlinks for skills.
 
@@ -85,43 +85,44 @@ class BaseAgent(ABC):
         """
         # Claude Code and Gemini CLI support symlinks in commands/tools directory
         return self.name in ["claude-code", "gemini-cli"]
-    
+
     def supports_config(self) -> bool:
         """Check if this agent supports config-based skills paths.
-        
+
         Returns:
             True if agent can be configured via config file
         """
         # Opencode supports skills.paths in config
         return self.name == "opencode"
-    
+
     def supports_native(self) -> bool:
         """Check if this agent natively supports ~/.agents/skills/.
-        
+
         Returns:
             True if agent already reads from global skills dir
         """
-        # Pi.dev and Qwen Code natively support ~/.agents/skills/
-        return self.name in ["pi.dev", "qwen-code"]
-    
+        # Only pi.dev natively supports ~/.agents/skills/
+        # qwen-code only supports ~/.qwen/skills/ (not ~/.agents/skills/)
+        return self.name == "pi.dev"
+
     def get_all_skills_paths(self) -> list[Path]:
         """Get all skills paths for this agent (some agents have multiple)."""
         paths = [self.skills_path]
-        
+
         # Add agent-specific additional paths
-        if hasattr(self, '_additional_skills_paths'):
+        if hasattr(self, "_additional_skills_paths"):
             paths.extend(self._additional_skills_paths())
-        
+
         # Filter to only existing paths
         return [p for p in paths if p.exists()]
-    
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name}, enabled={self.enabled})"
 
 
 class OpencodeAgent(BaseAgent):
     """Opencode agent integration.
-    
+
     Docs: https://opencode.ai/docs/
     Paths:
       - Config: ~/.config/opencode/opencode.json
@@ -129,59 +130,61 @@ class OpencodeAgent(BaseAgent):
       - Tools: ~/.config/opencode/tools/
       - Commands: ~/.config/opencode/commands/
     """
-    
+
     name = "opencode"
     config_filename = "opencode.json"
     skills_dir_name = "skills"  # Plural is standard (singular also works)
-    
+
     @property
     def config_path(self) -> Path:
         """Path to Opencode config file."""
         return self.config_dir / self.name / self.config_filename
-    
+
     @property
     def skills_path(self) -> Path:
         """Path to Opencode skills directory."""
         return self.config_dir / self.name / self.skills_dir_name
-    
+
     def _additional_skills_paths(self) -> list[Path]:
         """Opencode can also use ~/.agents/skills/."""
         return [GLOBAL_SKILLS_DIR]
-    
+
     def is_available(self) -> bool:
         """Check if opencode is installed."""
         import shutil
+
         return shutil.which("opencode") is not None or self.config_path.exists()
 
 
 class ClaudeCodeAgent(BaseAgent):
     """Claude Code agent integration.
-    
+
     Docs: https://code.claude.com/docs/
     Paths:
       - Config: ~/.claude/settings.json (or ~/.claude.json)
       - Commands: ~/.claude/commands/
       - Worktrees: <project>/.claude/worktrees/
     """
-    
+
     name = "claude-code"
     config_dir = Path.home() / ".claude"
     config_filename = "settings.json"
     skills_dir_name = "commands"  # Claude Code uses 'commands' for custom skills
-    
+
     @property
     def config_path(self) -> Path:
         """Path to Claude Code settings file."""
         return self.config_dir / self.config_filename
-    
+
     @property
     def skills_path(self) -> Path:
         """Path to Claude Code commands directory."""
         return self.config_dir / "commands"
-    
+
     def is_available(self) -> bool:
         """Check if Claude Code is installed."""
         import shutil
+
         return shutil.which("claude") is not None or self.config_path.exists()
 
 
@@ -218,6 +221,7 @@ class GeminiCliAgent(BaseAgent):
     def is_available(self) -> bool:
         """Check if Gemini CLI is installed."""
         import shutil
+
         return shutil.which("gemini") is not None or self.config_path.exists()
 
 
@@ -289,55 +293,52 @@ class PiDevAgent(BaseAgent):
 
 class QwenCodeAgent(BaseAgent):
     """Qwen Code agent integration.
-    
+
     Docs: https://qwenlm.github.io/qwen-code-docs/
     Paths:
       - Config: ~/.qwen/settings.json
       - Skills: ~/.qwen/skills/ (global), .qwen/skills/ (project)
       - Agents: ~/.qwen/agents/
     """
-    
+
     name = "qwen-code"
     config_dir = Path.home() / ".qwen"
     config_filename = "settings.json"
     skills_dir_name = "skills"
-    
+
     @property
     def config_path(self) -> Path:
         """Path to Qwen Code settings file."""
         return self.config_dir / self.config_filename
-    
+
     @property
     def skills_path(self) -> Path:
         """Path to Qwen Code global skills directory."""
         return self.config_dir / "skills"
-    
-    def _additional_skills_paths(self) -> list[Path]:
-        """Qwen Code also uses ~/.agents/skills/."""
-        return [GLOBAL_SKILLS_DIR]
-    
+
     def is_available(self) -> bool:
         """Check if Qwen Code is installed."""
         import shutil
+
         return shutil.which("qwen") is not None or self.config_path.exists()
 
 
 class GlobalSkillsAgent(BaseAgent):
     """Global ~/.agents/skills directory."""
-    
+
     name = "global-skills"
     config_filename = ""  # No config file, just skills
-    
+
     @property
     def config_path(self) -> Path:
         """No config path for global skills."""
         return Path("")
-    
+
     @property
     def skills_path(self) -> Path:
         """Path to global skills directory."""
         return GLOBAL_SKILLS_DIR
-    
+
     def is_available(self) -> bool:
         """Global skills always available."""
         return True
