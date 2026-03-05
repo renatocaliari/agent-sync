@@ -808,21 +808,27 @@ def update():
             if Confirm.ask("\nDo you want to update now?", default=True):
                 console.print("\n🚀 [bold]Updating agent-sync...[/bold]")
                 
-                # Check if installed via pipx or pip
-                is_pipx = "pipx" in subprocess.check_output(["which", "agent-sync"]).decode()
+                # Smarter pipx detection: check if 'pipx' is in the real path of the executable
+                executable_path = subprocess.check_output(["which", "agent-sync"]).decode().strip()
+                real_path = os.path.realpath(executable_path)
+                is_pipx = "pipx" in real_path or ".local/pipx" in real_path
                 
-                cmd = []
                 if is_pipx:
                     cmd = ["pipx", "upgrade", "agent-sync"]
                 else:
-                    cmd = ["python3", "-m", "pip", "install", "--upgrade", "git+https://github.com/renatocaliari/agent-sync.git"]
+                    # Fallback to python3 -m pip with safety flag for managed environments
+                    cmd = ["python3", "-m", "pip", "install", "--upgrade", "git+https://github.com/renatocaliari/agent-sync.git", "--break-system-packages"]
                 
                 try:
                     subprocess.run(cmd, check=True)
                     console.print("\n[bold green]✅ agent-sync updated successfully![/bold green]")
+                    console.print("[dim]Note: You might need to restart your terminal or run the command again.[/dim]\n")
                 except subprocess.CalledProcessError:
                     console.print("\n[red]✗ Update failed.[/red] Please try manually:")
-                    console.print(f"   {' '.join(cmd)}")
+                    if is_pipx:
+                        console.print("   pipx upgrade agent-sync")
+                    else:
+                        console.print(f"   {' '.join(cmd)}")
         else:
             console.print(f"✓ [green]Up to date:[/green] [bold]v{current}[/bold]\n")
             
