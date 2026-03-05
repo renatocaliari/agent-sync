@@ -131,7 +131,7 @@ We recently moved to a data-driven architecture using a YAML registry. This make
 
 For more details on these changes, see the [v0.7.0 Release Notes](RELEASE_NOTES_v0.7.0.md).
 
-If you are an AI model (LLM) contributing to this project, please read [GEMINI.md](GEMINI.md) for versioning and architectural mandates.
+If you are an AI model (LLM) contributing to this project, please read [AGENTS.md](AGENTS.md) for versioning and architectural mandates.
 
 See the [Adding New Agents guide](docs/adding-agents.md) for more details.
 
