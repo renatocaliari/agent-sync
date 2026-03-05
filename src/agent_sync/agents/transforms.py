@@ -1,4 +1,9 @@
-"""Transform utilities for agent skills."""
+"""Transform utilities for agent skills.
+
+These transforms are used for agents that need format conversion:
+- flatten: skills/{name}/SKILL.md → {name}.md (for agents that use flat .md files)
+- unflatten: {name}.md → skills/{name}/SKILL.md (reverse conversion)
+"""
 
 import re
 from pathlib import Path
@@ -7,14 +12,13 @@ from typing import Optional
 
 def flatten_skill_to_md(skill_dir: Path, output_dir: Path) -> Optional[Path]:
     """
-    Transform a skill directory (SKILL.md) to flat .md file for Cursor.
+    Transform a skill directory (SKILL.md) to flat .md file.
     
-    Cursor uses: .cursor/rules/{skill-name}.md
-    Instead of: skills/{skill-name}/SKILL.md
+    Some agents use flat .md files instead of skill directories.
     
     Args:
         skill_dir: Path to skill directory (e.g., ~/.agents/skills/pdf-processing/)
-        output_dir: Path to output directory (e.g., ~/.cursor/rules/)
+        output_dir: Path to output directory (e.g., agent's rules directory)
     
     Returns:
         Path to created file, or None if transformation failed
@@ -32,8 +36,7 @@ def flatten_skill_to_md(skill_dir: Path, output_dir: Path) -> Optional[Path]:
     # Read SKILL.md content
     content = skill_file.read_text()
     
-    # Optional: Remove YAML frontmatter if Cursor doesn't support it
-    # Cursor .md files typically don't use frontmatter
+    # Optional: Remove YAML frontmatter if target agent doesn't support it
     content = remove_yaml_frontmatter(content)
     
     # Write flat .md file
