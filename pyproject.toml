@@ -1,6 +1,6 @@
 [project]
 name = "agent-sync"
-version = "0.7.8"
+dynamic = ["version"]
 description = "Unified CLI to sync configs and skills across multiple AI agents (opencode, claude, gemini, pi, qwen)"
 readme = "README.md"
 license = {text = "MIT"}
@@ -39,8 +39,11 @@ dev = [
 agent-sync = "agent_sync.cli:main"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/agent_sync"]
