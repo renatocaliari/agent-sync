@@ -69,12 +69,24 @@ class Config:
             "#       - native: Agent reads from ~/.agents/skills/\n"
             "#       - config: Updates agent's own JSON config with global path\n"
             "#       - copy:   Copies skills to agent folder (fallback)\n"
+            "# published_skills: List of skill names to include when running 'skills publish'\n"
             "# -------------------------------\n\n"
         )
         
         with open(self.config_path, "w") as f:
             f.write(header)
             yaml.dump(self._config, f, default_flow_style=False, sort_keys=False)
+
+    @property
+    def published_skills(self) -> list[str]:
+        """Get list of skills whitelisted for public publishing."""
+        return self._config.get("published_skills", [])
+
+    @published_skills.setter
+    def published_skills(self, skills: list[str]) -> None:
+        """Set list of skills whitelisted for public publishing."""
+        self._config["published_skills"] = sorted(list(set(skills)))
+        self.save()
     
     def save_overrides(self) -> None:
         """Save local overrides (not synced)."""
