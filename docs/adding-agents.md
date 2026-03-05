@@ -88,20 +88,21 @@ cline:
     - ".clinerules/skills/"
 ```
 
-### Cursor (Copy with Transform)
-Cursor uses a flat structure (`.cursor/rules/{name}.md`) instead of skill directories:
+### Cursor (Native Method)
+Cursor natively reads from `~/.agents/skills/`:
 
 ```yaml
 cursor:
-  method: copy
+  method: native
   config_dir: "~/.cursor"
   config_filename: "settings.json"
-  skills_dir_name: "rules"
+  skills_dir_name: "skills"
   check:
     binary: "cursor"
-  copy_from: "~/.agents/skills/"
-  copy_to: "~/.cursor/rules/"
-  transform: "flatten"  # Transforms skills/{name}/SKILL.md → rules/{name}.md
+  notes: "Native support for ~/.agents/skills/"
+  migrate_from:
+    - ".cursor/skills/"
+    - "~/.cursor/skills/"
 ```
 
 ### Windsurf (Copy Method)
