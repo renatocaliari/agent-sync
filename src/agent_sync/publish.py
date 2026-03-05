@@ -221,14 +221,25 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
         try:
             publish_config = yaml.safe_load(PUBLISH_CONFIG_PATH.read_text()) or {}
         except Exception: pass
-    
+
     repo_url = repo_url or publish_config.get("repo_url")
     if not repo_url:
-        repo_url = Prompt.ask("\n[bold]Enter GitHub repository URL for publishing[/]")
+        # Suggest new standard naming convention
+        try:
+            result = subprocess.run(["gh", "api", "user", "--jq", ".login"], capture_output=True, text=True, timeout=5)
+            username = result.stdout.strip() if result.returncode == 0 else "YOUR_USERNAME"
+        except Exception:
+            username = "YOUR_USERNAME"
+        
+        default_repo = f"{username}/agent-sync-public-skills"
+        repo_url = Prompt.ask(
+            "\n[bold]Enter GitHub repository URL for publishing[/]",
+            default=f"https://github.com/{default_repo}",
+        )
         if not repo_url or not repo_url.startswith("https://github.com/"):
             console.print("\n[red]✗ Invalid repository URL[/red]\n")
             return False
-        
+
         PUBLISH_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
         publish_config["repo_url"] = repo_url
         PUBLISH_CONFIG_PATH.write_text(yaml.dump(publish_config))
