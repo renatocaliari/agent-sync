@@ -486,6 +486,138 @@ def list_skills():
 
 
 @skills.command()
+def diff():
+    """Show differences between local and remote skills.
+    
+    \b
+    Compares skills in ~/.agents/skills/ with skills in GitHub repository.
+    Shows which skills exist only locally or only remotely.
+    
+    \b
+    Examples:
+      # Show differences
+      agent-sync skills diff
+      
+      # Check if in sync
+      agent-sync skills diff  # Shows "✓ Local and remote are in sync" if matched
+    """
+    from .skills_diff import SkillsDiff
+    
+    diff_mgr = SkillsDiff()
+    
+    if not diff_mgr.repo_dir:
+        console.print("[yellow]⚠ No repository configured yet.[/yellow]")
+        console.print("Run [green]agent-sync init[/green] or [green]agent-sync link[/green] first.\n")
+        return
+    
+    diff_mgr.show_diff()
+
+
+@skills.command()
+@click.option("--auto", is_flag=True, help="Auto-resolve: keep local for all divergences")
+@click.option("--dry-run", is_flag=True, help="Show what would be done without applying")
+def reconcile(auto: bool, dry_run: bool):
+    """Reconcile differences between local and remote skills.
+    
+    \b
+    Resolves divergences where skills exist only locally or only remotely.
+    
+    \b
+    Examples:
+      # Interactive reconciliation
+      agent-sync skills reconcile
+      
+      # Auto-resolve (keep local for all)
+      agent-sync skills reconcile --auto
+      
+      # Dry run (preview)
+      agent-sync skills reconcile --dry-run
+    
+    \b
+    Actions:
+      - Local-only skills: Will be added to remote on next push
+      - Remote-only skills: Choose to download or delete from remote
+    """
+    from .skills_reconcile import SkillsReconcile
+    from rich.prompt import Confirm
+    
+    reconcile_mgr = SkillsReconcile()
+    
+    if not reconcile_mgr.repo_dir:
+        console.print("[yellow]⚠ No repository configured yet.[/yellow]")
+        console.print("Run [green]agent-sync init[/green] or [green]agent-sync link[/green] first.\n")
+        return
+    
+    # Get decisions
+    if auto:
+        # Auto mode: keep local for everything
+        from .skills_diff import SkillsDiff
+        diff_mgr = SkillsDiff()
+        diff_result = diff_mgr.diff()
+        
+        decisions = {}
+        for skill in diff_result["local_only"]:
+            decisions[skill] = "local"
+        for skill in diff_result["remote_only"]:
+            decisions[skill] = "remote"  # Download to local
+        
+        if not decisions:
+            console.print("[green]✓ No divergences to reconcile[/green]\n")
+            return
+        
+        console.print(f"[bold]Auto mode: {len(decisions)} skills will be reconciled[/]\n")
+    else:
+        # Interactive mode
+        decisions = reconcile_mgr.reconcile_interactive()
+        
+        if not decisions:
+            return
+        
+        if not dry_run:
+            if not Confirm.ask("Apply these changes?", default=True):
+                console.print("\n[yellow]Reconciliation cancelled.[/yellow]\n")
+                return
+    
+    # Apply decisions
+    stats = reconcile_mgr.apply_decisions(decisions, dry_run=dry_run)
+    reconcile_mgr.show_summary(stats)
+    
+    # Ask if user wants to push
+    if not dry_run and (stats["added_to_remote"] > 0 or stats["downloaded_to_local"] > 0):
+        from rich.prompt import Confirm
+        
+        should_push = Confirm.ask(
+            "\n[bold]Would you like to push these changes to GitHub now?[/]",
+            default=True,
+        )
+        
+        if should_push:
+            console.print("\n[bold]📤 Pushing to GitHub...[/]\n")
+            
+            from .sync import SyncManager
+            from .config import Config
+            
+            config = Config()
+            
+            if not config.repo_url:
+                console.print("[yellow]⚠ No repository configured yet.[/yellow]")
+                console.print("Run [green]agent-sync init[/green] to create a repository first.\n")
+            else:
+                try:
+                    sync_manager = SyncManager(config)
+                    pushed = sync_manager.push(message="chore: reconcile skills")
+                    
+                    if pushed:
+                        console.print(f"\n[green]✓ Pushed {len(pushed)} files to GitHub[/green]\n")
+                        console.print("💡 On other machines, run [green]agent-sync pull[/green]\n")
+                    else:
+                        console.print("\n[yellow]✓ Nothing to push (already up to date)[/yellow]\n")
+                except Exception as e:
+                    console.print(f"\n[red]✗ Push failed: {e}[/red]\n")
+                    console.print("[dim]You can run [green]agent-sync push[/green] manually later.[/dim]\n")
+
+
+@skills.command()
 @click.argument("skill_names", nargs=-1, required=False)
 @click.option("--dry-run", is_flag=True, help="Show what would be deleted without actually deleting")
 @click.option("--push", is_flag=True, help="Automatically push to GitHub after deleting")
@@ -613,11 +745,13 @@ def delete(skill_names: tuple[str, ...], dry_run: bool, push: bool, interactive:
     console.print(f"\n[bold]📊 Summary:[/]\n")
     
     if dry_run:
-        console.print(f"  [yellow]Would delete {stats['deleted_from_hub']} skills from hub[/yellow]")
-        console.print(f"  [yellow]Would delete {stats['deleted_from_agents']} copies from agents[/yellow]")
+        console.print(f"  [yellow]Would delete {stats['deleted_from_hub']} skills ({stats['hub_files']} files) from hub[/yellow]")
+        console.print(f"  [yellow]Would delete {stats['deleted_from_agents']} agent copies ({stats['agent_files']} files)[/yellow]")
     else:
-        console.print(f"  [green]✓ Deleted {stats['deleted_from_hub']} skills from hub[/green]")
-        console.print(f"  [green]✓ Deleted {stats['deleted_from_agents']} copies from agents[/green]")
+        total_files = stats['hub_files'] + stats['agent_files']
+        console.print(f"  [green]✓ Deleted {stats['deleted_from_hub']} skills[/green] ({stats['hub_files']} files from hub)")
+        console.print(f"  [green]✓ Deleted {stats['deleted_from_agents']} agent copies[/green] ({stats['agent_files']} files)")
+        console.print(f"\n  [dim]Total: {total_files} files removed[/dim]")
     
     if stats["not_found"] > 0:
         console.print(f"  [yellow]⚠ {stats['not_found']} skills not found[/yellow]")

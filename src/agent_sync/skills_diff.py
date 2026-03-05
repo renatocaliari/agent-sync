@@ -1,0 +1,108 @@
+"""Skills diff management - compare local vs remote."""
+
+from pathlib import Path
+from typing import Dict, List, Set
+from rich.console import Console
+
+console = Console()
+
+
+class SkillsDiff:
+    """Compare local skills with remote GitHub repository."""
+
+    def __init__(self):
+        from .config import Config
+        
+        self.config = Config()
+        self.global_skills_dir = Path.home() / ".agents" / "skills"
+        self.repo_dir = None
+        
+        if self.config.repo_url:
+            from .sync import SyncManager
+            sync_manager = SyncManager(self.config)
+            self.repo_dir = sync_manager.repo_dir
+
+    def get_local_skills(self) -> Set[str]:
+        """Get set of local skill names."""
+        if not self.global_skills_dir.exists():
+            return set()
+        
+        skills = set()
+        for item in self.global_skills_dir.iterdir():
+            if item.is_dir() and not item.name.startswith("."):
+                if (item / "SKILL.md").exists():
+                    skills.add(item.name)
+        
+        return skills
+
+    def get_remote_skills(self) -> Set[str]:
+        """Get set of remote skill names from GitHub repo."""
+        if not self.repo_dir or not self.repo_dir.exists():
+            return set()
+        
+        skills = set()
+        remote_skills_dir = self.repo_dir / "skills"
+        
+        if not remote_skills_dir.exists():
+            return set()
+        
+        for item in remote_skills_dir.iterdir():
+            if item.is_dir() and not item.name.startswith("."):
+                if (item / "SKILL.md").exists():
+                    skills.add(item.name)
+        
+        return skills
+
+    def diff(self) -> Dict[str, Dict[str, List[str]]]:
+        """
+        Compare local and remote skills.
+        
+        Returns:
+            Dictionary with:
+            - local_only: Skills only on local (not on GitHub)
+            - remote_only: Skills only on GitHub (not local)
+            - both: Skills on both sides
+        """
+        local = self.get_local_skills()
+        remote = self.get_remote_skills()
+        
+        return {
+            "local_only": sorted(list(local - remote)),
+            "remote_only": sorted(list(remote - local)),
+            "both": sorted(list(local & remote)),
+        }
+
+    def show_diff(self) -> None:
+        """Display diff in a formatted table."""
+        from rich.table import Table
+        from rich import box
+        
+        diff_result = self.diff()
+        
+        if not diff_result["local_only"] and not diff_result["remote_only"]:
+            console.print("[green]✓ Local and remote are in sync[/green]\n")
+            return
+        
+        console.print("\n[bold]📊 Skills Divergence Report[/]\n")
+        
+        # Local only
+        if diff_result["local_only"]:
+            table = Table(box=box.SIMPLE, title="[cyan]Local only[/cyan] (not on GitHub)", title_style="cyan")
+            table.add_column("Skill Name", style="cyan")
+            for skill in diff_result["local_only"]:
+                table.add_row(f"  • {skill}")
+            console.print(table)
+            console.print()
+        
+        # Remote only
+        if diff_result["remote_only"]:
+            table = Table(box=box.SIMPLE, title="[yellow]Remote only[/yellow] (not local)", title_style="yellow")
+            table.add_column("Skill Name", style="yellow")
+            for skill in diff_result["remote_only"]:
+                table.add_row(f"  • {skill}")
+            console.print(table)
+            console.print()
+        
+        # Summary
+        console.print("[dim]─────────────────────────────────────────[/dim]")
+        console.print(f"[dim]Local: {len(self.get_local_skills())} skills | Remote: {len(self.get_remote_skills())} skills[/dim]\n")
