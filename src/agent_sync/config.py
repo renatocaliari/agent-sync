@@ -202,7 +202,13 @@ class Config:
         self.save_overrides()
     
     def generate_default(self, target_agents: Optional[list[str]] = None) -> Path:
-        """Generate a default configuration file."""
+        """Generate a default configuration file.
+        
+        Preserves existing repo_url if already configured.
+        """
+        # Preserve existing repo_url if it exists
+        existing_repo_url = self._config.get("repo_url")
+        
         default_agents = target_agents or [
             "opencode",
             "claude-code",
@@ -211,9 +217,9 @@ class Config:
             "qwen-code",
             "global-skills",
         ]
-        
+
         default_config = {
-            "repo_url": None,
+            "repo_url": existing_repo_url,  # Preserve existing repo URL
             "agents": default_agents,
             "agents_config": {
                 agent: {
