@@ -236,57 +236,63 @@ class SkillsManager:
         resolved = self.resolve_conflicts(auto=True)
         stats["conflicts_resolved"] = len(conflicts)
 
+        # Deduplicate skills by name (process each unique skill only once)
+        processed_skills = {}  # skill_name -> (agent_name, skill_path)
+        for agent_name, skill_paths in skills_found.items():
+            for skill_path in skill_paths:
+                skill_name = skill_path.stem if skill_path.is_file() else skill_path.name
+                # Keep first occurrence (or could keep from preferred agent)
+                if skill_name not in processed_skills:
+                    processed_skills[skill_name] = (agent_name, skill_path)
+
         # Move/copy skills to global directory
         action = "Moving" if move else "Copying"
         console.print(f"[bold]{action} skills to ~/.agents/skills/...[/]\n")
 
-        for agent_name, skill_paths in skills_found.items():
-            for skill_path in skill_paths:
-                skill_name = skill_path.stem if skill_path.is_file() else skill_path.name
+        for skill_name, (agent_name, skill_path) in processed_skills.items():
+            # Determine destination name
+            dest_name = resolved.get(skill_name, skill_name)
+            dest_path = self.global_skills_dir / dest_name
 
-                # Determine destination name
-                dest_name = resolved.get(skill_name, skill_name)
-                dest_path = self.global_skills_dir / dest_name
+            # Check if already exists
+            if dest_path.exists():
+                stats["skipped"] += 1
+                continue
 
-                # Check if already exists
-                if dest_path.exists():
-                    stats["skipped"] += 1
-                    continue
-
-                try:
-                    if not dry_run:
-                        if skill_path.is_dir():
-                            if move:
-                                shutil.move(str(skill_path), str(dest_path))
-                            else:
-                                shutil.copytree(skill_path, dest_path)
+            try:
+                if not dry_run:
+                    if skill_path.is_dir():
+                        if move:
+                            shutil.move(str(skill_path), str(dest_path))
                         else:
-                            if move:
-                                shutil.move(str(skill_path), str(dest_path))
-                            else:
-                                shutil.copy2(skill_path, dest_path)
-
-                        # Remove empty parent directories if moving
-                        if move and skill_path.is_dir():
-                            try:
-                                skill_path.parent.rmdir()  # Only if empty
-                            except OSError:
-                                pass  # Not empty, that's ok
-
-                    if move:
-                        stats["moved"] += 1
-                        console.print(
-                            f"  [green]✓[/green] {agent_name}: {skill_name} [dim](moved)[/dim]"
-                        )
+                            shutil.copytree(skill_path, dest_path)
                     else:
-                        stats["copied"] += 1
-                        console.print(
-                            f"  [green]✓[/green] {agent_name}: {skill_name} [dim](copied)[/dim]"
-                        )
+                        if move:
+                            shutil.move(str(skill_path), str(dest_path))
+                        else:
+                            shutil.copy2(skill_path, dest_path)
 
-                except Exception as e:
-                    stats["errors"] += 1
-                    console.print(f"  [red]✗[/red] {agent_name}: {skill_name} - {e}")
+                    # Remove empty parent directories if moving
+                    if move and skill_path.is_dir():
+                        try:
+                            skill_path.parent.rmdir()  # Only if empty
+                        except OSError:
+                            pass  # Not empty, that's ok
+
+                if move:
+                    stats["moved"] += 1
+                    console.print(
+                        f"  [green]✓[/green] {agent_name}: {skill_name} [dim](moved)[/dim]"
+                    )
+                else:
+                    stats["copied"] += 1
+                    console.print(
+                        f"  [green]✓[/green] {agent_name}: {skill_name} [dim](copied)[/dim]"
+                    )
+
+            except Exception as e:
+                stats["errors"] += 1
+                console.print(f"  [red]✗[/red] {agent_name}: {skill_name} - {e}")
 
         console.print()
 
