@@ -304,7 +304,7 @@ def strip_frontmatter(content: str) -> str:
 def generate_readme(selected_skills: list, repo_url: str) -> str:
     """Generate README.md for the skills repository."""
     repo_name = repo_url.replace("https://github.com/", "").replace(".git", "")
-    readme_content = f"""# My Agent Skills
+    readme_content = f"""# Agent Skills
 
 A collection of custom skills for AI agents.
 
@@ -318,14 +318,7 @@ npx skills add {repo_name}
 
 ## About
 
-This repository contains custom skills created for use with [agent-sync](https://github.com/renatocaliari/agent-sync).
-
-Skills are compatible with:
-- Opencode
-- Claude Code
-- Gemini CLI
-- Pi.dev
-- Qwen Code
+This repository contains skills published using [agent-sync](https://github.com/renatocaliari/agent-sync).
 
 ## Skills
 
