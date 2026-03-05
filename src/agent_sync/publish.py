@@ -113,35 +113,57 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
     """Publish selected skills to a public GitHub repository."""
     config = Config()
     
-    # 1. Scan for skills
+    # 1. Scan for skills on disk
     available_skills = get_available_skills()
     if not available_skills:
         console.print("\n[yellow]⚠ No skills found in ~/.agents/skills/[/yellow]")
         console.print("Run [green]agent-sync skills centralize[/green] first.\n")
         return False
 
-    # 2. Determine initial selection
-    # Priority: 1. Previously saved list, 2. All valid skills
-    saved_selection = set(config.published_skills)
-    if not saved_selection:
-        selected_names = {s["name"] for s in available_skills if s["valid"]}
-    else:
-        # Filter saved selection to only include existing skills
-        selected_names = {name for name in saved_selection if any(s["name"] == name for s in available_skills)}
+    available_names = {s["name"] for s in available_skills}
 
-    # 3. Interactive flow
+    # 2. Determine initial selection and handle missing skills
+    saved_selection = config.published_skills
+    
+    # Filter out skills that no longer exist on disk
+    valid_saved = [name for name in saved_selection if name in available_names]
+    if len(valid_saved) != len(saved_selection):
+        # Auto-update config if some skills are missing
+        config.published_skills = valid_saved
+        saved_selection = valid_saved
+
+    # 3. Interactive flow with confirmation of saved config
+    selected_names = set()
+    
     if interactive:
-        # Ask if publish all or select
-        mode = Prompt.ask(
-            "\n[bold]Publishing Mode[/bold]",
-            choices=["all", "select"],
-            default="all" if not saved_selection else "select"
-        )
-        
-        if mode == "all":
-            selected_names = {s["name"] for s in available_skills}
+        if saved_selection:
+            console.print(f"\n[bold blue]ℹ Found saved selection with {len(saved_selection)} skills.[/bold blue]")
+            action = Prompt.ask(
+                "What would you like to do?",
+                choices=["use", "edit", "all"],
+                default="use"
+            )
+            
+            if action == "use":
+                selected_names = set(saved_selection)
+            elif action == "all":
+                selected_names = available_names
+            else: # edit
+                selected_names = set(saved_selection)
+                # This will fall through to the selection loop below
         else:
-            # Loop for review/selection cycle
+            # No saved config, ask if publish all or select
+            mode = Prompt.ask(
+                "\n[bold]Publishing Mode[/bold]",
+                choices=["all", "select"],
+                default="all"
+            )
+            if mode == "all":
+                selected_names = available_names
+            # If select, selected_names remains empty and loop starts
+
+        # Selection Loop (if edit mode or manual select)
+        if not selected_names or (saved_selection and action == "edit"):
             while True:
                 selected_names = interactive_selection(available_skills, selected_names)
                 
@@ -163,7 +185,9 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
                     # Save selection to config
                     config.published_skills = list(selected_names)
                     break
-                # If NO, the loop continues and returns to interactive_selection
+    else:
+        # Non-interactive: use saved selection or all valid skills
+        selected_names = set(saved_selection) if saved_selection else {s["name"] for s in available_skills if s["valid"]}
     
     # Final list of skill objects to publish
     selected_skills = [s for s in available_skills if s["name"] in selected_names]
