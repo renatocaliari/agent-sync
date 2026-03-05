@@ -797,10 +797,10 @@ def agents():
     
     table = Table(show_header=True, header_style="bold magenta")
     table.add_column("Agent", style="cyan")
-    table.add_column("Config Path", style="green")
-    table.add_column("Skills Path", style="blue")
     table.add_column("Status", style="yellow")
     table.add_column("Sync", style="magenta")
+    table.add_column("Skills Method", style="blue")
+    table.add_column("Config Path", style="green")
     
     config = Config()
     
@@ -809,19 +809,26 @@ def agents():
         status = "✓" if agent.is_available() else "✗"
         sync_status = "🟢 ON" if enabled else "🔴 OFF"
         
+        # Get actual method from user config or default to agent's registry method
+        method = config.get_skills_method(agent.name) or agent.method
+        
         config_path_str = str(agent.config_path) if agent.config_path else "-"
-        skills_path_str = str(agent.skills_path)
         
         table.add_row(
             agent.name,
-            config_path_str,
-            skills_path_str,
             status,
             sync_status,
+            method,
+            config_path_str,
         )
     
     console.print(table)
     console.print("\n💡 Use 'agent-sync enable <agent>' or 'agent-sync disable <agent>' to toggle sync")
+    console.print("\n🔧 [bold]How to customize skills method:[/bold]")
+    console.print("  Edit your config with [green]agent-sync config edit[/green] and add:")
+    console.print("  [dim]agents_config:[/dim]")
+    console.print("  [dim]  claude-code:[/dim]")
+    console.print("  [dim]    skills_method: copy  # Options: native, config, copy[/dim]\n")
 
 
 @main.command()

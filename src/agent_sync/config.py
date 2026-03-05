@@ -21,11 +21,22 @@ DEFAULT_OVERRIDES_FILE = DEFAULT_CONFIG_DIR / "overrides.yaml"
 class Config:
     """Manages agent-sync configuration."""
     
-    def __init__(self, config_path: Optional[Path] = None):
+    def __init__(self, config_path: Optional[Path] = None, overrides_path: Optional[Path] = None):
         self.config_path = config_path or DEFAULT_CONFIG_FILE
-        self.overrides_path = DEFAULT_OVERRIDES_FILE
+        self._overrides_path = overrides_path or DEFAULT_OVERRIDES_FILE
         self._config: dict = {}
         self._overrides: dict = {}
+        self.load()
+    
+    @property
+    def overrides_path(self) -> Path:
+        """Get the overrides file path."""
+        return self._overrides_path
+    
+    @overrides_path.setter
+    def overrides_path(self, path: Path) -> None:
+        """Set the overrides file path and reload."""
+        self._overrides_path = Path(path)
         self.load()
     
     def load(self) -> None:
@@ -118,6 +129,17 @@ class Config:
         if "sync" not in agent_config:
             agent_config["sync"] = {}
         agent_config["sync"][key] = value
+        self.set_agent_config(agent_name, agent_config)
+
+    def get_skills_method(self, agent_name: str) -> Optional[str]:
+        """Get skills sync method for a specific agent."""
+        agent_config = self.get_agent_config(agent_name)
+        return agent_config.get("skills_method")
+
+    def set_skills_method(self, agent_name: str, method: str) -> None:
+        """Set skills sync method for a specific agent."""
+        agent_config = self.get_agent_config(agent_name)
+        agent_config["skills_method"] = method
         self.set_agent_config(agent_name, agent_config)
     
     @property
