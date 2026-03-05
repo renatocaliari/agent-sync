@@ -808,7 +808,7 @@ def update():
                 if is_pipx:
                     cmd = ["pipx", "upgrade", "agent-sync"]
                 else:
-                    cmd = ["pip", "install", "--upgrade", "git+https://github.com/renatocaliari/agent-sync.git"]
+                    cmd = ["python3", "-m", "pip", "install", "--upgrade", "git+https://github.com/renatocaliari/agent-sync.git"]
                 
                 try:
                     subprocess.run(cmd, check=True)
