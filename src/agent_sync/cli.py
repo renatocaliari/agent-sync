@@ -808,27 +808,32 @@ def update():
             if Confirm.ask("\nDo you want to update now?", default=True):
                 console.print("\n🚀 [bold]Updating agent-sync...[/bold]")
                 
-                # Smarter pipx detection: check if 'pipx' is in the real path of the executable
-                executable_path = subprocess.check_output(["which", "agent-sync"]).decode().strip()
-                real_path = os.path.realpath(executable_path)
-                is_pipx = "pipx" in real_path or ".local/pipx" in real_path
+                updated = False
                 
-                if is_pipx:
-                    cmd = ["pipx", "upgrade", "agent-sync"]
-                else:
-                    # Fallback to python3 -m pip with safety flag for managed environments
-                    cmd = ["python3", "-m", "pip", "install", "--upgrade", "git+https://github.com/renatocaliari/agent-sync.git", "--break-system-packages"]
-                
+                # Try PIPX first (cleanest)
                 try:
-                    subprocess.run(cmd, check=True)
-                    console.print("\n[bold green]✅ agent-sync updated successfully![/bold green]")
+                    result = subprocess.run(["pipx", "upgrade", "agent-sync"], capture_output=True, text=True)
+                    if result.returncode == 0:
+                        console.print("\n[bold green]✅ agent-sync updated successfully via pipx![/bold green]")
+                        updated = True
+                except Exception:
+                    pass
+
+                # Try PIP as fallback
+                if not updated:
+                    cmd = ["python3", "-m", "pip", "install", "--upgrade", "git+https://github.com/renatocaliari/agent-sync.git", "--break-system-packages"]
+                    try:
+                        subprocess.run(cmd, check=True)
+                        console.print("\n[bold green]✅ agent-sync updated successfully via pip![/bold green]")
+                        updated = True
+                    except Exception as e:
+                        console.print(f"\n[red]✗ Update failed:[/red] {e}")
+                        console.print("\nPlease try manually:")
+                        console.print("   pipx upgrade agent-sync  OR")
+                        console.print("   python3 -m pip install --upgrade git+https://github.com/renatocaliari/agent-sync.git --break-system-packages")
+                
+                if updated:
                     console.print("[dim]Note: You might need to restart your terminal or run the command again.[/dim]\n")
-                except subprocess.CalledProcessError:
-                    console.print("\n[red]✗ Update failed.[/red] Please try manually:")
-                    if is_pipx:
-                        console.print("   pipx upgrade agent-sync")
-                    else:
-                        console.print(f"   {' '.join(cmd)}")
         else:
             console.print(f"✓ [green]Up to date:[/green] [bold]v{current}[/bold]\n")
             
