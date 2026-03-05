@@ -619,14 +619,11 @@ def centralize(copy: bool, push: bool, distribute: bool):
 
 
 @skills.command()
-@click.option("--repo", "repo_url", help="GitHub repository URL for publishing skills (e.g., https://github.com/user/my-skills)")
+@click.option("--repo", "repo_url", help="GitHub repository URL for publishing skills")
 @click.option("--dry-run", is_flag=True, help="Show what would be published without actually publishing")
-@click.option("--interactive", "-i", is_flag=True, help="Interactive TUI to select which skills to publish")
+@click.option("--interactive/--no-interactive", default=True, help="Toggle interactive TUI selection")
 def publish(repo_url: Optional[str], dry_run: bool, interactive: bool):
-    """Publish selected skills to a public GitHub repository.
-    
-    Use --interactive to select which skills to publish via TUI.
-    """
+    """Publish selected skills to a public GitHub repository."""
     from .publish import publish_skills
     success = publish_skills(repo_url=repo_url, dry_run=dry_run, interactive=interactive)
     if not success:
