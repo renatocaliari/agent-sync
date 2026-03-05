@@ -97,41 +97,60 @@ def show_pending_update_notification():
 
 
 class ExtendedHelpGroup(click.Group):
-    """Custom Click group to show subcommand options and sub-subcommands in the main help."""
+    """Custom Click group to show categorization and vertical tree structure in help."""
     
     def format_commands(self, ctx, formatter):
-        commands = []
-        for subcommand in self.list_commands(ctx):
-            cmd = self.get_command(ctx, subcommand)
-            if cmd is None or cmd.hidden:
-                continue
+        # 1. Define Categories
+        categories = {
+            "🔄 Sync Commands": ["push", "pull", "status"],
+            "🤖 Agent Management": ["agents", "enable", "disable"],
+            "⚙️  Configuration": ["setup", "init", "link", "config", "generate-config"],
+            "📚 Skills Management": ["skills"],
+            "🛠️  System": ["update", "version", "secrets"]
+        }
+        
+        # Get all commands available in this group
+        all_commands = {name: self.get_command(ctx, name) for name in self.list_commands(ctx)}
+        
+        for category, cmd_names in categories.items():
+            category_commands = []
             
-            help_text = cmd.get_short_help_str()
+            for name in cmd_names:
+                cmd = all_commands.get(name)
+                if not cmd or cmd.hidden:
+                    continue
+                
+                # Main Command Description
+                help_text = cmd.get_short_help_str()
+                
+                # If it's NOT a group, show its options
+                if not isinstance(cmd, click.Group):
+                    opts = [p.opts[0] for p in cmd.params if isinstance(p, click.Option)]
+                    if opts:
+                        help_text += f" [{', '.join(opts)}]"
+                
+                category_commands.append((name, help_text))
+                
+                # If it IS a group, list its subcommands vertically
+                if isinstance(cmd, click.Group):
+                    sub_names = cmd.list_commands(ctx)
+                    for i, sub_name in enumerate(sub_names):
+                        sub_cmd = cmd.get_command(ctx, sub_name)
+                        if sub_cmd:
+                            is_last = (i == len(sub_names) - 1)
+                            tree_char = "└──" if is_last else "├──"
+                            
+                            sub_help = sub_cmd.get_short_help_str()
+                            sub_opts = [p.opts[0] for p in sub_cmd.params if isinstance(p, click.Option)]
+                            if sub_opts:
+                                sub_help += f" [{', '.join(sub_opts)}]"
+                            
+                            # Indented with tree structure
+                            category_commands.append((f"  {tree_char} {sub_name}", sub_help))
             
-            if isinstance(cmd, click.Group):
-                # For groups, list their subcommands and their options
-                sub_items = []
-                for sub_sub_name in cmd.list_commands(ctx):
-                    sub_sub_cmd = cmd.get_command(ctx, sub_sub_name)
-                    if sub_sub_cmd:
-                        sub_opts = [p.opts[0] for p in sub_sub_cmd.params if isinstance(p, click.Option)]
-                        if sub_opts:
-                            sub_items.append(f"{sub_sub_name} [{', '.join(sub_opts)}]")
-                        else:
-                            sub_items.append(sub_sub_name)
-                if sub_items:
-                    help_text += f" ({', '.join(sub_items)})"
-            else:
-                # For regular commands, just list their options
-                opts = [p.opts[0] for p in cmd.params if isinstance(p, click.Option)]
-                if opts:
-                    help_text += f" [{', '.join(opts)}]"
-            
-            commands.append((subcommand, help_text))
-
-        if commands:
-            with formatter.section("Commands"):
-                formatter.write_dl(commands)
+            if category_commands:
+                with formatter.section(category):
+                    formatter.write_dl(category_commands)
 
 
 @click.group(cls=ExtendedHelpGroup)
