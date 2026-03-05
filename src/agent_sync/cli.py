@@ -212,7 +212,7 @@ def init(name: Optional[str], private: bool, agents: tuple[str, ...], no_wizard:
 
     # Run wizard if not provided via CLI args
     if not name and not no_wizard:
-        console.print("\n[bold]Running setup wizard...[/bold]\n")
+        console.print("\n[bold]Running setup wizard...[/]\n")
         repo_config = run_setup_wizard()
 
         if not repo_config:
@@ -261,16 +261,16 @@ def setup():
     if config.repo_url:
         console.print("\n[yellow]⚠ You already have an existing configuration![/yellow]")
         console.print(f"   Repository: {config.repo_url}")
-        console.print("\nThis will [bold]overwrite[/bold] your current configuration.")
+        console.print("\nThis will [bold]overwrite[/] your current configuration.")
         console.print()
         
         if not Confirm.ask("Continue?", default=False):
             console.print("\n[yellow]Setup cancelled[/yellow]")
             return
         
-        console.print("\n[bold]🔄 Reconfiguring Agent Sync[/bold]\n")
+        console.print("\n[bold]🔄 Reconfiguring Agent Sync[/]\n")
     else:
-        console.print("\n[bold]🔄 Agent Sync Setup Wizard[/bold]\n")
+        console.print("\n[bold]🔄 Agent Sync Setup Wizard[/]\n")
     
     repo_config = run_setup_wizard()
     
@@ -300,7 +300,7 @@ def show():
     
     config = Config()
     
-    console.print("\n[bold]📋 Current Configuration[/bold]\n")
+    console.print("\n[bold]📋 Current Configuration[/]\n")
     
     if not config.repo_url:
         console.print("[yellow]⚠ Not configured yet. Run 'agent-sync setup'[/yellow]\n")
@@ -311,7 +311,7 @@ def show():
     console.print()
     
     # Show agents
-    console.print("[bold]Enabled Agents:[/bold]")
+    console.print("[bold]Enabled Agents:[/]")
     for agent_name in config.agents:
         if config.is_agent_enabled(agent_name):
             sync_opts = config.get_sync_options(agent_name)
@@ -469,7 +469,7 @@ def list_skills():
         console.print("\n[yellow]No skills found in ~/.agents/skills/[/yellow]\n")
         return
     
-    console.print(f"\n[bold]📚 Centralized Skills ({len(skills)})[/bold]\n")
+    console.print(f"\n[bold]📚 Centralized Skills ({len(skills)})[/]\n")
     
     table = Table(box=box.SIMPLE)
     table.add_column("Status", style="green")
@@ -534,7 +534,7 @@ def centralize(copy: bool, push: bool, distribute: bool):
     move = not copy
     action = "Copying" if copy else "Moving"
     
-    console.print(f"\n[bold]📁 {action} Skills[/bold]\n")
+    console.print(f"\n[bold]📁 {action} Skills[/]\n")
     
     skills_mgr = SkillsManager()
     stats = skills_mgr.centralize(move=move)
@@ -567,7 +567,7 @@ def centralize(copy: bool, push: bool, distribute: bool):
 
     # Optional: distribute skills to all agent directories
     if distribute:
-        console.print("\n[bold]📤 Distributing Skills to All Agents[/bold]\n")
+        console.print("\n[bold]📤 Distributing Skills to All Agents[/]\n")
         console.print("[yellow]⚠ This will copy ALL skills to ALL agent directories.[/yellow]\n")
         console.print("Use this for:")
         console.print("  • Backup: local copies in each agent directory")
@@ -586,12 +586,12 @@ def centralize(copy: bool, push: bool, distribute: bool):
 
     if not should_push:
         should_push = Confirm.ask(
-            "\n[bold]Would you like to push these changes to GitHub now?[/bold]",
+            "\n[bold]Would you like to push these changes to GitHub now?[/]",
             default=True,
         )
     
     if should_push:
-        console.print("\n[bold]📤 Pushing to GitHub...[/bold]\n")
+        console.print("\n[bold]📤 Pushing to GitHub...[/]\n")
         
         from .sync import SyncManager
         from .config import Config
@@ -791,7 +791,7 @@ def update():
     from rich.prompt import Confirm
     from rich.panel import Panel
     
-    console.print("[bold]🔍 Checking for updates...[/bold]\n")
+    console.print("[bold]🔍 Checking for updates...[/]\n")
     
     current = __version__
     
@@ -818,10 +818,10 @@ def update():
         latest = latest_data["tag_name"].lstrip("v")
         
         if latest > current:
-            console.print(f"✨ [green]Update available:[/green] [bold]v{latest}[/bold] (Current: v{current})")
+            console.print(f"✨ [green]Update available:[/green] [bold]v{latest}[/] (Current: v{current})")
             
             if Confirm.ask("\nDo you want to update now?", default=True):
-                console.print("\n🚀 [bold]Updating agent-sync...[/bold]")
+                console.print("\n🚀 [bold]Updating agent-sync...[/]")
                 
                 # Execution logic with captured output for better UX
                 def run_upgrade(cmd_list):
@@ -848,14 +848,14 @@ def update():
                 if is_managed:
                     instruction = (
                         "[yellow]Your Python environment is managed by the OS (macOS/Linux).[/yellow]\n\n"
-                        "[bold]Please run one of these commands manually:[/bold]\n\n"
+                        "[bold]Please run one of these commands manually:[/]\n\n"
                         "  [cyan]pipx upgrade agent-sync[/cyan] (Recommended)\n"
                         "  [cyan]python3 -m pip install --upgrade git+https://github.com/renatocaliari/agent-sync.git --break-system-packages[/cyan]"
                     )
                 else:
                     instruction = (
                         f"[red]Update failed with error:[/red] {error_msg[:100]}...\n\n"
-                        "[bold]Try manual update:[/bold]\n"
+                        "[bold]Try manual update:[/]\n"
                         "  [cyan]pipx upgrade agent-sync[/cyan]"
                     )
 
@@ -863,7 +863,7 @@ def update():
                 console.print(Panel(instruction, title="[bold red]Update Required[/bold red]", expand=False))
                 console.print("\n")
         else:
-            console.print(f"✓ [green]Up to date:[/green] [bold]v{current}[/bold]\n")
+            console.print(f"✓ [green]Up to date:[/green] [bold]v{current}[/]\n")
             
     except Exception as e:
         console.print(f"[dim]Current version: v{current}[/dim]")
@@ -873,7 +873,7 @@ def update():
 @main.command()
 def version():
     """Show version information."""
-    console.print(f"\n[bold]agent-sync[/bold] v{__version__}\n")
+    console.print(f"\n[bold]agent-sync[/] v{__version__}\n")
 
 
 @main.command()
@@ -914,7 +914,7 @@ def agents():
     
     console.print(table)
     console.print("\n💡 Use 'agent-sync enable <agent>' or 'agent-sync disable <agent>' to toggle sync")
-    console.print("\n🔧 [bold]How to customize skills method:[/bold]")
+    console.print("\n🔧 [bold]How to customize skills method:[/]")
     console.print("  Edit your config with [green]agent-sync config edit[/green] and add:")
     console.print("  [dim]agents_config:[/dim]")
     console.print("  [dim]  claude-code:[/dim]")
