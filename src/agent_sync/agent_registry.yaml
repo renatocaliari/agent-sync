@@ -78,3 +78,61 @@ global-skills:
   skills_dir_name: "skills"
   check:
     always: true
+
+# =============================================================================
+# VS Code Extensions & IDE Agents
+# =============================================================================
+
+roocode:
+  method: native
+  config_dir: "~/.roo"
+  config_filename: "custom_modes.yaml"
+  config_patterns: ["*.yaml", "*.json", "*.md"]
+  skills_dir_name: "skills"
+  check:
+    path: "~/.roo/custom_modes.yaml"
+  notes: "Native support for ~/.agents/skills/ (higher priority than ~/.roo/skills/)"
+  mode_specific: true  # Supports skills-code/, skills-architect/, etc.
+  migrate_from: "~/.roo/skills/"
+
+cline:
+  method: copy
+  config_dir: "~/.cline"
+  config_filename: "state.json"
+  config_patterns: ["*.md", "*.json"]
+  skills_dir_name: "skills"
+  check:
+    binary: "cline"
+  # Copy from project skills directories to global hub
+  copy_from:
+    - ".cline/skills/"
+    - ".clinerules/skills/"
+    - ".claude/skills/"
+  copy_to: "~/.agents/skills/"
+
+cursor:
+  method: native
+  config_dir: "~/.cursor"
+  config_filename: "settings.json"
+  config_patterns: ["*.md"]
+  skills_dir_name: "skills"
+  check:
+    binary: "cursor"
+  notes: "Native support for ~/.agents/skills/ (project and global)"
+  migrate_from:
+    - ".cursor/skills/"
+    - "~/.cursor/skills/"
+
+windsurf:
+  method: copy
+  config_dir: "~/.codeium/windsurf"
+  config_filename: "config.json"
+  config_patterns: ["*.md"]
+  skills_dir_name: "skills"
+  check:
+    binary: "windsurf"
+  # Copy from project/global skills directories to global hub
+  copy_from:
+    - ".windsurf/skills/"
+    - "~/.codeium/windsurf/skills/"
+  copy_to: "~/.agents/skills/"

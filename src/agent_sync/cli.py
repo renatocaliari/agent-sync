@@ -742,31 +742,59 @@ def push(message: str, skills_only: bool, configs_only: bool):
 def status():
     """Show sync status and last sync times."""
     console.print("\n📊 Sync Status\n")
-    
+
     config = Config()
     sync_manager = SyncManager(config)
-    
+
     try:
         status_info = sync_manager.get_status()
-        
+
         table = Table(show_header=True, header_style="bold magenta")
         table.add_column("Agent", style="cyan")
         table.add_column("Status", style="green")
-        table.add_column("Last Sync", style="yellow")
+        table.add_column("Installed", style="yellow")
+        table.add_column("Last Sync", style="blue")
         table.add_column("Changes", style="red")
-        
+
         for agent, info in status_info.items():
+            # Status with color coding
+            status = info["status"]
+            if status == "active":
+                status_display = "✅ active"
+            elif status == "not_installed":
+                status_display = "⚠️ not_installed"
+            elif status == "disabled":
+                status_display = "❌ disabled"
+            else:
+                status_display = status
+            
+            # Installed indicator
+            installed = info.get("installed", False)
+            if installed:
+                installed_display = "✓"
+            elif status == "disabled":
+                installed_display = "-"  # Don't care if disabled
+            else:
+                installed_display = "✗"
+
             table.add_row(
                 agent,
-                info["status"],
+                status_display,
+                installed_display,
                 info["last_sync"],
                 info["changes"] or "-",
             )
-        
+
         console.print(table)
         
+        # Legend
+        console.print("\n[dim]Legend:[/]")
+        console.print("  [green]✅ active[/] = Enabled in config + Installed")
+        console.print("  [yellow]⚠️ not_installed[/] = Enabled in config but not installed")
+        console.print("  [dim]❌ disabled[/] = Disabled in config\n")
+
         if config.repo_url:
-            console.print(f"\n🔗 Repository: {config.repo_url}")
+            console.print(f"🔗 Repository: {config.repo_url}")
     except Exception as e:
         console.print(f"\n❌ Error: {e}", style="red")
         raise click.Abort()
@@ -880,30 +908,30 @@ def version():
 def agents():
     """List supported agents and their status."""
     console.print("\n🤖 Supported Agents\n")
-    
-    from .agents import get_all_agents
-    
-    agents = get_all_agents()
-    
+
+    from .agents import get_agents
+
+    agents = get_agents()
+
     table = Table(show_header=True, header_style="bold magenta")
     table.add_column("Agent", style="cyan")
     table.add_column("Status", style="yellow")
     table.add_column("Sync", style="magenta")
     table.add_column("Skills Method", style="blue")
     table.add_column("Config Path", style="green")
-    
+
     config = Config()
-    
+
     for agent in agents:
         enabled = config.is_agent_enabled(agent.name)
         status = "✓" if agent.is_available() else "✗"
         sync_status = "🟢 ON" if enabled else "🔴 OFF"
-        
+
         # Get actual method from user config or default to agent's registry method
         method = config.get_skills_method(agent.name) or agent.method
-        
+
         config_path_str = str(agent.config_path) if agent.config_path else "-"
-        
+
         table.add_row(
             agent.name,
             status,
@@ -911,7 +939,7 @@ def agents():
             method,
             config_path_str,
         )
-    
+
     console.print(table)
     console.print("\n💡 Use 'agent-sync enable <agent>' or 'agent-sync disable <agent>' to toggle sync")
     console.print("\n🔧 [bold]How to customize skills method:[/]")
@@ -944,18 +972,17 @@ def generate_config(agent: tuple[str, ...]):
 def enable(agent_name: str):
     """Enable sync for a specific agent."""
     console.print(f"\n✅ Enabling sync for: {agent_name}")
-    
-    from .agents import get_agent
-    
+
+    from .agents import get_agent, get_agents
+
     agent = get_agent(agent_name)
     if not agent:
         console.print(f"❌ Unknown agent: {agent_name}", style="red")
         console.print("\nAvailable agents:", style="yellow")
-        from .agents import get_all_agents
-        for a in get_all_agents():
+        for a in get_agents():
             console.print(f"  • {a.name}")
         raise click.Abort()
-    
+
     try:
         config = Config()
         config.enable_agent(agent_name)
@@ -972,15 +999,14 @@ def enable(agent_name: str):
 def disable(agent_name: str):
     """Disable sync for a specific agent."""
     console.print(f"\n🚫 Disabling sync for: {agent_name}")
-    
-    from .agents import get_agent
-    
+
+    from .agents import get_agent, get_agents
+
     agent = get_agent(agent_name)
     if not agent:
         console.print(f"❌ Unknown agent: {agent_name}", style="red")
         console.print("\nAvailable agents:", style="yellow")
-        from .agents import get_all_agents
-        for a in get_all_agents():
+        for a in get_agents():
             console.print(f"  • {a.name}")
         raise click.Abort()
     
