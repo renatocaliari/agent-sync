@@ -62,7 +62,7 @@ def render_selection_table(skills: list, selected_names: set) -> Table:
 
     for i, skill in enumerate(skills, 1):
         is_selected = skill["name"] in selected_names
-        status = "[bold green]✓[/bold green]" if is_selected else "[red]○[/red]"
+        status = "[bold green]✓[/]" if is_selected else "[red]○[/]"
         skill_type = "Full Skill" if skill["valid"] else "Script/MD"
         table.add_row(str(i), status, skill["name"], skill_type)
     
@@ -80,7 +80,7 @@ def interactive_selection(skills: list, initial_selected: set) -> set:
         table = render_selection_table(skills, selected)
         console.print(table)
         
-        console.print("\n[bold]Controls:[/]")
+        console.print("\n[bold]Controls:[/bold]")
         console.print("  • Enter numbers to toggle (e.g. [green]'1,3,5'[/green])")
         console.print("  • Type [cyan]'all'[/cyan] or [cyan]'none'[/cyan]")
         console.print("  • Press [bold white]Enter[/] when done")
@@ -107,6 +107,19 @@ def interactive_selection(skills: list, initial_selected: set) -> set:
                 pass
                 
     return selected
+
+
+def show_selection_summary(selected_names: set) -> bool:
+    """Show summary table and confirm."""
+    console.clear()
+    console.print("\n[bold green]📋 Selection Summary[/] [dim](to be published)[/dim]\n")
+    summary_table = Table(box=box.SIMPLE)
+    summary_table.add_column("Skill Name", style="cyan")
+    for name in sorted(list(selected_names)):
+        summary_table.add_row(f"  • {name}")
+    console.print(summary_table)
+    
+    return Confirm.ask("\n[bold]Confirm this selection?[/]", default=True)
 
 
 def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, interactive: bool = False) -> bool:
@@ -136,64 +149,56 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
     selected_names = set()
     
     if interactive:
-        if saved_selection:
-            # 1. SHOW SUMMARY FIRST (User Request)
-            console.print("\n[bold blue]📋 Current Saved Selection[/bold blue]")
-            summary_table = Table(box=box.SIMPLE, show_header=False)
-            summary_table.add_column("Skill", style="cyan")
-            for name in sorted(saved_selection):
-                summary_table.add_row(f"  • {name}")
-            console.print(summary_table)
-
-            # 2. INTUITIVE MENU (Numbered/Shortcut)
-            console.print("\n[bold]What would you like to do?[/]")
-            console.print("  [bold green]1[/]. Use this selection [dim](u)[/dim]")
-            console.print("  [bold cyan]2[/]. Edit selection [dim](e)[/dim]")
-            console.print("  [bold magenta]3[/]. Select ALL available [dim](a)[/dim]")
-            
-            choice = Prompt.ask("\nChoice", choices=["1", "2", "3", "u", "e", "a"], default="1")
-            
-            if choice in ["1", "u"]:
-                selected_names = set(saved_selection)
-            elif choice in ["3", "a"]:
-                selected_names = available_names
-            else: # 2 or e (edit)
-                selected_names = set(saved_selection)
-                # This will fall through to the selection loop below
-        else:
-            # No saved config, ask if publish all or select
-            console.print("\n[bold]Publishing Mode[/]")
-            console.print("  [bold green]1[/]. Publish ALL available [dim](a)[/dim]")
-            console.print("  [bold cyan]2[/]. Select specific skills [dim](s)[/dim]")
-            
-            mode = Prompt.ask("\nChoice", choices=["1", "2", "a", "s"], default="1")
-            if mode in ["1", "a"]:
-                selected_names = available_names
-            # If select (2/s), selected_names remains empty and loop starts
-
-        # Selection Loop (if edit mode or manual select)
-        if not selected_names or (saved_selection and choice in ["2", "e"]):
-            while True:
-                selected_names = interactive_selection(available_skills, selected_names)
-                
-                if not selected_names:
-                    if Confirm.ask("\n[yellow]No skills selected. Cancel publishing?[/yellow]", default=True):
-                        return False
-                    continue
-                
-                # Show summary for confirmation
-                console.clear()
-                console.print("\n[bold green]📋 Selection Summary[/bold green]\n")
-                summary_table = Table(box=box.SIMPLE)
-                summary_table.add_column("Skill Name", style="cyan")
-                for name in sorted(list(selected_names)):
-                    summary_table.add_row(name)
+        confirmed = False
+        while not confirmed:
+            if saved_selection and not selected_names:
+                # 1. SHOW SUMMARY FIRST (User Request)
+                console.print("\n[bold blue]📋 Current Saved Selection[/]")
+                summary_table = Table(box=box.SIMPLE, show_header=False)
+                summary_table.add_column("Skill", style="cyan")
+                for name in sorted(saved_selection):
+                    summary_table.add_row(f"  • {name}")
                 console.print(summary_table)
+
+                # 2. INTUITIVE MENU (Numbered/Shortcut)
+                console.print("\n[bold]What would you like to do?[/]")
+                console.print("  [bold green]1[/]. Use this selection [dim](u)[/dim]")
+                console.print("  [bold cyan]2[/]. Edit selection [dim](e)[/dim]")
+                console.print("  [bold magenta]3[/]. Select ALL available [dim](a)[/dim]")
                 
-                if Confirm.ask("\n[bold]Confirm this selection?[/]", default=True):
-                    # Save selection to config
-                    config.published_skills = list(selected_names)
-                    break
+                choice = Prompt.ask("\nChoice", choices=["1", "2", "3", "u", "e", "a"], default="1")
+                
+                if choice in ["1", "u"]:
+                    selected_names = set(saved_selection)
+                    confirmed = True # 'use' means already confirmed
+                elif choice in ["3", "a"]:
+                    selected_names = available_names
+                    confirmed = show_selection_summary(selected_names)
+                else: # 2 or e (edit)
+                    selected_names = set(saved_selection)
+                    selected_names = interactive_selection(available_skills, selected_names)
+                    confirmed = show_selection_summary(selected_names)
+            else:
+                # No saved config OR selection changed and not confirmed
+                if not selected_names:
+                    console.print("\n[bold]Publishing Mode[/]")
+                    console.print("  [bold green]1[/]. Publish ALL available [dim](a)[/dim]")
+                    console.print("  [bold cyan]2[/]. Select specific skills [dim](s)[/dim]")
+                    
+                    mode = Prompt.ask("\nChoice", choices=["1", "2", "a", "s"], default="1")
+                    if mode in ["1", "a"]:
+                        selected_names = available_names
+                    else:
+                        selected_names = interactive_selection(available_skills, selected_names)
+                else:
+                    # User was editing/selecting all, but didn't confirm summary
+                    selected_names = interactive_selection(available_skills, selected_names)
+                
+                confirmed = show_selection_summary(selected_names)
+            
+            if confirmed:
+                # Save final selection to config
+                config.published_skills = list(selected_names)
     else:
         # Non-interactive: use saved selection or all valid skills
         selected_names = set(saved_selection) if saved_selection else {s["name"] for s in available_skills if s["valid"]}
@@ -213,7 +218,7 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
         "  ✓ SKILL.md files (skill definitions)\n"
         "  ✓ .md, .py, .sh files (skill scripts)\n"
         "  ✓ references/, templates/, scripts/ directories\n\n"
-        "What will [bold red]NEVER[/bold red] be published:\n"
+        "What will [bold red]NEVER[/] be published:\n"
         "  ✗ Any config files (settings.json, config.yaml, etc.)\n"
         "  ✗ Any files containing 'auth', 'token', 'key', 'secret' in name\n"
         "  ✗ .env files\n"
@@ -255,7 +260,7 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
         console.print(f"\n[blue]🔍 DRY RUN: Would publish {len(selected_skills)} skills to {repo_url}[/blue]\n")
         return True
 
-    if not Confirm.ask("\n[bold red]Confirm publishing to GitHub?[/bold red]", default=True):
+    if not Confirm.ask("\n[bold red]Confirm publishing to GitHub?[/]", default=True):
         console.print("\n[yellow]Publish cancelled[/yellow]\n")
         return False
 
