@@ -152,7 +152,7 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
         confirmed = False
         while not confirmed:
             if saved_selection and not selected_names:
-                # 1. SHOW SUMMARY FIRST (User Request)
+                # 1. SHOW SUMMARY FIRST
                 console.print("\n[bold blue]📋 Current Saved Selection[/]")
                 summary_table = Table(box=box.SIMPLE, show_header=False)
                 summary_table.add_column("Skill", style="cyan")
@@ -160,21 +160,21 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
                     summary_table.add_row(f"  • {name}")
                 console.print(summary_table)
 
-                # 2. INTUITIVE MENU (Numbered/Shortcut)
+                # 2. SIMPLIFIED MENU (Letters only)
                 console.print("\n[bold]What would you like to do?[/]")
-                console.print("  [bold green]1[/]. Use this selection [dim](u)[/dim]")
-                console.print("  [bold cyan]2[/]. Edit selection [dim](e)[/dim]")
-                console.print("  [bold magenta]3[/]. Select ALL available [dim](a)[/dim]")
+                console.print("  [[bold green]u[/]] Use this selection")
+                console.print("  [[bold cyan]e[/]] Edit selection")
+                console.print("  [[bold magenta]a[/]] Select ALL available")
                 
-                choice = Prompt.ask("\nChoice", choices=["1", "2", "3", "u", "e", "a"], default="1")
+                choice = Prompt.ask("\nChoice", choices=["u", "e", "a"], default="u")
                 
-                if choice in ["1", "u"]:
+                if choice == "u":
                     selected_names = set(saved_selection)
-                    confirmed = True # 'use' means already confirmed
-                elif choice in ["3", "a"]:
+                    confirmed = True
+                elif choice == "a":
                     selected_names = available_names
                     confirmed = show_selection_summary(selected_names)
-                else: # 2 or e (edit)
+                else: # e (edit)
                     selected_names = set(saved_selection)
                     selected_names = interactive_selection(available_skills, selected_names)
                     confirmed = show_selection_summary(selected_names)
@@ -182,11 +182,11 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
                 # No saved config OR selection changed and not confirmed
                 if not selected_names:
                     console.print("\n[bold]Publishing Mode[/]")
-                    console.print("  [bold green]1[/]. Publish ALL available [dim](a)[/dim]")
-                    console.print("  [bold cyan]2[/]. Select specific skills [dim](s)[/dim]")
+                    console.print("  [[bold green]a[/]] Publish ALL available")
+                    console.print("  [[bold cyan]s[/]] Select specific skills")
                     
-                    mode = Prompt.ask("\nChoice", choices=["1", "2", "a", "s"], default="1")
-                    if mode in ["1", "a"]:
+                    mode = Prompt.ask("\nChoice", choices=["a", "s"], default="a")
+                    if mode == "a":
                         selected_names = available_names
                     else:
                         selected_names = interactive_selection(available_skills, selected_names)
@@ -210,7 +210,8 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
         console.print("\n[yellow]⚠ No skills selected for publishing[/yellow]\n")
         return False
 
-    # 4. Security & Repo Logic (Existing flow)
+    # 4. SECURITY WARNING (Now shown AFTER selection is confirmed)
+    console.print("\n")
     console.print(Panel(
         "[bold yellow]⚠️  SECURITY WARNING[/bold yellow]\n\n"
         "You are about to publish skills to a [bold]PUBLIC[/] repository.\n\n"
@@ -224,6 +225,7 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
         "  ✗ .env files\n"
         "  ✗ Your private agent-sync-configs repository",
         border_style="yellow",
+        title="[bold yellow]Public Disclosure[/]",
     ))
 
     # Load or create publish config (for repo_url)

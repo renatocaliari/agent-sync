@@ -121,16 +121,6 @@ agent-sync --help
 
 ---
 
-## 🏗️ Architecture (v0.7.0+)
-
-We recently moved to a data-driven architecture using a YAML registry. This makes the system more robust and easier to extend.
-
-- **YAML Registry**: Defined in `src/agent_sync/agent_registry.yaml`.
-- **No Symlinks**: We use `Native -> Config -> Copy` flow for maximum cross-platform reliability.
-- **Customizable**: Override the sync method for any agent in your `config.yaml`.
-
-For more details on these changes, see the [v0.7.0 Release Notes](RELEASE_NOTES_v0.7.0.md).
-
 If you are an AI model (LLM) contributing to this project, please read [AGENTS.md](AGENTS.md) for versioning and architectural mandates.
 
 See the [Adding New Agents guide](docs/adding-agents.md) for more details.
