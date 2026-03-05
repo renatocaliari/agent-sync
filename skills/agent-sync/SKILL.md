@@ -79,11 +79,11 @@ agent-sync pull
    → Creates fallback symlinks only when needed
 
 2. Configure agents (automatic)
-   Claude Code: symlink → ~/.agents/skills/
    Opencode:    config update
-   Qwen Code:   native support
+   Qwen Code:   copy method
    Pi.dev:      native support
-   Gemini CLI:  fallback (copy)
+   Claude Code: copy method
+   Gemini CLI:  copy method
 
 3. Sync to GitHub
    ~/.agents/skills/ ──push──► GitHub ──pull──► Other machines
@@ -156,10 +156,10 @@ agent-sync push -m "feat: add gemini-cli sync"
 | Agent | Config Files | Skills Path | Method |
 |-------|-------------|-------------|--------|
 | opencode | `opencode.json`, `opencode.jsonc` | `~/.config/opencode/skills/` | Config |
-| claude-code | `settings.json`, `claude.json` | `~/.claude/commands/` | Symlink |
+| claude-code | `settings.json`, `claude.json` | `~/.claude/commands/` | Copy |
 | gemini-cli | `settings.json` | `~/.gemini/tools/` | Copy |
-| pi.dev | `settings.json`, `models.json` | `~/.pi/agent/skills/` | Native |
-| qwen-code | `settings.json` | `~/.qwen/skills/` | Native |
+| pi.dev | `settings.json`, `models.json`, `*.yaml` | `~/.pi/agent/skills/` | Native |
+| qwen-code | `settings.json` | `~/.qwen/skills/` | Copy |
 
 ## Troubleshooting
 

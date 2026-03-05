@@ -19,15 +19,6 @@ class SyncManager:
     DEFAULT_REPO_DIR = DATA_DIR / "repo"
     STATE_FILE = DATA_DIR / "sync-state.json"
     
-    # Config file patterns per agent (supports multiple extensions)
-    CONFIG_PATTERNS = {
-        "opencode": ["opencode.json", "opencode.jsonc"],
-        "claude-code": ["settings.json", "claude.json"],
-        "gemini-cli": ["settings.json"],
-        "pi.dev": ["settings.json", "models.json", "lsp-settings.json"],
-        "qwen-code": ["settings.json"],
-    }
-    
     # Files to NEVER sync (sensitive or local-only)
     EXCLUDE_PATTERNS = [
         "*auth*.json",
@@ -476,7 +467,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                 agent_config_dir.mkdir(parents=True, exist_ok=True)
 
                 # Get config file patterns for this agent
-                patterns = self.CONFIG_PATTERNS.get(agent.name, ["*.json"])
+                patterns = agent.data.get("config_patterns", [agent.config_filename])
 
                 # 1. Remove config files from repo that no longer exist locally
                 if agent_config_dir.exists():

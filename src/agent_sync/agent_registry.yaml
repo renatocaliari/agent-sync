@@ -25,6 +25,7 @@ opencode:
   method: config
   config_dir: "~/.config/opencode"
   config_filename: "opencode.json"
+  config_patterns: ["*.json", "*.jsonc", "AGENTS.md", "SYSTEM.md"]
   skills_dir_name: "skills"
   check:
     binary: "opencode"
@@ -36,6 +37,7 @@ claude-code:
   method: copy
   config_dir: "~/.claude"
   config_filename: "settings.json"
+  config_patterns: ["*.json", "AGENTS.md", "SYSTEM.md"]
   skills_dir_name: "commands"
   check:
     binary: "claude"
@@ -44,6 +46,7 @@ gemini-cli:
   method: copy
   config_dir: "~/.gemini"
   config_filename: "settings.json"
+  config_patterns: ["*.json", "AGENTS.md", "SYSTEM.md"]
   skills_dir_name: "tools"
   check:
     binary: "gemini"
@@ -52,6 +55,7 @@ pi.dev:
   method: native
   config_dir: "~/.pi/agent"
   config_filename: "settings.json"
+  config_patterns: ["*.json", "*.yaml", "AGENTS.md", "SYSTEM.md"]
   skills_dir_name: "skills"
   check:
     path: "~/.pi/agent/settings.json"
@@ -64,6 +68,7 @@ qwen-code:
   method: copy
   config_dir: "~/.qwen"
   config_filename: "settings.json"
+  config_patterns: ["*.json", "AGENTS.md", "SYSTEM.md"]
   skills_dir_name: "skills"
   check:
     binary: "qwen"
