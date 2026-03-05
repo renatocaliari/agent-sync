@@ -42,16 +42,14 @@ class TestConfig:
         config_file = tmp_path / "config.yaml"
         overrides_file = tmp_path / "overrides.yaml"
         
-        config = Config(config_path=config_file)
-        config.overrides_path = overrides_file
+        config = Config(config_path=config_file, overrides_path=overrides_file)
         
         # Set override
         config.set_override("machine_name", "test-machine")
         config.set_override("custom_path", "/tmp/test")
         
         # Reload and verify
-        config2 = Config(config_path=config_file)
-        config2.overrides_path = overrides_file
+        config2 = Config(config_path=config_file, overrides_path=overrides_file)
         
         assert config2.get_override("machine_name") == "test-machine"
         assert config2.get_override("custom_path") == "/tmp/test"
@@ -65,13 +63,10 @@ class TestConfig:
         result_path = config.generate_default()
         
         assert result_path == config_file
-        assert config.agents == [
-            "opencode",
-            "claude-code",
-            "gemini-cli",
-            "pi.dev",
-            "qwen-code",
-        ]
+        # Updated to include global-skills
+        assert "global-skills" in config.agents
+        assert "opencode" in config.agents
+        assert len(config.agents) == 6
         assert config.include_secrets is False
     
     def test_generate_default_with_agents(self, tmp_path):

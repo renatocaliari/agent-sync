@@ -288,17 +288,6 @@ class SkillsManager:
         else:
             console.print("  [green]✓[/green] No user symlinks found\n")
 
-        # Create symlinks for agents that need fallback
-        console.print("[bold]🔗 Creating symlinks for agents that need fallback...[/bold]\n")
-        symlinks_created = self._create_fallback_symlinks()
-
-        if symlinks_created:
-            for agent_name, symlink_path in symlinks_created.items():
-                console.print(
-                    f"  [green]✓[/green] {agent_name}: {symlink_path} [dim](fallback)[/dim]"
-                )
-            console.print()
-
         # Configure all agents to use global skills (cleans up native agent duplicates)
         console.print("[bold]⚙️  Configuring agents to use global skills...[/bold]\n")
         self.configure_agents()
@@ -318,8 +307,6 @@ class SkillsManager:
             console.print(f"  [dim]⊘ Skipped {stats['skipped']} (already exists)[/dim]")
         if stats["symlinks_removed"] > 0:
             console.print(f"  [yellow]🗑 Removed {stats['symlinks_removed']} user symlinks[/yellow]")
-        if symlinks_created:
-            console.print(f"  [green]🔗 Created {len(symlinks_created)} fallback symlinks[/green]")
 
         console.print("\n[green]✨ All skills are now centralized in ~/.agents/skills/[/green]")
         console.print("[dim]  This is the single source of truth for all your skills.[/dim]\n")
@@ -351,50 +338,8 @@ class SkillsManager:
 
         return symlinks_removed
 
-    def _create_fallback_symlinks(self) -> dict[str, Path]:
-        """Create symlinks for agents that can't be configured to use global skills.
-
-        Returns:
-            dict mapping agent name to created symlink path
-        """
-        symlinks_created = {}
-
-        for agent in get_all_agents():
-            if agent.name == "global-skills":
-                continue
-
-            # Only create symlinks for agents that need fallback
-            if not agent.supports_symlink():
-                continue
-
-            # For Claude Code: create symlink in commands directory
-            if agent.name == "claude-code":
-                # Use the correct commands path (~/.claude/commands/)
-                target_dir = Path.home() / ".claude" / "commands"
-                target_dir.mkdir(parents=True, exist_ok=True)
-
-                symlink_path = target_dir / "_global"
-
-                # Remove existing symlink if present
-                if symlink_path.is_symlink():
-                    symlink_path.unlink()
-                elif symlink_path.exists():
-                    # Backup existing directory
-                    backup_path = target_dir / "_global_backup"
-                    shutil.move(str(symlink_path), str(backup_path))
-
-                # Create symlink to global skills
-                symlink_path.symlink_to(self.global_skills_dir)
-                symlinks_created[agent.name] = symlink_path
-
-        return symlinks_created
-
     def configure_agents(self) -> dict[str, dict]:
-        """Configure all agents to use global skills.
-
-        Returns:
-            dict mapping agent name to configuration result
-        """
+        """Configure all agents to use global skills."""
         results = {}
 
         console.print("\n[bold]Configuring agents to use global skills...[/bold]\n")
@@ -409,7 +354,7 @@ class SkillsManager:
             status_icon = "✓" if result["success"] else "⚠"
             status_color = "green" if result["success"] else "yellow"
             console.print(
-                f"  [{status_color}]{status_icon}[/{status_color}] {agent.name}: {result['message']}"
+                f"  [{status_color}]{status_icon}[/{status_color}] {agent.name}: {result['message']} [dim]({result['method']})[/dim]"
             )
 
         console.print()
@@ -418,93 +363,99 @@ class SkillsManager:
     def _configure_agent(self, agent: BaseAgent) -> dict:
         """Configure a single agent to use global skills.
 
-        Priority:
-        1. Native support (pi.dev) - reads from ~/.agents/skills/
-        2. Config support (opencode) - update config file (PREFERRED)
-        3. Symlink support (claude-code, gemini-cli) - create symlink (FALLBACK)
-        4. Copy fallback (qwen-code) - copy skills to agent directory
-
-        Returns:
-            dict with success, method, message
+        New order (per plan):
+        1. User override (from config.yaml)
+        2. YAML Registry default (agent.method)
+        3. Implementation (native | config | copy)
         """
-        # First, clean up any local skills (centralized approach)
+        from .config import Config
+        user_config = Config()
+        
+        # Determine method (priority: user override -> registry default)
+        agent_conf = user_config.get_agent_config(agent.name)
+        method = agent_conf.get("skills_method") or agent.method
+
+        # First, clean up any local skills
         self._cleanup_agent_local_skills(agent)
 
-        # 1. Native support (already uses ~/.agents/skills/)
-        if agent.supports_native():
-            return {
+        # Apply the chosen method
+        result = None
+        if method == "native":
+            result = {
                 "success": True,
                 "method": "native",
                 "message": f"Reads from {self.global_skills_dir} (native support)",
             }
 
-        # 2. Config support (preferred method - explicit, robust, cross-platform)
-        if agent.supports_config():
+        elif method == "config":
             try:
-                self._update_config(agent)
-                return {
+                self._apply_config_method(agent)
+                result = {
                     "success": True,
                     "method": "config",
-                    "message": "Updated config to include global skills",
+                    "message": "Updated agent config to include global skills",
                 }
             except Exception as e:
-                # Config failed, log but continue to symlink fallback
-                console.print(
-                    f"  [dim]Config update failed for {agent.name}: {e}, trying symlink...[/dim]"
-                )
+                # Fallback to copy if config failed and it's not a user override
+                if agent_conf.get("skills_method"):
+                     return {"success": False, "method": "config", "message": f"Config update failed: {e}"}
+                # Else continue to copy fallback
 
-        # 3. Symlink support (universal fallback - works for any agent)
-        if agent.supports_symlink():
+        if not result:
+            # Default fallback (copy) or explicit copy
             try:
-                self._create_symlink(agent)
-
-                # Verify symlink was created successfully
-                target_dir = (
-                    agent.commands_path if hasattr(agent, "commands_path") else agent.skills_path
-                )
-                symlink_path = target_dir / "_global"
-
-                if symlink_path.is_symlink():
-                    return {
-                        "success": True,
-                        "method": "symlink",
-                        "message": f"Created symlink {target_dir.name}/_global",
-                    }
-                else:
-                    return {
-                        "success": False,
-                        "method": "symlink",
-                        "message": "Symlink creation failed (unknown error)",
-                    }
-            except Exception as e:
-                return {
-                    "success": False,
-                    "method": "symlink",
-                    "message": f"Symlink failed: {e}",
-                }
-
-        # 4. Copy fallback (for agents that don't support other methods)
-        # Used by qwen-code which only supports ~/.qwen/skills/
-        try:
-            copied = self._copy_skills_to_agent(agent)
-            if copied > 0:
-                return {
+                copied = self._copy_skills_to_agent(agent)
+                result = {
                     "success": True,
                     "method": "copy",
                     "message": f"Copied {copied} skills to {agent.skills_path}",
                 }
-            else:
-                return {
-                    "success": True,
+            except Exception as e:
+                result = {
+                    "success": False,
                     "method": "copy",
-                    "message": f"Skills already in {agent.skills_path}",
+                    "message": f"Copy failed: {e}",
                 }
-        except Exception as e:
-            return {
-                "success": False,
-                "method": "copy",
-                "message": f"Copy failed: {e}",
-            }
+
+        # Save successful method to config if not already there
+        if result["success"] and not agent_conf.get("skills_method"):
+            user_config.set_skills_method(agent.name, result["method"])
+            
+        return result
+
+    def _apply_config_method(self, agent: BaseAgent) -> None:
+        """Apply config method dynamically using registry data."""
+        config_update = agent.data.get("config_update")
+        if not config_update:
+            # Fallback for old opencode style if not in registry
+            if agent.name == "opencode":
+                config_update = {"path": "skills.paths", "action": "append"}
+            else:
+                raise ValueError(f"Agent {agent.name} has method 'config' but no config_update defined")
+
+        config = agent.get_config() or {}
+        path = config_update.get("path", "")
+        action = config_update.get("action", "set")
+        value = str(self.global_skills_dir)
+
+        # Navigate and update nested dict
+        parts = path.split(".")
+        curr = config
+        for part in parts[:-1]:
+            if part not in curr or not isinstance(curr[part], dict):
+                curr[part] = {}
+            curr = curr[part]
+
+        last_part = parts[-1]
+        if action == "append":
+            if last_part not in curr or not isinstance(curr[last_part], list):
+                curr[last_part] = []
+            if value not in curr[last_part]:
+                curr[last_part].append(value)
+        else:
+            curr[last_part] = value
+
+        agent.save_config(config)
 
     def _cleanup_agent_local_skills(self, agent: BaseAgent) -> int:
         """Remove all local skills from agent directory (centralized approach).
@@ -539,8 +490,8 @@ class SkillsManager:
     def _copy_skills_to_agent(self, agent: BaseAgent) -> int:
         """Copy all skills from global dir to agent skills directory.
 
-        This is used as a fallback for agents that don't support symlinks
-        or config-based paths (like qwen-code).
+        This is used as a fallback for agents that don't support
+        config-based paths (like qwen-code).
 
         Returns:
             Number of skills copied
@@ -566,42 +517,6 @@ class SkillsManager:
                 copied += 1
 
         return copied
-
-    def _create_symlink(self, agent: BaseAgent) -> None:
-        """Create symlink from agent path to global skills."""
-        # For Claude Code: ~/.claude/commands/_global -> ~/.agents/skills/
-        target_dir = agent.commands_path if hasattr(agent, "commands_path") else agent.skills_path
-        target_dir.mkdir(parents=True, exist_ok=True)
-
-        symlink_path = target_dir / "_global"
-
-        # Remove existing symlink if present
-        if symlink_path.is_symlink():
-            symlink_path.unlink()
-        elif symlink_path.exists():
-            # Backup existing directory
-            backup_path = target_dir / "_global_backup"
-            shutil.move(str(symlink_path), str(backup_path))
-
-        # Create symlink
-        symlink_path.symlink_to(self.global_skills_dir)
-
-    def _update_config(self, agent: BaseAgent) -> None:
-        """Update agent config file to include global skills."""
-        config = agent.get_config() or {}
-
-        # Add global skills path to config
-        if "skills" not in config:
-            config["skills"] = {}
-
-        if "paths" not in config["skills"]:
-            config["skills"]["paths"] = []
-
-        global_path = str(self.global_skills_dir)
-        if global_path not in config["skills"]["paths"]:
-            config["skills"]["paths"].append(global_path)
-
-        agent.save_config(config)
 
     def get_summary(self) -> dict:
         """Get summary of skills configuration."""

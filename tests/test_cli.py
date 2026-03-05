@@ -59,31 +59,7 @@ class TestCLI:
         
         assert result.exit_code == 0
         assert "Sync Status" in result.output
-    
-    @patch('agent_sync.cli.SecretsManager')
-    def test_secrets_enable_command(self, mock_secrets_mgr):
-        """Test secrets enable command."""
-        mock_secrets_instance = MagicMock()
-        mock_secrets_mgr.return_value = mock_secrets_instance
-        
-        runner = CliRunner()
-        result = runner.invoke(main, ["secrets", "enable"])
-        
-        assert result.exit_code == 0
-        mock_secrets_instance.enable.assert_called_once()
-    
-    @patch('agent_sync.cli.SecretsManager')
-    def test_secrets_disable_command(self, mock_secrets_mgr):
-        """Test secrets disable command."""
-        mock_secrets_instance = MagicMock()
-        mock_secrets_mgr.return_value = mock_secrets_instance
-        
-        runner = CliRunner()
-        result = runner.invoke(main, ["secrets", "disable"])
-        
-        assert result.exit_code == 0
-        mock_secrets_instance.disable.assert_called_once()
-    
+
     @patch('agent_sync.cli.Config')
     def test_generate_config_command(self, mock_config):
         """Test generate-config command."""

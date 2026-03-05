@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.7.0] - 2026-03-05
+
+### 🚀 Major Architectural Shift: YAML-Driven Agent Registry
+
+**Philosophy Change:**
+- Agent definitions are now data-driven via `agent_registry.yaml`.
+- Removed Symlink fallback in favor of a more robust `Native -> Config -> Copy` flow.
+- Users can now override the `skills_method` for any agent in their local `config.yaml`.
+
+### Added
+- `src/agent_sync/agent_registry.yaml`: Centralized registry for all agent definitions.
+- `src/agent_sync/agents/registry_loader.py`: Dynamic loader and validator for the YAML registry.
+- `docs/adding-agents.md`: New documentation for adding support for new AI agents.
+- `Skills Method` column in `agent-sync agents` command.
+- Automatic persistence of the successful `skills_method` in user configuration.
+
+### Changed
+- **`BaseAgent` Refactor**: Now a generic class that initializes from YAML data instead of hardcoded subclasses.
+- **`SkillsManager` Flow**: 
+  1. Priority 1: User override in `config.yaml`.
+  2. Priority 2: Registry default method.
+  3. Priority 3: Implementation flow (`native` -> `config` -> `copy`).
+- **`opencode` Configuration**: Now uses dynamic JSON path navigation (`skills.paths`) defined in the registry.
+
+### Removed
+- **Symlink Support**: Fully removed `_create_symlink` and `_create_fallback_symlinks` to improve cross-platform reliability and avoid permission issues.
+- All hardcoded agent subclasses (`OpencodeAgent`, `ClaudeCodeAgent`, etc.).
+
+### Migration
+If upgrading from v0.6.3:
+```bash
+# Re-configure agents with the new registry system
+agent-sync skills centralize
+```
+Your successful configuration methods will be automatically saved to `~/.config/agent-sync/config.yaml`.
+
+---
+
 ## [0.6.3] - 2026-03-04
 
 ### 🎯 Major Refactor: Centralized Skills Architecture

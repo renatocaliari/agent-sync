@@ -1,0 +1,55 @@
+# Agent Registry for agent-sync
+# Defines how each agent is configured and where its skills are located.
+
+opencode:
+  method: config
+  config_dir: "~/.config/opencode"
+  config_filename: "opencode.json"
+  skills_dir_name: "skills"
+  check:
+    binary: "opencode"
+  config_update:
+    path: "skills.paths"
+    action: append
+
+claude-code:
+  method: copy
+  config_dir: "~/.claude"
+  config_filename: "settings.json"
+  skills_dir_name: "commands"
+  check:
+    binary: "claude"
+
+gemini-cli:
+  method: copy
+  config_dir: "~/.gemini"
+  config_filename: "settings.json"
+  skills_dir_name: "tools"
+  check:
+    binary: "gemini"
+
+pi.dev:
+  method: native
+  config_dir: "~/.pi/agent"
+  config_filename: "settings.json"
+  skills_dir_name: "skills"
+  check:
+    path: "~/.pi/agent/settings.json"
+  extra_paths:
+    extensions: ["~/.pi/agent/extensions", "~/.pi/extensions"]
+    prompts: ["~/.pi/agent/prompts", "~/.pi/prompts"]
+    themes: ["~/.pi/agent/themes", "~/.pi/themes"]
+
+qwen-code:
+  method: copy
+  config_dir: "~/.qwen"
+  config_filename: "settings.json"
+  skills_dir_name: "skills"
+  check:
+    binary: "qwen"
+
+global-skills:
+  method: native
+  skills_dir_name: "skills"
+  check:
+    always: true
