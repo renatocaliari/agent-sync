@@ -53,6 +53,105 @@ my-agent:
     binary: "myagent"
 ```
 
+## Examples: VS Code Extensions & IDEs
+
+### RooCode (Native Method)
+RooCode natively reads from `~/.agents/skills/`, so no copy is needed:
+
+```yaml
+roocode:
+  method: native
+  config_dir: "~/.roo"
+  config_filename: "custom_modes.yaml"
+  skills_dir_name: "skills"
+  check:
+    path: "~/.roo/custom_modes.yaml"
+  notes: "Native support for ~/.agents/skills/"
+  mode_specific: true  # Supports skills-code/, skills-architect/, etc.
+```
+
+### Cline (Copy Method)
+Cline uses copy to sync skills from the global hub:
+
+```yaml
+cline:
+  method: copy
+  config_dir: "~/.cline"
+  config_filename: "state.json"
+  skills_dir_name: "skills"
+  check:
+    binary: "cline"
+  copy_from: "~/.agents/skills/"
+  copy_to: "~/.cline/skills/"
+  project_skills:
+    - ".cline/skills/"
+    - ".clinerules/skills/"
+```
+
+### Cursor (Copy with Transform)
+Cursor uses a flat structure (`.cursor/rules/{name}.md`) instead of skill directories:
+
+```yaml
+cursor:
+  method: copy
+  config_dir: "~/.cursor"
+  config_filename: "settings.json"
+  skills_dir_name: "rules"
+  check:
+    binary: "cursor"
+  copy_from: "~/.agents/skills/"
+  copy_to: "~/.cursor/rules/"
+  transform: "flatten"  # Transforms skills/{name}/SKILL.md → rules/{name}.md
+```
+
+### Windsurf (Copy Method)
+Windsurf uses the same structure as Cline:
+
+```yaml
+windsurf:
+  method: copy
+  config_dir: "~/.codeium/windsurf"
+  config_filename: "config.json"
+  skills_dir_name: "skills"
+  check:
+    binary: "windsurf"
+  copy_from: "~/.agents/skills/"
+  copy_to: "~/.codeium/windsurf/skills/"
+```
+
+## Specialized Handlers
+
+For agents that need custom logic (like Cursor's flatten transform), create a handler in `src/agent_sync/agents/{agent}.py`:
+
+```python
+"""{Agent Name} agent handler."""
+
+from pathlib import Path
+from typing import List, Dict, Any
+from .base import BaseAgent
+
+class {AgentName}Agent(BaseAgent):
+    """Custom handler for {agent}."""
+    
+    def __init__(self, name: str, data: Dict[str, Any]):
+        super().__init__(name, data)
+        # Custom initialization
+    
+    def sync_skills(self, source: Path, dry_run: bool = False) -> List[str]:
+        """Custom sync logic."""
+        # Your implementation
+        return []
+```
+
+Then register it in `src/agent_sync/agents/__init__.py`:
+
+```python
+AGENT_HANDLERS = {
+    "{agent}": {AgentName}Agent,
+    # ... other agents
+}
+```
+
 ## Testing Your Change
 
 After adding the agent to the registry, you can verify it by running:

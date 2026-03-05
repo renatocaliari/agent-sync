@@ -18,6 +18,8 @@
 
 ## 🤖 Supported Agents
 
+### CLI Agents
+
 | Agent | Config Files | Skills Path | Method |
 |-------|-------------|-------------|--------|
 | **opencode** | `opencode.json` | `~/.config/opencode/skills/` | Config |
@@ -25,6 +27,21 @@
 | **claude-code** | `settings.json` | `~/.claude/commands/` | Copy |
 | **gemini-cli** | `settings.json` | `~/.gemini/tools/` | Copy |
 | **qwen-code** | `settings.json` | `~/.qwen/skills/` | Copy |
+
+### VS Code Extensions & IDEs
+
+| Agent | Config Files | Skills/Rules Path | Method |
+|-------|-------------|-------------------|--------|
+| **roocode** | `custom_modes.yaml` | `~/.roo/skills/`, `~/.agents/skills/` | Native |
+| **cline** | `state.json` | `~/.cline/skills/` | Copy |
+| **cursor** | `settings.json` | `~/.cursor/rules/` | Copy + Transform |
+| **windsurf** | `config.json` | `~/.codeium/windsurf/skills/` | Copy |
+
+**Notes:**
+- **RooCode**: Natively reads `~/.agents/skills/` (cross-agent hub)
+- **Cline**: Supports project skills in `.cline/skills/`, `.clinerules/skills/`, `.claude/skills/`
+- **Cursor**: Transforms `skills/{name}/SKILL.md` → `rules/{name}.md` (flatten)
+- **Windsurf**: Supports project skills in `.windsurf/skills/`
 
 ---
 

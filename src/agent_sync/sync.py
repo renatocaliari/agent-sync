@@ -329,28 +329,33 @@ class SyncManager:
         Returns:
             Dictionary with status information per agent
         """
-        from .agents import get_all_agents
+        from .agents import get_agents
 
         status = {}
 
-        for agent in get_all_agents():
-            # Check if agent sync is enabled
-            if not self.config.is_agent_enabled(agent.name):
+        for agent in get_agents():
+            # Check if agent sync is enabled in config
+            enabled = self.config.is_agent_enabled(agent.name)
+            installed = agent.is_available()
+
+            # Determine status based on enabled + installed
+            if not enabled:
                 status[agent.name] = {
                     "status": "disabled",
                     "last_sync": "-",
                     "changes": None,
+                    "installed": installed,
                 }
                 continue
-            
-            agent_status = {
-                "status": "not_configured",
-                "last_sync": "-",
-                "changes": None,
-            }
 
-            if agent.is_available():
-                agent_status["status"] = "configured"
+            # Agent is enabled - check if installed
+            if installed:
+                agent_status = {
+                    "status": "active",  # Enabled + Installed
+                    "last_sync": "-",
+                    "changes": None,
+                    "installed": True,
+                }
 
                 # Check for uncommitted changes
                 if self.repo_dir.exists():
@@ -363,14 +368,21 @@ class SyncManager:
                             agent_status["changes"] = f"{len(changes.split())} files"
                     except Exception:
                         pass
-            
+            else:
+                agent_status = {
+                    "status": "not_installed",  # Enabled but not installed
+                    "last_sync": "-",
+                    "changes": None,
+                    "installed": False,
+                }
+
             # Get last sync time from state
             state = self._load_state()
             if state and state.get("last_sync"):
                 agent_status["last_sync"] = state["last_sync"]
-            
+
             status[agent.name] = agent_status
-        
+
         return status
     
     def _create_repo_structure(self, agents: tuple[str, ...] = ()) -> None:

@@ -21,6 +21,7 @@ This project uses `hatch-vcs` for dynamic versioning based on Git Tags.
 -   **Agent Registry**: New agent CLI support must be added to `src/agent_sync/agent_registry.yaml`, not hardcoded in Python.
 -   **No Symlinks**: Always prefer `Native`, `Config`, or `Copy` methods. Do not re-introduce symlink fallbacks.
 -   **UX/DX First**: CLI outputs must be categorized, visual (using Rich panels/tables), and provide clear guidance on errors.
+-   **VS Code Extensions & IDEs**: Support for RooCode, Cline, Cursor, and Windsurf uses specialized handlers in `src/agent_sync/agents/` with transform support (e.g., Cursor's flatten transform).
 
 ## 📦 Distribution
 
