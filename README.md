@@ -21,7 +21,7 @@
 | Agent | Config Files | Skills Path | Method |
 |-------|-------------|-------------|--------|
 | **opencode** | `opencode.json` | `~/.config/opencode/skills/` | Config |
-| **pi.dev** | `settings.json` | `~/.pi/agent/skills/` | Native |
+| **pi.dev** | `settings.json`, `models.json` | `~/.pi/agent/skills/` | Native |
 | **claude-code** | `settings.json` | `~/.claude/commands/` | Copy |
 | **gemini-cli** | `settings.json` | `~/.gemini/tools/` | Copy |
 | **qwen-code** | `settings.json` | `~/.qwen/skills/` | Copy |
