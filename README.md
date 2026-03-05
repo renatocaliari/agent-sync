@@ -37,12 +37,6 @@
 | **roocode** | `custom_modes.yaml` | `~/.roo/skills/`, `~/.agents/skills/` | Native |
 | **windsurf** | `config.json` | `~/.codeium/windsurf/skills/` | Copy |
 
-**Notes:**
-- **RooCode**: Natively reads `~/.agents/skills/` (cross-agent hub)
-- **Cline**: Supports project skills in `.cline/skills/`, `.clinerules/skills/`, `.claude/skills/`
-- **Cursor**: Natively reads `~/.agents/skills/`, also uses `.cursor/skills/` and `~/.cursor/skills/`
-- **Windsurf**: Supports project skills in `.windsurf/skills/`
-
 ---
 
 ## ⚡ Quick Start
