@@ -20,8 +20,8 @@ GLOBAL_SKILLS_DIR = Path.home() / ".agents" / "skills"
 class SkillsManager:
     """Manages skills centralization and distribution."""
 
-    def __init__(self):
-        self.global_skills_dir = GLOBAL_SKILLS_DIR
+    def __init__(self, global_skills_dir: Optional[Path] = None):
+        self.global_skills_dir = global_skills_dir or GLOBAL_SKILLS_DIR
         self.conflicts: list[dict] = []
         self.resolved_conflicts: dict[str, str] = {}
 
@@ -488,15 +488,12 @@ class SkillsManager:
         return removed_count
 
     def _copy_skills_to_agent(self, agent: BaseAgent) -> int:
-        """Copy all skills from global dir to agent skills directory.
-
-        This is used as a fallback for agents that don't support
-        config-based paths (like qwen-code).
-
-        Returns:
-            Number of skills copied
-        """
+        """Copy all skills from global dir to agent skills directory."""
         if not self.global_skills_dir.exists():
+            return 0
+
+        # Skip if the paths are actually the same (native support or same dir)
+        if self.global_skills_dir.resolve() == agent.skills_path.resolve():
             return 0
 
         agent.skills_path.mkdir(parents=True, exist_ok=True)
