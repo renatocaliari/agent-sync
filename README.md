@@ -1,147 +1,84 @@
 # 🔄 agent-sync
 
-**Centralize and sync AI agent configurations and skills across machines and agents**
+**One tool to rule them all: Sync, Centralize, and Share AI Agent configurations and skills.**
 
-Supports: **opencode** • **claude-code** • **gemini-cli** • **pi.dev** • **qwen-code**
+`agent-sync` solves the fragmentation of the AI agent ecosystem by providing a unified workflow for your CLI tools.
+
+---
+
+## 🎯 Why agent-sync?
+
+*   **Unified Skills Hub**: Stop duplicating skills across different agents. Centralize everything in `~/.agents/skills/` and let every agent (Claude, Gemini, Opencode, etc.) use them.
+*   **Private Backup & Sync**: Keep your agent configurations and custom skills safely backed up in a **private GitHub repository**. Seamlessly sync your entire environment between multiple machines.
+*   **Share with the World**: Effortlessly publish your best custom skills to a **public repository**, allowing the community to benefit from your specialized agent tools.
+
+---
+
+## 🤖 Supported Agents
+
+| Agent | Config Files | Skills Path | Method |
+|-------|-------------|-------------|--------|
+| **opencode** | `opencode.json` | `~/.config/opencode/skills/` | Config |
+| **pi.dev** | `settings.json` | `~/.pi/agent/skills/` | Native |
+| **claude-code** | `settings.json` | `~/.claude/commands/` | Copy |
+| **gemini-cli** | `settings.json` | `~/.gemini/tools/` | Copy |
+| **qwen-code** | `settings.json` | `~/.qwen/skills/` | Copy |
 
 ---
 
 ## ⚡ Quick Start
 
-### Install CLI (Required)
-
-**Option 1: Install from GitHub**
+### Install CLI
 ```bash
 pipx install git+https://github.com/renatocaliari/agent-sync.git
 ```
 
-**Option 2: Install with pip**
-```bash
-pip install git+https://github.com/renatocaliari/agent-sync.git
-```
-
-**Option 3: Install from source**
-```bash
-git clone https://github.com/renatocaliari/agent-sync.git
-cd agent-sync
-pip install -e .
-```
-
-### Install Skill (For AI Agents - Optional)
-
-If you want AI agents (Claude Code, Opencode, Gemini CLI, etc.) to use agent-sync:
-
-```bash
-npx skills add renatocaliari/agent-sync -g
-```
-
-**Note:** The skill is just documentation for AI agents. You still need to install the CLI separately.
-
-### Verify CLI Installation
-
-```bash
-agent-sync --version
-# If not found: export PATH="$HOME/.local/bin:$PATH"
-```
-
-### Check for Updates
-
-```bash
-agent-sync update
-# or
-pipx upgrade git+https://github.com/renatocaliari/agent-sync.git
-```
-
-### First Machine
-
+### Setup & Sync
 ```bash
 agent-sync setup    # Interactive wizard
-agent-sync push     # Sync to GitHub
+agent-sync push     # Backup to GitHub
 ```
 
 ### Other Machines
-
 ```bash
-agent-sync link https://github.com/username/agent-sync-configs.git
+agent-sync link <your-private-repo-url>
 agent-sync pull
 ```
-
-**That's it!** Your configs and skills are now synced across machines and agents.
-
----
-
-## 🎯 What It Does
-
-| Problem | Solution |
-|---------|----------|
-| Configs scattered across machines | **One source of truth** on GitHub |
-| Skills duplicated per agent | **Centralized** in `~/.agents/skills/` |
-| Manual setup on each machine | **Automatic** configuration |
-| Risk of leaking API keys | **Auto-scrubbed** before sync |
 
 ---
 
 ## 🛠️ CLI Commands
 
-`agent-sync` uses a categorized, tree-like help structure. You can see all options for any command directly from the main help:
+`agent-sync` uses a categorized help structure. Run `agent-sync --help` to see all options.
 
-```bash
-agent-sync --help
-```
+#### 🔄 Sync & Backup
+- `push` - Backup local changes to GitHub `[-m, --skills-only, --configs-only]`
+- `pull` - Download and apply changes from GitHub `[--force]`
+- `status` - Check sync state
 
-### Command Categories
-
-#### 🔄 Sync
-- `push` - Commit and push local changes `[-m, --skills-only, --configs-only]`
-- `pull` - Fetch and apply remote configuration `[--force, --skills-only, --configs-only]`
-- `status` - Show sync status and last sync times
-
-#### 🤖 Agents
-- `agents` - List supported agents and their status
-- `enable` / `disable` - Toggle sync for a specific agent
-
-#### ⚙️ Configuration
-- `setup` - Run the interactive setup wizard
-- `init` - Initialize a new sync repository `[--name, --private, --agents, --no-wizard, --force]`
-- `config` - Manage agent-sync configuration
-    - `show` - Show current configuration
-    - `edit` - Open config in editor `[--agent]`
-    - `repo` - View/set repository URL `[--remove]`
-    - `reset` - Reset to defaults `[--yes]`
-
-#### 📚 Skills
-- `skills` - Manage global skills
-    - `list` - List all centralized skills
-    - `centralize` - Centralize skills from all agents `[--copy, --push, --distribute]`
-    - `publish` - Publish skills to public GitHub `[--repo, --dry-run, --interactive]`
+#### 🤖 Agents & Skills
+- `agents` - List supported agents and their sync method
+- `enable` / `disable` - Toggle sync for specific agents
+- `skills list` - List all centralized skills
+- `skills centralize` - Move skills from agents to global hub
+- `skills publish` - Share selected skills to a public repo
 
 #### 🛠️ System
-- `update` - Check for and install CLI updates (interactive)
-- `version` - Show version information
+- `update` - Interactive CLI self-update
+- `config edit` - Manual configuration override
 
 ---
+
+## 🤝 Contributing
+
+We love community contributions! You don't need to be a Python expert to help.
+
+### How to help:
+-   **Add New Agents**: Support for new AI CLIs is data-driven. Just add a few lines to [src/agent_sync/agent_registry.yaml](src/agent_sync/agent_registry.yaml).
+-   **Bug Fixes & UX**: Found a clunky TUI flow or a bug? Open a PR!
+-   **Improve Docs**: Help us make the guides clearer.
 
 If you are an AI model (LLM) contributing to this project, please read [AGENTS.md](AGENTS.md) for versioning and architectural mandates.
-
-See the [Adding New Agents guide](docs/adding-agents.md) for more details.
-
----
-
-## 🔄 Reconfiguration
-
-Change settings at any time:
-
-```bash
-# Full reconfiguration
-agent-sync setup
-
-# Quick commands
-agent-sync enable <agent>       # Enable agent
-agent-sync disable <agent>      # Disable agent
-agent-sync config show          # View config
-agent-sync config edit          # Edit manually
-agent-sync config reset         # Reset defaults
-```
 
 ---
 
