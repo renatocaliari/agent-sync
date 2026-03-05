@@ -111,7 +111,6 @@ def interactive_selection(skills: list, initial_selected: set) -> set:
 
 def show_selection_summary(selected_names: set) -> bool:
     """Show summary table and confirm."""
-    console.clear()
     console.print("\n[bold green]📋 Selection Summary[/] [dim](to be published)[/dim]\n")
     summary_table = Table(box=box.SIMPLE)
     summary_table.add_column("Skill Name", style="cyan")
@@ -137,22 +136,19 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
 
     # 2. Determine initial selection and handle missing skills
     saved_selection = config.published_skills
-    
-    # Filter out skills that no longer exist on disk
     valid_saved = [name for name in saved_selection if name in available_names]
     if len(valid_saved) != len(saved_selection):
-        # Auto-update config if some skills are missing
         config.published_skills = valid_saved
         saved_selection = valid_saved
 
-    # 3. Interactive flow with confirmation of saved config
+    # 3. Interactive flow
     selected_names = set()
     
     if interactive:
         confirmed = False
         while not confirmed:
             if saved_selection and not selected_names:
-                # 1. SHOW SUMMARY FIRST
+                # SHOW CURRENT SAVED
                 console.print("\n[bold blue]📋 Current Saved Selection[/]")
                 summary_table = Table(box=box.SIMPLE, show_header=False)
                 summary_table.add_column("Skill", style="cyan")
@@ -160,7 +156,6 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
                     summary_table.add_row(f"  • {name}")
                 console.print(summary_table)
 
-                # 2. SIMPLIFIED MENU (Letters only)
                 console.print("\n[bold]What would you like to do?[/]")
                 console.print("  [[bold green]u[/]] Use this selection")
                 console.print("  [[bold cyan]e[/]] Edit selection")
@@ -179,7 +174,7 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
                     selected_names = interactive_selection(available_skills, selected_names)
                     confirmed = show_selection_summary(selected_names)
             else:
-                # No saved config OR selection changed and not confirmed
+                # No saved config OR selection changed but not confirmed
                 if not selected_names:
                     console.print("\n[bold]Publishing Mode[/]")
                     console.print("  [[bold green]a[/]] Publish ALL available")
@@ -192,25 +187,29 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
                         selected_names = interactive_selection(available_skills, selected_names)
                 else:
                     # User was editing/selecting all, but didn't confirm summary
-                    selected_names = interactive_selection(available_skills, selected_names)
+                    # Return to main menu if confirmed is False
+                    pass
                 
                 confirmed = show_selection_summary(selected_names)
             
-            if confirmed:
+            # CRITICAL UX FIX: If user said NO to summary, reset state to show main menu again
+            if not confirmed:
+                selected_names = set()
+                console.clear()
+            else:
                 # Save final selection to config
                 config.published_skills = list(selected_names)
     else:
-        # Non-interactive: use saved selection or all valid skills
+        # Non-interactive
         selected_names = set(saved_selection) if saved_selection else {s["name"] for s in available_skills if s["valid"]}
     
-    # Final list of skill objects to publish
+    # Final skill objects
     selected_skills = [s for s in available_skills if s["name"] in selected_names]
-    
     if not selected_skills:
         console.print("\n[yellow]⚠ No skills selected for publishing[/yellow]\n")
         return False
 
-    # 4. SECURITY WARNING (Now shown AFTER selection is confirmed)
+    # 4. SECURITY WARNING & REPO SETTINGS (Only after selection is confirmed)
     console.print("\n")
     console.print(Panel(
         "[bold yellow]⚠️  SECURITY WARNING[/bold yellow]\n\n"
@@ -219,7 +218,7 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
         "  ✓ SKILL.md files (skill definitions)\n"
         "  ✓ .md, .py, .sh files (skill scripts)\n"
         "  ✓ references/, templates/, scripts/ directories\n\n"
-        "What will [bold red]NEVER[/] be published:\n"
+        "What will [bold red]NEVER[/bold red] be published:\n"
         "  ✗ Any config files (settings.json, config.yaml, etc.)\n"
         "  ✗ Any files containing 'auth', 'token', 'key', 'secret' in name\n"
         "  ✗ .env files\n"
@@ -228,7 +227,7 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
         title="[bold yellow]Public Disclosure[/]",
     ))
 
-    # Load or create publish config (for repo_url)
+    # Repo logic...
     publish_config = {}
     if PUBLISH_CONFIG_PATH.exists():
         try:
@@ -246,7 +245,7 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
         publish_config["repo_url"] = repo_url
         PUBLISH_CONFIG_PATH.write_text(yaml.dump(publish_config))
 
-    # Repo validation via gh CLI
+    # Visibility check
     repo_name = repo_url.replace("https://github.com/", "").replace(".git", "")
     try:
         res = subprocess.run(["gh", "api", f"repos/{repo_name}"], capture_output=True, text=True, timeout=5)
@@ -266,7 +265,7 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
         console.print("\n[yellow]Publish cancelled[/yellow]\n")
         return False
 
-    # 5. Execute Publishing
+    # 5. EXECUTION
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         skills_tmp_dir = tmp_path / "skills"
@@ -283,9 +282,7 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
         console.print(f"\n[bold]📤 Publishing {len(selected_skills)} skills...[/]")
         
         try:
-            # Ensure repo exists
             subprocess.run(["gh", "api", f"repos/{repo_name}"], capture_output=True, check=False)
-            # Git ops
             subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
             subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True, check=True)
             subprocess.run(["git", "commit", "-m", f"feat: publish {len(selected_skills)} skills"], cwd=tmp_path, capture_output=True, check=True)
@@ -304,35 +301,21 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
 def strip_frontmatter(content: str) -> str:
     """Remove YAML frontmatter, tags, and excessive titles from markdown content."""
     import re
-    
-    # 1. Remove YAML frontmatter (--- ... ---) including variations with different spacing
     content = re.sub(r'^---\s*\n.*?\n---\s*\n', '', content, flags=re.DOTALL)
-    
-    # 2. Specifically remove common frontmatter-like fields if they appear at the top
-    # (Sometimes LLMs or users might write them without the --- markers)
     content = re.sub(r'^(name|description|tags|version|author):.*?\n', '', content, flags=re.MULTILINE | re.IGNORECASE)
-    
-    # 3. Convert titles to plain text or smaller headers to avoid huge titles
     lines = content.split('\n')
     cleaned_lines = []
-    
     for line in lines:
-        # Strip leading # headers and keep text
         if line.startswith('#'):
             clean_line = line.lstrip('#').strip()
-            if clean_line:
-                cleaned_lines.append(f"**{clean_line}**")
-        else:
-            cleaned_lines.append(line)
-            
+            if clean_line: cleaned_lines.append(f"**{clean_line}**")
+        else: cleaned_lines.append(line)
     return '\n'.join(cleaned_lines).strip()
 
 
 def generate_readme(selected_skills: list, repo_url: str) -> str:
     """Generate README.md for the skills repository."""
     repo_name = repo_url.replace("https://github.com/", "").replace(".git", "")
-    
-    # 1. Header & Installation
     readme_content = f"""# My Agent Skills
 
 A collection of custom skills for AI agents.
@@ -359,26 +342,16 @@ Skills are compatible with:
 ## Skills
 
 """
-    # 2. Skills list (at the end)
     for skill in selected_skills:
         readme_content += f"### {skill['name']}\n\n"
         skill_md = skill["path"] / "SKILL.md"
-        
         if skill_md.exists():
             try:
                 raw_content = skill_md.read_text()
-                # Take first 500 chars after stripping junk
                 clean_content = strip_frontmatter(raw_content)
-                
-                # Limit length
                 summary = clean_content[:500]
-                if len(clean_content) > 500:
-                    summary += "..."
-                
+                if len(clean_content) > 500: summary += "..."
                 readme_content += f"{summary}\n\n---\n\n"
-            except Exception:
-                readme_content += f"Custom skill for AI agents.\n\n---\n\n"
-        else:
-            readme_content += f"Custom skill for AI agents.\n\n---\n\n"
-    
+            except Exception: readme_content += f"Custom skill for AI agents.\n\n---\n\n"
+        else: readme_content += f"Custom skill for AI agents.\n\n---\n\n"
     return readme_content
