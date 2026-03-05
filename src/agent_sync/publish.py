@@ -137,33 +137,42 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
     
     if interactive:
         if saved_selection:
-            console.print(f"\n[bold blue]ℹ Found saved selection with {len(saved_selection)} skills.[/bold blue]")
-            action = Prompt.ask(
-                "What would you like to do?",
-                choices=["use", "edit", "all"],
-                default="use"
-            )
+            # 1. SHOW SUMMARY FIRST (User Request)
+            console.print("\n[bold blue]📋 Current Saved Selection[/bold blue]")
+            summary_table = Table(box=box.SIMPLE, show_header=False)
+            summary_table.add_column("Skill", style="cyan")
+            for name in sorted(saved_selection):
+                summary_table.add_row(f"  • {name}")
+            console.print(summary_table)
+
+            # 2. INTUITIVE MENU (Numbered/Shortcut)
+            console.print("\n[bold]What would you like to do?[/bold]")
+            console.print("  [bold green]1[/bold]. Use this selection [dim](u)[/dim]")
+            console.print("  [bold cyan]2[/bold]. Edit selection [dim](e)[/dim]")
+            console.print("  [bold magenta]3[/bold]. Select ALL available [dim](a)[/dim]")
             
-            if action == "use":
+            choice = Prompt.ask("\nChoice", choices=["1", "2", "3", "u", "e", "a"], default="1")
+            
+            if choice in ["1", "u"]:
                 selected_names = set(saved_selection)
-            elif action == "all":
+            elif choice in ["3", "a"]:
                 selected_names = available_names
-            else: # edit
+            else: # 2 or e (edit)
                 selected_names = set(saved_selection)
                 # This will fall through to the selection loop below
         else:
             # No saved config, ask if publish all or select
-            mode = Prompt.ask(
-                "\n[bold]Publishing Mode[/bold]",
-                choices=["all", "select"],
-                default="all"
-            )
-            if mode == "all":
+            console.print("\n[bold]Publishing Mode[/bold]")
+            console.print("  [bold green]1[/bold]. Publish ALL available [dim](a)[/dim]")
+            console.print("  [bold cyan]2[/bold]. Select specific skills [dim](s)[/dim]")
+            
+            mode = Prompt.ask("\nChoice", choices=["1", "2", "a", "s"], default="1")
+            if mode in ["1", "a"]:
                 selected_names = available_names
-            # If select, selected_names remains empty and loop starts
+            # If select (2/s), selected_names remains empty and loop starts
 
         # Selection Loop (if edit mode or manual select)
-        if not selected_names or (saved_selection and action == "edit"):
+        if not selected_names or (saved_selection and choice in ["2", "e"]):
             while True:
                 selected_names = interactive_selection(available_skills, selected_names)
                 
