@@ -166,29 +166,28 @@ def main():
 
 @main.command()
 @click.option("--name", help="Repository name (skips wizard if provided)")
-@click.option("--private/--public", default=True, help="Make repository private")
 @click.option("--agents", multiple=True, help="Agents to sync (skips wizard if provided)")
 @click.option("--no-wizard", is_flag=True, help="Skip interactive wizard")
 @click.option("--force", is_flag=True, help="Force initialization even if already configured")
-def init(name: Optional[str], private: bool, agents: tuple[str, ...], no_wizard: bool, force: bool):
+def init(name: Optional[str], agents: tuple[str, ...], no_wizard: bool, force: bool):
     """Initialize a new sync repository (first machine).
-    
+
     Runs the setup wizard and creates a new GitHub repository.
-    
+
     \b
     Examples:
       # Interactive wizard (creates new repo)
       agent-sync init
-      
+
       # Create specific repo name (non-interactive)
-      agent-sync init --name my-configs --private
-      
+      agent-sync init --name agent-sync-private-configs
+
       # Force re-initialize (overwrites existing config)
       agent-sync init --name new-configs --force
-    
+
     \b
     ⚠️ SECURITY:
-      - Always use PRIVATE repositories for configs
+      - Repositories are ALWAYS PRIVATE for configs
       - Configs may contain API keys and tokens
       - GitHub private repos are FREE for personal use
     """
@@ -220,16 +219,21 @@ def init(name: Optional[str], private: bool, agents: tuple[str, ...], no_wizard:
             raise click.Abort()
 
         name = repo_config["name"]
-        private = repo_config["private"]
+        # Always private for security
+        private = True
         agents = repo_config["agents"]
+    else:
+        # Non-interactive: always private
+        private = True
 
     if not name:
         console.print("[red]✗ Repository name is required[/red]")
         console.print("\n💡 Provide a name with --name or use the wizard")
-        console.print("   Example: [green]agent-sync init --name my-configs[/green]\n")
+        console.print("   Example: [green]agent-sync init --name agent-sync-private-configs[/green]\n")
         raise click.Abort()
 
     console.print(f"\n🚀 Initializing sync repository: {name}")
+    console.print("[dim]Repository will be PRIVATE (for security)[/dim]\n")
 
     sync_manager = SyncManager(config)
 
