@@ -9,15 +9,17 @@ import subprocess
 import tempfile
 import json
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict, Any, Set
 
 import yaml
 from rich.console import Console
+from rich.live import Live
+from rich.layout import Layout
 from rich.panel import Panel
 from rich.prompt import Prompt, Confirm
 from rich.table import Table
 from rich import box
-
+from .config import Config
 
 console = Console()
 
@@ -25,302 +27,225 @@ PUBLISH_CONFIG_PATH = Path.home() / ".config" / "agent-sync" / "publish.yaml"
 SKILLS_DIR = Path.home() / ".agents" / "skills"
 
 
-def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, interactive: bool = False) -> bool:
-    """Publish selected skills to a public GitHub repository.
-    
-    Args:
-        repo_url: GitHub repository URL (e.g., https://github.com/user/my-skills)
-        dry_run: Show what would be published without actually publishing
-        interactive: Show TUI for selecting skills
-        
-    Returns:
-        True if successful, False otherwise
-    """
-    # Check if skills directory exists
-    if not SKILLS_DIR.exists():
-        console.print("\n[yellow]⚠ No skills directory found.[/yellow]")
-        console.print("Run [green]agent-sync skills centralize[/green] to centralize skills first.\n")
-        return False
-    
-    # Scan for skills
+def get_available_skills() -> list[dict]:
+    """Scan for available skills in ~/.agents/skills/."""
     skills_list = []
+    if not SKILLS_DIR.exists():
+        return []
+        
     for item in SKILLS_DIR.iterdir():
         if item.name.startswith("."):
             continue
         
         if item.is_dir() and (item / "SKILL.md").exists():
-            # Valid skill directory
             skills_list.append({
                 "name": item.name,
                 "path": item,
-                "valid": True,
-                "selected": True  # Default: all selected
+                "valid": True
             })
         elif item.is_file() and item.suffix in [".md", ".py", ".sh"]:
-            # Standalone file (not a full skill)
             skills_list.append({
                 "name": item.name,
                 "path": item,
-                "valid": False,
-                "selected": False
+                "valid": False
             })
+    return sorted(skills_list, key=lambda x: x["name"])
+
+
+def render_selection_table(skills: list, selected_names: set) -> Table:
+    """Render the TUI selection table."""
+    table = Table(box=box.ROUNDED, show_header=True, header_style="bold magenta", expand=True)
+    table.add_column("ID", justify="right", style="dim", width=4)
+    table.add_column("Pub", justify="center", width=5)
+    table.add_column("Skill Name", style="cyan")
+    table.add_column("Type", style="dim")
+
+    for i, skill in enumerate(skills, 1):
+        is_selected = skill["name"] in selected_names
+        status = "[bold green]✓[/bold green]" if is_selected else "[red]○[/red]"
+        skill_type = "Full Skill" if skill["valid"] else "Script/MD"
+        table.add_row(str(i), status, skill["name"], skill_type)
     
-    if not skills_list:
-        console.print("\n[yellow]⚠ No skills found in ~/.agents/skills/[/yellow]\n")
+    return table
+
+
+def interactive_selection(skills: list, initial_selected: set) -> set:
+    """TUI for selecting skills to publish."""
+    selected = set(initial_selected)
+    
+    while True:
+        console.clear()
+        console.print("\n[bold magenta]📤 Select Skills to Publish[/bold magenta]\n")
+        
+        table = render_selection_table(skills, selected)
+        console.print(table)
+        
+        console.print("\n[bold]Controls:[/bold]")
+        console.print("  • Enter numbers to toggle (e.g. [green]'1,3,5'[/green])")
+        console.print("  • Type [cyan]'all'[/cyan] or [cyan]'none'[/cyan]")
+        console.print("  • Press [bold white]Enter[/bold] when done")
+        
+        choice = Prompt.ask("\nSelection", default="done")
+        
+        if choice.lower() in ["done", ""]:
+            break
+        elif choice.lower() == "all":
+            selected = {s["name"] for s in skills}
+        elif choice.lower() == "none":
+            selected = set()
+        else:
+            try:
+                indices = [int(x.strip()) - 1 for x in choice.split(",")]
+                for idx in indices:
+                    if 0 <= idx < len(skills):
+                        name = skills[idx]["name"]
+                        if name in selected:
+                            selected.remove(name)
+                        else:
+                            selected.add(name)
+            except ValueError:
+                pass
+                
+    return selected
+
+
+def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, interactive: bool = False) -> bool:
+    """Publish selected skills to a public GitHub repository."""
+    config = Config()
+    
+    # 1. Scan for skills
+    available_skills = get_available_skills()
+    if not available_skills:
+        console.print("\n[yellow]⚠ No skills found in ~/.agents/skills/[/yellow]")
+        console.print("Run [green]agent-sync skills centralize[/green] first.\n")
         return False
-    
-    # Interactive mode: let user select skills
-    if interactive:
-        console.print("\n[bold]📤 Select Skills to Publish[/bold]\n")
-        console.print("[dim]Toggle skills by entering numbers (e.g., '1,3,5')[/dim]\n")
-        
-        console.print("Skills found:\n")
-        for i, skill in enumerate(skills_list, 1):
-            if skill["valid"]:
-                status = "✓" if skill["selected"] else "○"
-                console.print(f"  [{status}] {i}. {skill['name']}")
-            else:
-                console.print(f"  [dim][○] {i}. {skill['name']} (not a valid skill - no SKILL.md)[/dim]")
-        
-        console.print()
-        
-        # Let user toggle selections
-        while True:
-            selection = Prompt.ask(
-                "Toggle skills (e.g., '1,3,5' or 'all' or 'none' or 'done')",
-                default="done"
-            )
-            
-            if selection.lower() == "done" or selection == "":
-                break
-            elif selection.lower() == "all":
-                for skill in skills_list:
-                    if skill["valid"]:
-                        skill["selected"] = True
-            elif selection.lower() == "none":
-                for skill in skills_list:
-                    skill["selected"] = False
-            else:
-                # Parse comma-separated numbers
-                try:
-                    indices = [int(x.strip()) - 1 for x in selection.split(",")]
-                    for idx in indices:
-                        if 0 <= idx < len(skills_list):
-                            if skills_list[idx]["valid"]:
-                                skills_list[idx]["selected"] = not skills_list[idx]["selected"]
-                                status = "✓" if skills_list[idx]["selected"] else "○"
-                                console.print(f"  {skills_list[idx]['name']}: [{status}]")
-                except ValueError:
-                    console.print("[yellow]Invalid input. Use numbers like '1,3,5'[/yellow]")
-            
-            console.print()
-        
-        # Filter to only selected skills
-        selected_skills = [s for s in skills_list if s["selected"]]
+
+    # 2. Determine initial selection
+    # Priority: 1. Previously saved list, 2. All valid skills
+    saved_selection = set(config.published_skills)
+    if not saved_selection:
+        selected_names = {s["name"] for s in available_skills if s["valid"]}
     else:
-        # Non-interactive: all valid skills selected by default
-        selected_skills = [s for s in skills_list if s["valid"]]
+        # Filter saved selection to only include existing skills
+        selected_names = {name for name in saved_selection if any(s["name"] == name for s in available_skills)}
+
+    # 3. Interactive flow
+    if interactive:
+        # Ask if publish all or select
+        mode = Prompt.ask(
+            "\n[bold]Publishing Mode[/bold]",
+            choices=["all", "select"],
+            default="all" if not saved_selection else "select"
+        )
+        
+        if mode == "all":
+            selected_names = {s["name"] for s in available_skills}
+        else:
+            # Loop for review/selection cycle
+            while True:
+                selected_names = interactive_selection(available_skills, selected_names)
+                
+                if not selected_names:
+                    if Confirm.ask("\n[yellow]No skills selected. Cancel publishing?[/yellow]", default=True):
+                        return False
+                    continue
+                
+                # Show summary for confirmation
+                console.clear()
+                console.print("\n[bold green]📋 Selection Summary[/bold green]\n")
+                summary_table = Table(box=box.SIMPLE)
+                summary_table.add_column("Skill Name", style="cyan")
+                for name in sorted(list(selected_names)):
+                    summary_table.add_row(name)
+                console.print(summary_table)
+                
+                if Confirm.ask("\n[bold]Confirm this selection?[/bold]", default=True):
+                    # Save selection to config
+                    config.published_skills = list(selected_names)
+                    break
+                # If NO, the loop continues and returns to interactive_selection
+    
+    # Final list of skill objects to publish
+    selected_skills = [s for s in available_skills if s["name"] in selected_names]
     
     if not selected_skills:
         console.print("\n[yellow]⚠ No skills selected for publishing[/yellow]\n")
         return False
-    
-    # Show what will be published
-    console.print("\n[bold]📋 Skills to Publish[/bold]\n")
-    
-    table = Table(box=box.SIMPLE)
-    table.add_column("Status", style="green")
-    table.add_column("Skill Name", style="cyan")
-    table.add_column("Path", style="dim")
-    
-    for skill in selected_skills:
-        table.add_row("✓", skill["name"], str(skill["path"]))
-    
-    console.print(table)
-    console.print()
-    
-    # SECURITY WARNING
+
+    # 4. Security & Repo Logic (Existing flow)
     console.print(Panel(
         "[bold yellow]⚠️  SECURITY WARNING[/bold yellow]\n\n"
         "You are about to publish skills to a [bold]PUBLIC[/bold] repository.\n\n"
         "What WILL be published:\n"
         "  ✓ SKILL.md files (skill definitions)\n"
         "  ✓ .md, .py, .sh files (skill scripts)\n"
-        "  ✓ references/ directory (documentation)\n"
-        "  ✓ templates/ directory (templates)\n"
-        "  ✓ scripts/ directory (automation scripts)\n\n"
+        "  ✓ references/, templates/, scripts/ directories\n\n"
         "What will [bold red]NEVER[/bold red] be published:\n"
         "  ✗ Any config files (settings.json, config.yaml, etc.)\n"
         "  ✗ Any files containing 'auth', 'token', 'key', 'secret' in name\n"
         "  ✗ .env files\n"
-        "  ✗ Your private agent-sync-configs repository\n\n"
-        "[dim]This is a SAFETY feature - your configs are kept separate.[/dim]",
+        "  ✗ Your private agent-sync-configs repository",
         border_style="yellow",
     ))
-    console.print()
-    
-    # Load or create publish config
+
+    # Load or create publish config (for repo_url)
     publish_config = {}
     if PUBLISH_CONFIG_PATH.exists():
         try:
             publish_config = yaml.safe_load(PUBLISH_CONFIG_PATH.read_text()) or {}
-        except Exception:
-            pass
+        except Exception: pass
     
-    # Use provided repo URL or saved one
+    repo_url = repo_url or publish_config.get("repo_url")
     if not repo_url:
-        repo_url = publish_config.get("repo_url")
-    
-    if not repo_url:
-        repo_url = Prompt.ask(
-            "\n[bold]Enter GitHub repository URL for publishing[/bold]\n"
-            "  (e.g., https://github.com/your-username/my-skills)",
-            default=""
-        )
-        
-        if not repo_url:
-            console.print("\n[yellow]Publish cancelled[/yellow]\n")
+        repo_url = Prompt.ask("\n[bold]Enter GitHub repository URL for publishing[/bold]")
+        if not repo_url or not repo_url.startswith("https://github.com/"):
+            console.print("\n[red]✗ Invalid repository URL[/red]\n")
             return False
         
-        # Validate URL
-        if not repo_url.startswith("https://github.com/"):
-            console.print(f"\n[red]✗ Invalid repository URL[/red]")
-            console.print(f"   Expected: https://github.com/username/repo.git\n")
-            return False
-        
-        # Save to publish config (SEPARATE from main config!)
         PUBLISH_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
         publish_config["repo_url"] = repo_url
         PUBLISH_CONFIG_PATH.write_text(yaml.dump(publish_config))
-        console.print(f"\n[green]✓ Repository saved to {PUBLISH_CONFIG_PATH}[/green]")
-    
-    # Check repository visibility
+
+    # Repo validation via gh CLI
+    repo_name = repo_url.replace("https://github.com/", "").replace(".git", "")
     try:
-        repo_name = repo_url.replace("https://github.com/", "").replace(".git", "")
-        result = subprocess.run(
-            ["gh", "api", f"repos/{repo_name}"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        
-        if result.returncode == 0:
-            repo_info = json.loads(result.stdout)
-            is_private = repo_info.get("private", False)
-            
+        res = subprocess.run(["gh", "api", f"repos/{repo_name}"], capture_output=True, text=True, timeout=5)
+        if res.returncode == 0:
+            is_private = json.loads(res.stdout).get("private", False)
             if is_private:
-                console.print(Panel(
-                    "[yellow]⚠️  Repository is PRIVATE[/yellow]\n\n"
-                    "Others won't be able to install your skills with `npx skills add`.\n\n"
-                    "To make it public:\n"
-                    f"  gh repo edit {repo_name} --public\n\n"
-                    "[dim]Or continue with private repo for personal use.[/dim]",
-                    border_style="yellow",
-                ))
-                console.print()
+                console.print(f"\n[yellow]⚠️  Warning: Repository {repo_name} is PRIVATE.[/yellow]")
             else:
-                console.print(Panel(
-                    "[green]✓ Repository is PUBLIC[/green]\n\n"
-                    "Others can install your skills with:\n"
-                    f"  [bold]npx skills add {repo_name}[/bold]\n\n"
-                    "[dim]Perfect for sharing with the community![/dim]",
-                    border_style="green",
-                ))
-                console.print()
-    except Exception:
-        console.print("[dim]Could not check repository visibility (gh CLI not available or repo doesn't exist yet)[/dim]\n")
-    
-    # Dry run mode
+                console.print(f"\n[green]✓ Repository {repo_name} is PUBLIC.[/green]")
+    except Exception: pass
+
     if dry_run:
-        console.print(Panel(
-            "[bold]🔍 DRY RUN - No changes made[/bold]\n\n"
-            f"Would publish {len(selected_skills)} skills to:\n"
-            f"  {repo_url}\n\n"
-            "Skills:\n" +
-            "\n".join([f"  • {s['name']}" for s in selected_skills]),
-            border_style="blue",
-        ))
-        console.print()
+        console.print(f"\n[blue]🔍 DRY RUN: Would publish {len(selected_skills)} skills to {repo_url}[/blue]\n")
         return True
-    
-    # Confirm before publishing (SAFETY: default to NO)
-    if not Confirm.ask(
-        "\n[bold red]Confirm publishing to PUBLIC repository?[/bold red]\n"
-        "This will make your skills visible to anyone on GitHub.",
-        default=False,
-    ):
+
+    if not Confirm.ask("\n[bold red]Confirm publishing to GitHub?[/bold red]", default=False):
         console.print("\n[yellow]Publish cancelled[/yellow]\n")
         return False
-    
-    # Create temporary directory for publishing
+
+    # 5. Execute Publishing
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
-        
-        # Copy selected skills to temp directory (ONLY skills, no configs!)
         skills_tmp_dir = tmp_path / "skills"
         skills_tmp_dir.mkdir(parents=True, exist_ok=True)
         
         for skill in selected_skills:
-            src = skill["path"]
-            dst = skills_tmp_dir / skill["name"]
-            
-            if src.is_dir():
-                shutil.copytree(src, dst)
-            else:
-                shutil.copy2(src, dst)
+            src, dst = skill["path"], skills_tmp_dir / skill["name"]
+            if src.is_dir(): shutil.copytree(src, dst)
+            else: shutil.copy2(src, dst)
         
-        # Create README for the skills repo
-        readme_content = generate_readme(selected_skills, repo_url)
-        (tmp_path / "README.md").write_text(readme_content)
+        (tmp_path / "README.md").write_text(generate_readme(selected_skills, repo_url))
+        (tmp_path / ".gitignore").write_text("*.json\n*.yaml\n*.yml\n.env\n*auth*\n*token*\n*key*\n*secret*\n*credentials*\n")
         
-        # Create .gitignore (NEVER commit configs or secrets)
-        gitignore = """# Never commit configs or secrets
-*.json
-*.yaml
-*.yml
-.env
-*auth*
-*token*
-*key*
-*secret*
-*credentials*
-"""
-        (tmp_path / ".gitignore").write_text(gitignore)
+        console.print(f"\n[bold]📤 Publishing {len(selected_skills)} skills...[/bold]")
         
-        console.print(f"\n[bold]📤 Publishing {len(selected_skills)} skills to {repo_url}...[/bold]\n")
-        
-        # Check if repo exists, if not create it
-        repo_name = repo_url.replace("https://github.com/", "").replace(".git", "")
         try:
-            result = subprocess.run(
-                ["gh", "api", f"repos/{repo_name}"],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            
-            if result.returncode != 0:
-                # Repo doesn't exist, create it (PUBLIC by default for safety)
-                console.print("  Creating repository on GitHub...")
-                subprocess.run(
-                    ["gh", "repo", "create", repo_name, "--public", "--description", "Custom AI agent skills"],
-                    check=True,
-                    capture_output=True
-                )
-                console.print("  [green]✓ Repository created[/green]")
-        except Exception as e:
-            console.print(f"  [yellow]⚠ Could not auto-create repository: {e}[/yellow]")
-            console.print("  Please create the repository manually at: https://github.com/new")
-            console.print(f"  Repository name: {repo_name}")
-            console.print()
-            
-            if not Confirm.ask("Continue with git init and push anyway?", default=False):
-                console.print("\n[yellow]Publish cancelled[/yellow]\n")
-                return False
-        
-        # Initialize git repo and push
-        try:
-            # Git operations
+            # Ensure repo exists
+            subprocess.run(["gh", "api", f"repos/{repo_name}"], capture_output=True, check=False)
+            # Git ops
             subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
             subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True, check=True)
             subprocess.run(["git", "commit", "-m", f"feat: publish {len(selected_skills)} skills"], cwd=tmp_path, capture_output=True, check=True)
@@ -328,20 +253,11 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
             subprocess.run(["git", "remote", "add", "origin", repo_url], cwd=tmp_path, capture_output=True, check=True)
             subprocess.run(["git", "push", "-u", "origin", "main", "--force"], cwd=tmp_path, capture_output=True, check=True)
             
-            console.print(f"\n[green]✓ Successfully published {len(selected_skills)} skills![/green]\n")
-            console.print(f"📦 Repository: {repo_url}\n")
-            console.print("💡 Others can now install your skills with:\n")
-            console.print(f"  [bold]npx skills add {repo_name}[/bold]\n")
-            
+            console.print(f"\n[green]✓ Successfully published to {repo_url}![/green]")
+            console.print(f"💡 Others can install with: [bold]npx skills add {repo_name}[/bold]\n")
             return True
-            
-        except subprocess.CalledProcessError as e:
+        except Exception as e:
             console.print(f"\n[red]✗ Failed to publish: {e}[/red]\n")
-            if e.stderr:
-                console.print(f"[dim]{e.stderr.decode()}[/dim]\n")
-            return False
-        except FileNotFoundError:
-            console.print("\n[red]✗ Git not found. Please install git and try again.[/red]\n")
             return False
 
 

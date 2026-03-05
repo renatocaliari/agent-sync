@@ -88,16 +88,13 @@ class TestConfig:
         config2 = Config(config_path=config_file)
         assert config2.include_mcp_secrets is True
     
-    def test_config_to_dict(self, tmp_path):
-        """Test config serialization."""
+    def test_published_skills(self, tmp_path):
+        """Test published_skills persistence."""
         config_file = tmp_path / "config.yaml"
         config = Config(config_path=config_file)
         
-        config.repo_url = "https://github.com/test/repo.git"
-        config.agents = ["opencode"]
+        skills = ["skill1", "skill2"]
+        config.published_skills = skills
         
-        result = config.to_dict()
-        
-        assert "repo_url" in result
-        assert "agents" in result
-        assert "overrides" in result
+        config2 = Config(config_path=config_file)
+        assert config2.published_skills == sorted(skills)
