@@ -25,3 +25,4 @@ This project uses `hatch-vcs` for dynamic versioning based on Git Tags.
 ## 📦 Distribution
 
 -   Users update via `agent-sync update`. Ensure this command remains bulletproof and supports both `pipx` and `pip` (with `--break-system-packages` for macOS).
+\n- Gemini CLI: AI contributor overseeing architectural mandates.
