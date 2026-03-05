@@ -486,6 +486,134 @@ def list_skills():
 
 
 @skills.command()
+@click.argument("skill_names", nargs=-1, required=True)
+@click.option("--dry-run", is_flag=True, help="Show what would be deleted without actually deleting")
+@click.option("--push", is_flag=True, help="Automatically push to GitHub after deleting")
+@click.option("--all", "delete_all", is_flag=True, help="Delete ALL skills (use with caution!)")
+def delete(skill_names: tuple[str, ...], dry_run: bool, push: bool, delete_all: bool):
+    """Delete skills from hub and all agent directories.
+    
+    \b
+    Examples:
+      # Delete specific skills
+      agent-sync skills delete my-skill another-skill
+      
+      # Delete all skills (DANGEROUS!)
+      agent-sync skills delete --all
+      
+      # Dry run (see what would be deleted)
+      agent-sync skills delete my-skill --dry-run
+      
+      # Delete and push to GitHub
+      agent-sync skills delete my-skill --push
+    
+    \b
+    What happens:
+      1. Deletes skills from ~/.agents/skills/ (hub)
+      2. Deletes copies from all agent directories
+      3. Optionally pushes changes to GitHub
+    """
+    from .skills_delete import SkillsDeleter
+    from rich.prompt import Confirm
+    
+    deleter = SkillsDeleter()
+    
+    # Get list of skills to delete
+    if delete_all:
+        skill_names = tuple(deleter.list_skills())
+        if not skill_names:
+            console.print("[yellow]No skills found to delete.[/yellow]\n")
+            return
+        
+        console.print(f"[bold red]⚠ WARNING: You are about to delete ALL {len(skill_names)} skills![/bold red]\n")
+        console.print("Skills to be deleted:")
+        for name in skill_names:
+            console.print(f"  • {name}")
+        console.print()
+        
+        if not dry_run:
+            if not Confirm.ask("[bold red]Are you sure you want to continue?[/bold red]", default=False):
+                console.print("\n[yellow]Deletion cancelled.[/yellow]\n")
+                return
+    
+    if not skill_names:
+        console.print("[yellow]No skills specified.[/yellow]\n")
+        console.print("Usage: [green]agent-sync skills delete <skill-name> [skill-name...][/green]\n")
+        return
+    
+    # Show what will be deleted
+    action = "[yellow]Would delete[/yellow]" if dry_run else "[red]Deleting[/red]"
+    console.print(f"\n[bold]{action} {len(skill_names)} skill(s):[/]\n")
+    
+    for name in skill_names:
+        console.print(f"  • {name}")
+    
+    console.print()
+    
+    if not dry_run:
+        if not delete_all:
+            if not Confirm.ask("Continue with deletion?", default=True):
+                console.print("\n[yellow]Deletion cancelled.[/yellow]\n")
+                return
+    
+    # Delete skills
+    stats = deleter.delete_skills(list(skill_names), dry_run=dry_run)
+    
+    # Show summary
+    console.print(f"\n[bold]📊 Summary:[/]\n")
+    
+    if dry_run:
+        console.print(f"  [yellow]Would delete {stats['deleted_from_hub']} skills from hub[/yellow]")
+        console.print(f"  [yellow]Would delete {stats['deleted_from_agents']} copies from agents[/yellow]")
+    else:
+        console.print(f"  [green]✓ Deleted {stats['deleted_from_hub']} skills from hub[/green]")
+        console.print(f"  [green]✓ Deleted {stats['deleted_from_agents']} copies from agents[/green]")
+    
+    if stats["not_found"] > 0:
+        console.print(f"  [yellow]⚠ {stats['not_found']} skills not found[/yellow]")
+    if stats["errors"] > 0:
+        console.print(f"  [red]✗ {stats['errors']} errors[/red]")
+    
+    console.print()
+    
+    # Ask if user wants to push
+    should_push = push
+    
+    if not should_push and not dry_run:
+        should_push = Confirm.ask(
+            "[bold]Would you like to push these changes to GitHub now?[/]",
+            default=True,
+        )
+    
+    if should_push and not dry_run:
+        console.print("\n[bold]📤 Pushing to GitHub...[/]\n")
+        
+        from .sync import SyncManager
+        from .config import Config
+        
+        config = Config()
+        
+        if not config.repo_url:
+            console.print("[yellow]⚠ No repository configured yet.[/yellow]")
+            console.print("Run [green]agent-sync init[/green] to create a repository first.\n")
+        else:
+            try:
+                sync_manager = SyncManager(config)
+                pushed = sync_manager.push(message="chore: delete skills")
+                
+                if pushed:
+                    console.print(f"\n[green]✓ Pushed {len(pushed)} files to GitHub[/green]\n")
+                    console.print("💡 On other machines, run [green]agent-sync pull[/green]\n")
+                else:
+                    console.print("\n[yellow]✓ Nothing to push (already up to date)[/yellow]\n")
+            except Exception as e:
+                console.print(f"\n[red]✗ Push failed: {e}[/red]\n")
+                console.print("[dim]You can run [green]agent-sync push[/green] manually later.[/dim]\n")
+    elif not dry_run:
+        console.print("💡 Run [green]agent-sync push[/green] to sync to GitHub\n")
+
+
+@skills.command()
 @click.option("--copy", is_flag=True, help="Copy instead of moving skills")
 @click.option("--push", is_flag=True, help="Automatically push to GitHub after centralizing")
 @click.option("--distribute", is_flag=True, help="After centralizing, copy all skills to all agent directories (for backup or testing)")
