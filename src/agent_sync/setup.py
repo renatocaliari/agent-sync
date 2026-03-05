@@ -267,8 +267,20 @@ class SetupWizard:
         skills_found = skills_mgr.scan_all_agents()
 
         if skills_found:
-            total = sum(len(s) for s in skills_found.values())
-            console.print(f"Found [cyan]{total}[/cyan] skills across {len(skills_found)} agents.\n")
+            # Count unique skills by name (deduplicate across agents)
+            unique_skill_names = set()
+            for agent_skills in skills_found.values():
+                for skill_path in agent_skills:
+                    unique_skill_names.add(skill_path.name)
+            
+            total_unique = len(unique_skill_names)
+            total_copies = sum(len(s) for s in skills_found.values())
+            
+            if total_copies > total_unique:
+                console.print(f"Found [cyan]{total_unique}[/cyan] unique skills "
+                             f"([dim]{total_copies} copies[/dim] across {len(skills_found)} agents).\n")
+            else:
+                console.print(f"Found [cyan]{total_unique}[/cyan] skills across {len(skills_found)} agents.\n")
 
             if Confirm.ask("Centralize all skills to ~/.agents/skills/?", default=True):
                 skills_mgr.centralize()
