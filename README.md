@@ -83,180 +83,53 @@ agent-sync pull
 
 ## 🛠️ CLI Commands
 
-```
-$ agent-sync --help
-
-Usage: agent-sync [OPTIONS] COMMAND [ARGS]...
-
-  🔄 agent-sync - Sync configs and skills across multiple AI agents.
-
-  Supported agents: opencode, claude-code, gemini-cli, pi.dev, qwen-code
-
-Options:
-  --version  Show the version and exit.
-  --help     Show this message and exit.
-
-Commands:
-  agents           List supported agents and their status.
-  update           Check for available updates and install them.
-  config           Manage configuration (view, edit, reset).
-  disable          Disable sync for a specific agent.
-  enable           Enable sync for a specific agent.
-  generate-config  Generate initial configuration file.
-  init             Initialize a new sync repository (first machine).
-  link             Link to an existing sync repository (additional...
-  pull             Fetch and apply remote configuration.
-  push             Commit and push local changes.
-  secrets          Manage secrets and environment variables.
-  setup            Run the interactive setup wizard to configure or...
-  skills           Manage global skills.
-  status           Show sync status and last sync times.
-  version          Show version information.
-```
-
-### Most Used Commands
+`agent-sync` uses a categorized, tree-like help structure. You can see all options for any command directly from the main help:
 
 ```bash
-# First time setup
-agent-sync setup          # Interactive wizard
-agent-sync push           # Upload to GitHub
-
-# Manage skills
-agent-sync skills list                # List all skills
-agent-sync skills centralize          # Centralize from agents
-agent-sync skills centralize --copy   # Copy instead of move
-agent-sync skills centralize --push   # Centralize + push
-
-# Configuration
-agent-sync config show    # View current config
-agent-sync config repo    # View/set repository URL
-agent-sync config edit    # Edit manually
-agent-sync config reset   # Reset to defaults
-
-# Status & updates
-agent-sync status         # Show sync status
-agent-sync agents         # List all agents
-agent-sync update         # Check and install updates
+agent-sync --help
 ```
+
+### Command Categories
+
+#### 🔄 Sync
+- `push` - Commit and push local changes `[-m, --skills-only, --configs-only]`
+- `pull` - Fetch and apply remote configuration `[--force, --skills-only, --configs-only]`
+- `status` - Show sync status and last sync times
+
+#### 🤖 Agents
+- `agents` - List supported agents and their status
+- `enable` / `disable` - Toggle sync for a specific agent
+
+#### ⚙️ Configuration
+- `setup` - Run the interactive setup wizard
+- `init` - Initialize a new sync repository `[--name, --private, --agents, --no-wizard, --force]`
+- `config` - Manage agent-sync configuration
+    - `show` - Show current configuration
+    - `edit` - Open config in editor `[--agent]`
+    - `repo` - View/set repository URL `[--remove]`
+    - `reset` - Reset to defaults `[--yes]`
+
+#### 📚 Skills
+- `skills` - Manage global skills
+    - `list` - List all centralized skills
+    - `centralize` - Centralize skills from all agents `[--copy, --push, --distribute]`
+    - `publish` - Publish skills to public GitHub `[--repo, --dry-run, --interactive]`
+
+#### 🛠️ System
+- `update` - Check for and install CLI updates (interactive)
+- `version` - Show version information
 
 ---
 
-## 🔐 Security
+## 🏗️ Architecture (v0.7.0+)
 
-**Your config files may contain API keys and tokens.**
+We recently moved to a data-driven architecture using a YAML registry. This makes the system more robust and easier to extend.
 
-- ⚠️ **ALWAYS use PRIVATE repository**
-- ⚠️ **Keep your repo private**
-- ✅ Config files are synced as-is
-- ✅ Each agent manages their own authentication
+- **YAML Registry**: Defined in `src/agent_sync/agent_registry.yaml`.
+- **No Symlinks**: We use `Native -> Config -> Copy` flow for maximum cross-platform reliability.
+- **Customizable**: Override the sync method for any agent in your `config.yaml`.
 
----
-
-## 📊 How It Works
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  Machine A                        Machine B             │
-│                                                         │
-│  ~/.agents/skills/  ────────►  GitHub  ────────►  ~/.agents/skills/
-│  (source of truth)              (private)          (synced)
-│                                                         │
-│  Agent Configs ─────────────────────────────────►  Agent Configs
-│  • opencode                                         • opencode
-│  • claude-code                                      • claude-code
-│  • gemini-cli                                       • gemini-cli
-│  • pi.dev                                           • pi.dev
-│  • qwen-code                                        • qwen-code
-└─────────────────────────────────────────────────────────┘
-```
-
-### Skills Flow
-
-```
-1. Centralize (first time)
-   ~/.config/opencode/skills/ ──┐
-   ~/.claude/commands/          │
-   ~/.gemini/tools/             ├──► ~/.agents/skills/
-   ~/.pi/agent/skills/          │    (source of truth)
-   ~/.qwen/skills/              ──┘
-   
-   → Moves all skills to central location
-   → Removes user symlinks from agent directories
-   → Configures agents to use global path or local copies
-
-2. Configure agents (automatic)
-   Opencode:    Config update (multiple paths)
-   Pi.dev:      Native support (~/.agents/skills)
-   Claude Code: Copy fallback (optimized for speed)
-   Gemini CLI:  Copy fallback (optimized for speed)
-   Qwen Code:   Copy fallback (optimized for speed)
-
-3. Sync to GitHub
-   ~/.agents/skills/ ──push──► GitHub ──pull──► Other machines
-```
-
----
-
-## 📁 What Gets Synced
-
-### On Your Computer
-```
-~/.agents/skills/              # All skills (source of truth)
-~/.config/agent-sync/          # agent-sync settings
-~/.config/agent-sync/registry.yaml # Agent definitions (internal)
-~/.config/opencode/            # Agent-specific configs
-...
-```
-
-### On GitHub (Private Repo)
-```
-agent-sync-configs/
-├── configs/
-│   ├── opencode/
-│   │   ├── opencode.jsonc     # Main config + plugins
-│   └── ...
-└── skills/
-    ├── code-review/
-    ├── python-expert/
-    └── ...
-```
-
-### What's Protected (Never Synced)
-- ❌ `*auth*.json` - Authentication files
-- ❌ `*accounts*.json` - Account credentials  
-- ❌ `*overrides*` - Local overrides
-- ❌ `*.lock` - Package locks
-
----
-
-## 🤖 Supported Agents
-
-| Agent | Config Files | Skills Path | Method |
-|-------|-------------|-------------|--------|
-| **opencode** | `opencode.json`, `opencode.jsonc` | `~/.config/opencode/skills/` | Config |
-| **pi.dev** | `settings.json`, `models.json` | `~/.pi/agent/skills/` | Native |
-| **global-skills** | - | `~/.agents/skills/` | Native |
-| **claude-code** | `settings.json` | `~/.claude/commands/` | Copy |
-| **gemini-cli** | `settings.json` | `~/.gemini/tools/` | Copy |
-| **qwen-code** | `settings.json` | `~/.qwen/skills/` | Copy |
-
-All agents also support `~/.agents/skills/` for shared skills.
-
-**Files automatically excluded:** `*auth*.json`, `*accounts*.json`, `*overrides*`, `*.lock`
-
----
-
-## 🏗️ Architecture (YAML Registry)
-
-agent-sync uses a YAML-based registry to define how each agent is configured. This makes it easy to add new agents or customize existing ones.
-
-The registry is located at `src/agent_sync/agent_registry.yaml`. You can also override the configuration method for any agent in your local `config.yaml`:
-
-```yaml
-agents_config:
-  claude-code:
-    skills_method: copy  # Options: native, config, copy
-```
+For more details on these changes, see the [v0.7.0 Release Notes](RELEASE_NOTES_v0.7.0.md).
 
 See the [Adding New Agents guide](docs/adding-agents.md) for more details.
 
