@@ -24,8 +24,8 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e ".[dev]"
-        
+        pip install --no-cache-dir -e ".[dev]"
+
     - name: Run tests
       run: |
-        pytest -o "addopts=-v"
+        pytest -o "addopts=-v" --cache-clear
