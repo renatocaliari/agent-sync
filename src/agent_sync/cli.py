@@ -970,18 +970,19 @@ def link(repo_url: str):
 @click.option("--configs-only", is_flag=True, help="Pull only configs (not skills)")
 def pull(force: bool, skills_only: bool, configs_only: bool):
     """Fetch and apply remote configuration.
-    
-    \b
+
+    Restores global skills, extension skills, and symlinks automatically.
+
     Examples:
       # Pull everything (default)
       agent-sync pull
-      
+
       # Pull only skills
       agent-sync pull --skills-only
-      
+
       # Pull only configs
       agent-sync pull --configs-only
-      
+
       # Force pull (overwrite local changes)
       agent-sync pull --force
     """
@@ -1015,18 +1016,19 @@ def pull(force: bool, skills_only: bool, configs_only: bool):
 @click.option("--configs-only", is_flag=True, help="Push only configs (not skills)")
 def push(message: str, skills_only: bool, configs_only: bool):
     """Commit and push local changes.
-    
-    \b
+
+    Backs up global skills, extension skills, and symlinks automatically.
+
     Examples:
       # Push everything (default)
       agent-sync push
-      
+
       # Push only skills
       agent-sync push --skills-only
-      
+
       # Push only configs
       agent-sync push --configs-only
-      
+
       # Push with custom message
       agent-sync push -m "feat: add new skill"
     """
