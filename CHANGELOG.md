@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.14.0] - 2026-03-06
+
+### 🐛 Critical Fix: Extension Skills Not Centralized
+
+**Problem:**
+Extension skills (e.g., `~/.config/opencode/superpowers/skills/`) were being moved to `~/.agents/skills/` during `agent-sync skills centralize`, when they should remain in their original locations.
+
+**Solution:**
+- Extension skills are now marked with `is_extension: True` flag during scan
+- `centralize()` command skips extension skills entirely
+- Extension skills only backed up via symlinks during `push`
+- Regular skills (e.g., `~/.config/opencode/skills/`) still centralized as expected
+
+### Fixed
+- Extension skills incorrectly moved to global directory during centralize
+- Skills from `opencode-superpowers` now stay in `~/.config/opencode/superpowers/skills/`
+- Extension symlinks preserved and backed up correctly
+
+### Added
+- Test: `test_centralize_does_not_move_extension_skills` - ensures extension skills remain in place
+- Console output shows "(extension - backup only)" for extension skills during scan
+
+### Migration
+If you ran `centralize` with v0.13.0 and extension skills were moved:
+```bash
+# Skills will be restored on next pull from repo
+# Or manually restore from ~/.agents/skills/ to original location
+```
+
+---
+
 ## [0.7.0] - 2026-03-05
 
 ### 🚀 Major Architectural Shift: YAML-Driven Agent Registry
