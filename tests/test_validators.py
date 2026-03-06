@@ -20,7 +20,8 @@ class TestValidators:
     def test_validate_repo_name_invalid(self):
         """Test invalid repository names."""
         assert validate_repo_name("") is False
-        assert validate_repo_name("-agent-sync") is False
+        assert validate_repo_name("-agent-sync") is False  # Starts with hyphen
+        assert validate_repo_name(".agent-sync") is False  # Starts with period
         assert validate_repo_name("agent sync") is False
         assert validate_repo_name("agent$sync") is False
         assert validate_repo_name("a" * 101) is False
