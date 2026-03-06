@@ -135,52 +135,56 @@ def test_centralize_does_not_move_extension_skills(tmp_path):
     - Only be backed up via symlinks during push
     - NOT be moved to ~/.agents/skills/
     """
-    home, global_dir = setup_mock_environment(tmp_path)
-    
+    home = tmp_path / "home"
+    global_dir = home / ".agents" / "skills"
+    global_dir.mkdir(parents=True)
+
     # Setup opencode agent with extension subdirectory
     agent_home = home / ".config" / "opencode"
     agent_home.mkdir(parents=True)
-    
+
     # Create extension subdirectory with skills
     extension_dir = agent_home / "superpowers" / "skills"
     extension_dir.mkdir(parents=True)
     (extension_dir / "extension-skill").mkdir()
     (extension_dir / "extension-skill" / "SKILL.md").write_text("extension content")
-    
+
     # Create regular skills directory with a skill
     skills_dir = agent_home / "skills"
     skills_dir.mkdir()
     (skills_dir / "regular-skill").mkdir()
     (skills_dir / "regular-skill" / "SKILL.md").write_text("regular content")
-    
+
     # Create symlink from skills/superpowers -> ../superpowers/skills/
     # This simulates the extension symlink
     (skills_dir / "superpowers").symlink_to(Path("..") / "superpowers" / "skills")
-    
+
     agent = BaseAgent("opencode", {
         "method": "copy",
         "config_dir": str(agent_home),
         "skills_dir_name": "skills",
         "check": {"always": True}
     })
-    
+
     manager = SkillsManager(global_skills_dir=global_dir)
-    
-    with patch("agent_sync.skills.get_all_agents", return_value=[agent]):
-        stats = manager.centralize(move=True)
-    
+
+    with patch("agent_sync.skills.get_all_agents", return_value=[agent]), \
+         patch.object(manager, '_sync_from_repo', return_value=0):
+        # Use dry_run=False to actually move files, move=True to move (not copy)
+        stats = manager.centralize(dry_run=False, move=True)
+
     # Extension skill should NOT be moved to global directory
     assert not (global_dir / "extension-skill").exists(), \
         "Extension skills should NOT be centralized"
-    
+
     # Extension skill should still exist in original location
     assert (extension_dir / "extension-skill" / "SKILL.md").exists(), \
         "Extension skills should remain in original location"
-    
+
     # Regular skill SHOULD be moved to global directory
     assert (global_dir / "regular-skill" / "SKILL.md").exists(), \
         "Regular skills should be centralized"
-    
+
     # Regular skill should be removed from original location (moved, not copied)
     assert not (skills_dir / "regular-skill").exists(), \
         "Regular skills should be moved (not copied)"
