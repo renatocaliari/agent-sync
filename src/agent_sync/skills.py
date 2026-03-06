@@ -2,9 +2,12 @@
 
 Centralizes skills from all agents to ~/.agents/skills/ (source of truth).
 Automatically configures agents to use global skills.
+
+Supports extension subdirectories (e.g., ~/.config/opencode/superpowers/skills/).
 """
 
 import shutil
+import json
 from pathlib import Path
 from typing import Optional
 from rich.console import Console
@@ -16,6 +19,8 @@ console = Console()
 
 GLOBAL_SKILLS_DIR = Path.home() / ".agents" / "skills"
 
+MANIFEST_FILENAME = ".agent-sync-manifest.json"
+
 
 class SkillsManager:
     """Manages skills centralization and distribution."""
@@ -24,6 +29,120 @@ class SkillsManager:
         self.global_skills_dir = global_skills_dir or GLOBAL_SKILLS_DIR
         self.conflicts: list[dict] = []
         self.resolved_conflicts: dict[str, str] = {}
+        self.extension_skills: dict[str, dict] = {}  # agent-extension -> info
+
+    def _is_extension_symlink(self, symlink: Path, agent: BaseAgent) -> bool:
+        """
+        Check if symlink points to internal extension directory.
+        
+        Examples:
+            superpowers: ~/.config/opencode/skills/superpowers → ../superpowers/skills/
+            → Target resolves to ~/.config/opencode/superpowers/skills/
+            → This is INSIDE agent config dir → PRESERVE
+            
+            User symlink: ~/.config/opencode/skills/my-skill → ~/.agents/skills/my-skill/
+            → Target resolves to ~/.agents/skills/my-skill/
+            → This is OUTSIDE agent config dir → REMOVE
+        
+        Args:
+            symlink: Path to symlink
+            agent: Agent object with config_dir
+            
+        Returns:
+            True if symlink points to internal extension directory
+        """
+        try:
+            # Resolve symlink target (follow the symlink)
+            target = symlink.resolve()
+            
+            # Get agent's config directory (resolved to absolute path)
+            config_dir = Path(agent.config_dir).expanduser().resolve()
+            
+            # Check if target is within agent's config directory
+            # This will raise ValueError if target is not relative to config_dir
+            target.relative_to(config_dir)
+            return True  # Inside config dir = extension symlink, preserve
+        except (ValueError, FileNotFoundError):
+            return False  # Outside config dir = user symlink, remove
+
+    def _scan_extension_subdirs(self, agent: BaseAgent) -> dict[str, dict]:
+        """
+        Scan for extension subdirectories with their own skills/.
+        
+        Example structure:
+            ~/.config/opencode/superpowers/skills/
+            ~/.config/opencode/my-extension/skills/
+        
+        Args:
+            agent: Agent object to scan
+            
+        Returns:
+            dict mapping "agent-extension" name to info dict with:
+                - agent: agent name
+                - extension: extension name
+                - skills_dir: path to skills directory
+                - symlink_path: path to symlink (if exists)
+                - symlink_target: symlink target (if exists)
+        """
+        extension_skills = {}
+        config_dir = Path(agent.config_dir).expanduser()
+        
+        if not config_dir.exists():
+            return extension_skills
+        
+        for subdir in config_dir.iterdir():
+            # Skip hidden dirs and main skills dir
+            if subdir.name.startswith(".") or subdir.name == "skills":
+                continue
+            
+            if not subdir.is_dir():
+                continue
+            
+            # Check if subdir has its own skills/
+            skills_dir = subdir / "skills"
+            if not skills_dir.exists() or not skills_dir.is_dir():
+                continue
+            
+            # Found extension skills!
+            ext_name = f"{agent.name}-{subdir.name}"
+            
+            # Check if there's a symlink pointing to this skills dir
+            symlink_path = agent.skills_path / subdir.name
+            symlink_info = None
+            
+            if symlink_path.is_symlink():
+                try:
+                    symlink_target = symlink_path.readlink()
+                    symlink_info = {
+                        "from": str(symlink_path),
+                        "to": str(symlink_target),
+                    }
+                except (OSError, ValueError):
+                    pass
+            
+            extension_skills[ext_name] = {
+                "agent": agent.name,
+                "extension": subdir.name,
+                "skills_dir": str(skills_dir),
+                "symlink": symlink_info,
+            }
+        
+        return extension_skills
+
+    def _is_valid_skill(self, path: Path) -> bool:
+        """Check if a directory is a valid skill (has SKILL.md or common skill files)."""
+        if not path.is_dir():
+            return False
+        
+        # Check for SKILL.md
+        if (path / "SKILL.md").exists():
+            return True
+        
+        # Check for common skill files
+        if any(path.glob("*.md")) or any(path.glob("*.py")) or any(path.glob("*.sh")):
+            return True
+        
+        return False
 
     def scan_all_agents(self) -> dict[str, list[Path]]:
         """Scan all agents for existing skills.
@@ -31,11 +150,13 @@ class SkillsManager:
         Only directories containing SKILL.md are considered valid skills.
         Files directly in the skills directory are ignored.
         Symlinks created by users are detected for removal.
+        Extension subdirectories (e.g., ~/.config/opencode/superpowers/skills/) are scanned separately.
 
         Returns:
             dict mapping agent name to list of skill paths
         """
         skills_found = {}
+        self.extension_skills = {}  # Reset extension skills
 
         for agent in get_all_agents():
             if agent.name == "global-skills":
@@ -50,28 +171,43 @@ class SkillsManager:
                     if item.name.startswith("."):
                         continue
 
-                    # Detect and skip symlinks (user-created or otherwise)
+                    # Detect symlinks - check if they're extension symlinks or user symlinks
                     if item.is_symlink():
-                        # Symlinks will be removed during centralize
+                        # Check if this is an extension symlink (points inside agent config)
+                        if self._is_extension_symlink(item, agent):
+                            # This is an extension symlink, we'll handle it via extension scanning
+                            # Don't add to agent_skills, but note it for manifest
+                            pass
+                        # User symlinks will be removed during centralize
                         continue
 
                     # Only sync directories (not files)
                     if item.is_dir():
                         # Check if it's a valid skill (has SKILL.md)
-                        if (item / "SKILL.md").exists():
-                            agent_skills.append(item)
-                        # Also accept directories with common skill files
-                        elif (
-                            any(item.glob("*.md"))
-                            or any(item.glob("*.py"))
-                            or any(item.glob("*.sh"))
-                        ):
-                            # Has markdown or script files, likely a skill
+                        if self._is_valid_skill(item):
                             agent_skills.append(item)
                     # Ignore files directly in skills directory
 
             if agent_skills:
                 skills_found[agent.name] = agent_skills
+
+            # Scan extension subdirectories (e.g., ~/.config/opencode/superpowers/skills/)
+            extension_skills = self._scan_extension_subdirs(agent)
+            for ext_name, ext_info in extension_skills.items():
+                self.extension_skills[ext_name] = ext_info
+                
+                # Also add extension skills to skills_found
+                skills_dir = Path(ext_info["skills_dir"])
+                ext_skill_paths = []
+                
+                for skill_item in skills_dir.iterdir():
+                    if skill_item.name.startswith(".") or skill_item.is_symlink():
+                        continue
+                    if skill_item.is_dir() and self._is_valid_skill(skill_item):
+                        ext_skill_paths.append(skill_item)
+                
+                if ext_skill_paths:
+                    skills_found[ext_name] = ext_skill_paths
 
         return skills_found
 
@@ -330,13 +466,22 @@ class SkillsManager:
 
         return stats
 
-    def _cleanup_user_symlinks(self) -> int:
-        """Remove user-created symlinks from agent skill directories.
-
+    def _cleanup_user_symlinks(self, preserve_extension_symlinks: bool = True) -> int:
+        """
+        Remove user-created symlinks from agent skill directories.
+        
+        Extension symlinks (pointing to internal subdirectories) are preserved.
+        User symlinks (pointing to ~/.agents/skills/) are removed.
+        
+        Args:
+            preserve_extension_symlinks: If True, keep symlinks pointing to internal
+                                         extension directories (default: True)
+        
         Returns:
             Number of symlinks removed
         """
         symlinks_removed = 0
+        symlinks_preserved = 0
 
         for agent in get_all_agents():
             if agent.name == "global-skills":
@@ -347,11 +492,23 @@ class SkillsManager:
 
             for item in agent.skills_path.iterdir():
                 if item.is_symlink():
+                    # Check if this is an extension symlink
+                    if preserve_extension_symlinks and self._is_extension_symlink(item, agent):
+                        # Preserve extension symlink (e.g., superpowers → ../superpowers/skills/)
+                        console.print(f"  [dim]Preserving extension symlink: {item.name}[/dim]")
+                        symlinks_preserved += 1
+                        continue
+                    
+                    # User symlink - remove
                     try:
                         item.unlink()
                         symlinks_removed += 1
-                    except Exception:
-                        pass
+                        console.print(f"  [yellow]Removed user symlink: {item.name}[/yellow]")
+                    except Exception as e:
+                        console.print(f"  [red]Failed to remove symlink {item.name}: {e}[/red]")
+
+        if symlinks_preserved > 0:
+            console.print(f"\n  [green]✓ Preserved {symlinks_preserved} extension symlinks[/green]")
 
         return symlinks_removed
 

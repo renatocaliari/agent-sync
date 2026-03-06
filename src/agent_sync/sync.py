@@ -2,10 +2,16 @@
 
 import subprocess
 import shutil
+import json
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
 from platformdirs import user_data_dir
+from rich.console import Console
+
+from .skills import MANIFEST_FILENAME
+
+console = Console()
 
 
 class SyncManager:
@@ -18,7 +24,8 @@ class SyncManager:
     DATA_DIR = Path(user_data_dir("agent-sync", "renatocaliari"))
     DEFAULT_REPO_DIR = DATA_DIR / "repo"
     STATE_FILE = DATA_DIR / "sync-state.json"
-    
+    MANIFEST_FILE = DATA_DIR / "repo" / ".agent-sync-manifest.json"
+
     # Files to NEVER sync (sensitive or local-only)
     EXCLUDE_PATTERNS = [
         "*auth*.json",
@@ -519,40 +526,91 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                                 shutil.copy2(ext_item, dest)
 
     def _stage_skills(self) -> None:
-        """Stage skills for commit."""
+        """
+        Stage skills for commit, including extension skills.
+        
+        Structure in repo:
+        - skills/_global/ or skills/<skill-name>/ - Global skills from ~/.agents/skills/
+        - skills/<agent>-<extension>/ - Extension skills
+        """
         from pathlib import Path
-
+        from .skills import SkillsManager
+        
         global_skills_dir = Path.home() / ".agents" / "skills"
         repo_skills_dir = self.repo_dir / "skills"
-
+        
         # Ensure repo skills directory exists
         repo_skills_dir.mkdir(parents=True, exist_ok=True)
-
+        
+        # Scan for extension skills
+        skills_manager = SkillsManager()
+        skills_manager.scan_all_agents()
+        
         # 1. Remove skills from repo that no longer exist locally
         if repo_skills_dir.exists():
             for repo_skill in repo_skills_dir.iterdir():
                 if repo_skill.name.startswith("."):
                     continue
-                if not (global_skills_dir / repo_skill.name).exists():
+                
+                # Check if it's a global skill
+                is_global = (global_skills_dir / repo_skill.name).exists()
+                
+                # Check if it's an extension skill
+                is_extension = repo_skill.name in skills_manager.extension_skills
+                
+                if not is_global and not is_extension:
                     if repo_skill.is_dir():
                         shutil.rmtree(repo_skill)
                     else:
                         repo_skill.unlink()
-
-        # 2. Copy current skills to repo
+        
+        # 2. Copy global skills to repo (under _global/ subdirectory for clarity)
+        # Or keep flat structure and use manifest to differentiate
+        # Using flat structure with manifest tracking
         if global_skills_dir.exists():
             for skill_item in global_skills_dir.iterdir():
                 if skill_item.name.startswith("."):
                     continue
-
+                
                 dest = repo_skills_dir / skill_item.name
-
+                
                 if skill_item.is_dir():
                     if dest.exists():
                         shutil.rmtree(dest)
                     shutil.copytree(skill_item, dest)
                 else:
                     shutil.copy2(skill_item, dest)
+        
+        # 3. Copy extension skills to repo
+        for ext_name, ext_info in skills_manager.extension_skills.items():
+            source_dir = Path(ext_info["skills_dir"])
+            dest_dir = repo_skills_dir / ext_name
+            
+            if not source_dir.exists():
+                continue
+            
+            # Remove existing dest if present
+            if dest_dir.exists():
+                shutil.rmtree(dest_dir)
+            
+            # Copy extension skills
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            
+            for skill_item in source_dir.iterdir():
+                if skill_item.name.startswith(".") or skill_item.is_symlink():
+                    continue
+                
+                if skill_item.is_dir():
+                    shutil.copytree(skill_item, dest_dir / skill_item.name)
+                else:
+                    shutil.copy2(skill_item, dest_dir / skill_item.name)
+        
+        # 4. Stage symlinks for backup
+        self._stage_symlinks_for_backup()
+        
+        # 5. Create and save manifest
+        manifest = self._create_manifest()
+        self._save_manifest(manifest)
 
     def _should_exclude(self, filename: str) -> bool:
         """Check if a file should be excluded from sync."""
@@ -644,20 +702,56 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
         return changes
 
     def _apply_synced_skills(self) -> list[str]:
-        """Apply synced skills to local ~/.agents/skills/ directory."""
+        """
+        Apply synced skills to local directories.
+        
+        Uses manifest to:
+        1. Restore extension skills to their original locations
+        2. Restore symlinks
+        3. Restore global skills to ~/.agents/skills/
+        """
         from pathlib import Path
-
+        
         changes = []
         synced_skills_dir = self.repo_dir / "skills"
         global_skills_dir = Path.home() / ".agents" / "skills"
-
+        
+        # Load manifest to get extension info
+        manifest = self._load_manifest()
+        
+        # 1. Restore extension skills first (if manifest exists)
+        if manifest and manifest.get("extensions"):
+            console.print("[bold]📦 Restoring extension skills...[/]\n")
+            self._restore_extension_skills(manifest)
+            console.print()
+        
+        # 2. Restore symlinks (if manifest exists)
+        if manifest:
+            console.print("[bold]🔗 Restoring symlinks...[/]\n")
+            symlinks_restored = self._restore_symlinks_from_backup()
+            if symlinks_restored > 0:
+                console.print(f"  [green]✓ Restored {symlinks_restored} symlinks[/green]\n")
+            else:
+                console.print("  [dim]No symlinks to restore[/dim]\n")
+        
+        # 3. Restore global skills (skip extension skills from manifest)
         if synced_skills_dir.exists():
             global_skills_dir.mkdir(parents=True, exist_ok=True)
-
+            
+            # Get extension skill names from manifest to skip them
+            extension_skill_names = set()
+            if manifest:
+                for ext_name in manifest.get("extensions", {}).keys():
+                    extension_skill_names.add(ext_name)
+            
             for skill_item in synced_skills_dir.glob("*"):
                 if skill_item.name.startswith("."):
                     continue
-                    
+                
+                # Skip extension skills (they were restored above)
+                if skill_item.name in extension_skill_names:
+                    continue
+                
                 dest = global_skills_dir / skill_item.name
                 if not dest.exists() or (skill_item.is_file() and dest.read_text() != skill_item.read_text()):
                     if skill_item.is_dir():
@@ -665,9 +759,191 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                     else:
                         shutil.copy2(skill_item, dest)
                     changes.append(f"global-skills: {skill_item.name}")
-
+        
         return changes
-    
+
+    def _create_manifest(self) -> dict:
+        """
+        Create manifest for extension skills and symlinks.
+        
+        Returns:
+            Manifest dict with extensions and global_skills info
+        """
+        from .skills import SkillsManager
+        
+        skills_manager = SkillsManager()
+        
+        # Scan for extension skills
+        skills_manager.scan_all_agents()
+        
+        manifest = {
+            "version": 1,
+            "created_at": datetime.now().isoformat(),
+            "extensions": {},
+            "global_skills": [],
+        }
+        
+        # Add extension info to manifest
+        for ext_name, ext_info in skills_manager.extension_skills.items():
+            manifest["extensions"][ext_name] = {
+                "agent": ext_info["agent"],
+                "extension_dir": ext_info["extension"],
+                "skills_dir": ext_info["skills_dir"],
+            }
+            
+            # Add symlink info if exists
+            if ext_info.get("symlink"):
+                manifest["extensions"][ext_name]["symlink"] = ext_info["symlink"]
+        
+        # List global skills
+        global_skills_dir = Path.home() / ".agents" / "skills"
+        if global_skills_dir.exists():
+            for skill_item in global_skills_dir.iterdir():
+                if skill_item.name.startswith("."):
+                    continue
+                manifest["global_skills"].append(skill_item.name)
+        
+        return manifest
+
+    def _save_manifest(self, manifest: dict) -> None:
+        """Save manifest to repo directory."""
+        manifest_path = self.repo_dir / MANIFEST_FILENAME
+        
+        with open(manifest_path, "w") as f:
+            json.dump(manifest, f, indent=2)
+
+    def _load_manifest(self) -> Optional[dict]:
+        """Load manifest from repo directory."""
+        manifest_path = self.repo_dir / MANIFEST_FILENAME
+        
+        if manifest_path.exists():
+            with open(manifest_path, "r") as f:
+                return json.load(f)
+        
+        return None
+
+    def _stage_symlinks_for_backup(self) -> None:
+        """
+        Stage symlinks from agent skill directories for backup.
+        
+        Extension symlinks are preserved in configs/<agent>/skills/
+        """
+        from .agents import get_all_agents
+        from .skills import SkillsManager
+        
+        skills_manager = SkillsManager()
+        
+        for agent in get_all_agents():
+            if not agent.skills_path.exists():
+                continue
+            
+            # Create backup directory for symlinks
+            backup_dir = self.repo_dir / "configs" / agent.name / "skills"
+            backup_dir.mkdir(parents=True, exist_ok=True)
+            
+            for item in agent.skills_path.iterdir():
+                if item.is_symlink():
+                    # Check if this is an extension symlink
+                    if skills_manager._is_extension_symlink(item, agent):
+                        # Backup the symlink itself
+                        symlink_backup = backup_dir / item.name
+                        
+                        # Remove existing backup if present
+                        if symlink_backup.exists() or symlink_backup.is_symlink():
+                            symlink_backup.unlink()
+                        
+                        # Recreate symlink with same target
+                        symlink_backup.symlink_to(item.readlink())
+
+    def _restore_symlinks_from_backup(self) -> int:
+        """
+        Restore symlinks from backup to agent skill directories.
+        
+        Returns:
+            Number of symlinks restored
+        """
+        from .agents import get_all_agents
+        
+        restored = 0
+        
+        for agent in get_all_agents():
+            backup_dir = self.repo_dir / "configs" / agent.name / "skills"
+            
+            if not backup_dir.exists():
+                continue
+            
+            # Ensure agent skills directory exists
+            agent.skills_path.mkdir(parents=True, exist_ok=True)
+            
+            for item in backup_dir.iterdir():
+                if item.is_symlink():
+                    # Restore symlink to agent skills directory
+                    symlink_path = agent.skills_path / item.name
+                    
+                    # Remove existing if present
+                    if symlink_path.exists() or symlink_path.is_symlink():
+                        symlink_path.unlink()
+                    
+                    # Recreate symlink with same target
+                    symlink_path.symlink_to(item.readlink())
+                    restored += 1
+        
+        return restored
+
+    def _restore_extension_skills(self, manifest: dict) -> int:
+        """
+        Restore extension skills from repo to their original locations.
+        
+        Args:
+            manifest: Loaded manifest dict
+            
+        Returns:
+            Number of extensions restored
+        """
+        restored = 0
+        
+        for ext_name, ext_info in manifest.get("extensions", {}).items():
+            agent_name = ext_info.get("agent")
+            extension_dir = ext_info.get("extension_dir")
+            
+            # Get agent config
+            from .agents import get_agent
+            agent = get_agent(agent_name)
+            
+            if not agent:
+                console.print(f"[yellow]Warning: Agent {agent_name} not found, skipping extension {ext_name}[/yellow]")
+                continue
+            
+            # Source in repo
+            source_dir = self.repo_dir / "skills" / ext_name
+            
+            if not source_dir.exists():
+                console.print(f"[yellow]Warning: Extension skills not found in repo: {ext_name}[/yellow]")
+                continue
+            
+            # Destination: ~/.config/opencode/superpowers/skills/
+            config_dir = Path(agent.config_dir).expanduser()
+            dest_dir = config_dir / extension_dir / "skills"
+            
+            # Create destination and copy skills
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            
+            for skill_item in source_dir.iterdir():
+                if skill_item.name.startswith("."):
+                    continue
+                
+                dest_skill = dest_dir / skill_item.name
+                
+                if skill_item.is_dir():
+                    shutil.copytree(skill_item, dest_skill, dirs_exist_ok=True)
+                else:
+                    shutil.copy2(skill_item, dest_skill)
+            
+            restored += 1
+            console.print(f"  [green]✓ Restored extension: {agent_name}-{extension_dir}[/green]")
+        
+        return restored
+
     def _get_github_user(self) -> str:
         """Get current GitHub username."""
         result = subprocess.run(
