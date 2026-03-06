@@ -12,6 +12,7 @@ from rich.markdown import Markdown
 from .config import Config
 from .agents import get_all_agents, BaseAgent
 from .skills import SkillsManager
+from .validators import validate_repo_name
 
 
 console = Console()
@@ -329,10 +330,18 @@ class SetupWizard:
         console.print()
 
         # Repository name
-        self.repo_name = Prompt.ask(
-            "Repository name",
-            default="agent-sync-private-configs",
-        )
+        while True:
+            self.repo_name = Prompt.ask(
+                "Repository name",
+                default="agent-sync-private-configs",
+            )
+
+            if validate_repo_name(self.repo_name):
+                break
+
+            console.print(f"\n[red]✗ Invalid repository name: {self.repo_name}[/red]")
+            console.print("   Only alphanumeric characters, hyphens, underscores, and periods are allowed.")
+            console.print("   Cannot start with a hyphen.\n")
 
         # Always private for security
         self.is_private = True

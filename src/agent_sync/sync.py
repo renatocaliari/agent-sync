@@ -10,6 +10,7 @@ from platformdirs import user_data_dir
 from rich.console import Console
 
 from .skills import MANIFEST_FILENAME
+from .validators import validate_github_url
 
 console = Console()
 
@@ -105,8 +106,13 @@ class SyncManager:
         self.repo_dir.mkdir(parents=True, exist_ok=True)
 
         # Check if repo already exists on GitHub
-        repo_url = f"https://github.com/{self._get_github_user()}/{name}.git"
-        repo_name = f"{self._get_github_user()}/{name}"
+        # Support both simple names and slugs
+        if "/" in name:
+            repo_name = name
+            repo_url = f"https://github.com/{name}.git"
+        else:
+            repo_name = f"{self._get_github_user()}/{name}"
+            repo_url = f"https://github.com/{repo_name}.git"
 
         result = subprocess.run(
             ["gh", "repo", "view", repo_name, "--json", "name,isPrivate"],
@@ -143,8 +149,12 @@ class SyncManager:
                 console.print("[dim]Using existing local directory[/dim]\n")
             else:
                 # Empty directory, clone
+                repo_url_to_clone = f"https://github.com/{repo_name}.git"
+                if not validate_github_url(repo_url_to_clone):
+                    raise ValueError(f"Invalid repository name resulted in invalid URL: {repo_url_to_clone}")
+
                 subprocess.run(
-                    ["git", "clone", f"https://github.com/{repo_name}.git", str(self.repo_dir)],
+                    ["git", "clone", repo_url_to_clone, str(self.repo_dir)],
                     check=True,
                     capture_output=True,
                 )
@@ -179,7 +189,7 @@ class SyncManager:
 
             # Initialize local git
             self._run_git("init")
-            self._run_git("remote", "add", "origin", f"https://github.com/{self._get_github_user()}/{name}.git")
+            self._run_git("remote", "add", "origin", repo_url)
 
         # Create initial structure
         self._create_repo_structure(agents)
@@ -190,7 +200,6 @@ class SyncManager:
         self._run_git("push", "-u", "origin", "main")
 
         # Update config
-        repo_url = f"https://github.com/{self._get_github_user()}/{name}.git"
         self.config.repo_url = repo_url
 
         if agents:
@@ -207,6 +216,9 @@ class SyncManager:
         Args:
             repo_url: GitHub repository URL
         """
+        if not validate_github_url(repo_url):
+            raise ValueError(f"Invalid repository URL: {repo_url}")
+
         if not self._check_git_installed():
             raise RuntimeError("Git is required")
         

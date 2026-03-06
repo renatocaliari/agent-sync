@@ -12,6 +12,7 @@ from typing import Optional
 from . import __version__
 from .sync import SyncManager
 from .config import Config, DEFAULT_STATE_DIR
+from .validators import validate_github_url, validate_repo_name
 
 console = Console()
 
@@ -232,6 +233,12 @@ def init(name: Optional[str], agents: tuple[str, ...], no_wizard: bool, force: b
         console.print("   Example: [green]agent-sync init --name agent-sync-private-configs[/green]\n")
         raise click.Abort()
 
+    if not validate_repo_name(name):
+        console.print(f"\n[red]✗ Invalid repository name: {name}[/red]")
+        console.print("   Only alphanumeric characters, hyphens, underscores, and periods are allowed.")
+        console.print("   Cannot start with a hyphen.\n")
+        raise click.Abort()
+
     console.print(f"\n🚀 Initializing sync repository: {name}")
     console.print("[dim]Repository will be PRIVATE (for security)[/dim]\n")
 
@@ -364,7 +371,7 @@ def repo(repo_url: Optional[str], remove: bool):
 
     if repo_url:
         # Set repository URL
-        if not repo_url.startswith("https://github.com/"):
+        if not validate_github_url(repo_url):
             console.print(f"\n[red]✗ Invalid repository URL[/red]")
             console.print(f"   Expected: https://github.com/user/repo.git")
             console.print(f"   Got: {repo_url}\n")
@@ -950,6 +957,12 @@ def publish(repo_url: Optional[str], dry_run: bool, interactive: bool):
 @click.argument("repo_url")
 def link(repo_url: str):
     """Link to an existing sync repository (additional machines)."""
+    if not validate_github_url(repo_url):
+        console.print(f"\n[red]✗ Invalid repository URL[/red]")
+        console.print(f"   Expected: https://github.com/user/repo.git")
+        console.print(f"   Got: {repo_url}\n")
+        raise click.Abort()
+
     console.print(f"\n🔗 Linking to repository: {repo_url}")
     
     config = Config()
