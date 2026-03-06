@@ -195,31 +195,47 @@ class SkillsManager:
             extension_skills = self._scan_extension_subdirs(agent)
             for ext_name, ext_info in extension_skills.items():
                 self.extension_skills[ext_name] = ext_info
-                
+
                 # Also add extension skills to skills_found
                 skills_dir = Path(ext_info["skills_dir"])
                 ext_skill_paths = []
-                
+
                 for skill_item in skills_dir.iterdir():
                     if skill_item.name.startswith(".") or skill_item.is_symlink():
                         continue
                     if skill_item.is_dir() and self._is_valid_skill(skill_item):
                         ext_skill_paths.append(skill_item)
-                
+
                 if ext_skill_paths:
-                    skills_found[ext_name] = ext_skill_paths
+                    # Mark extension skills with special key to skip during centralize
+                    # They should only be backed up via symlinks, not centralized
+                    skills_found[ext_name] = {
+                        "paths": ext_skill_paths,
+                        "is_extension": True,  # Flag to skip centralization
+                    }
 
         return skills_found
 
-    def find_conflicts(self, skills: dict[str, list[Path]]) -> list[dict]:
+    def find_conflicts(self, skills: dict[str, list[Path] | dict]) -> list[dict]:
         """Find skills with same name across different agents.
+
+        Args:
+            skills: Dict mapping agent/extension name to either:
+                - list[Path]: Regular skills
+                - dict: Extension skills with {"paths": [...], "is_extension": True}
 
         Returns:
             list of conflict dicts with 'name', 'agents', 'paths'
         """
         name_to_agents: dict[str, list[tuple[str, Path]]] = {}
 
-        for agent_name, skill_paths in skills.items():
+        for agent_name, skill_data in skills.items():
+            # Handle both old format (list) and new format (dict with "paths")
+            if isinstance(skill_data, dict):
+                skill_paths = skill_data.get("paths", [])
+            else:
+                skill_paths = skill_data
+
             for skill_path in skill_paths:
                 skill_name = skill_path.stem if skill_path.is_file() else skill_path.name
 
@@ -341,23 +357,35 @@ class SkillsManager:
 
         # Show what was found (deduplicated)
         unique_skill_names = set()
-        for agent_skills in skills_found.values():
-            for skill_path in agent_skills:
-                unique_skill_names.add(skill_path.name)
+        total_copies = 0
         
+        for agent_name, skill_data in skills_found.items():
+            # Handle both old format (list) and new format (dict with "paths")
+            if isinstance(skill_data, dict):
+                skill_paths = skill_data.get("paths", [])
+                is_extension = skill_data.get("is_extension", False)
+            else:
+                skill_paths = skill_data
+                is_extension = False
+            
+            total_copies += len(skill_paths)
+            
+            # Display
+            suffix = " [dim](extension - backup only)[/dim]" if is_extension else ""
+            console.print(f"  • {agent_name}: [green]{len(skill_paths)}[/green] skills{suffix}")
+            
+            # Only count non-extension skills for centralization
+            if not is_extension:
+                for skill_path in skill_paths:
+                    unique_skill_names.add(skill_path.name)
+
         total_unique = len(unique_skill_names)
-        total_copies = sum(len(skills) for skills in skills_found.values())
-        
+
         if total_copies > total_unique:
-            console.print(f"Found [cyan]{total_unique}[/cyan] unique skills "
-                         f"([dim]{total_copies} copies[/dim]):\n")
+            console.print(f"\nFound [cyan]{total_unique}[/cyan] unique skills to centralize "
+                         f"([dim]{total_copies} total copies[/dim]):\n")
         else:
-            console.print(f"Found [cyan]{total_unique}[/cyan] skills:\n")
-
-        for agent_name, skill_paths in skills_found.items():
-            console.print(f"  • {agent_name}: [green]{len(skill_paths)}[/green] skills")
-
-        console.print()
+            console.print(f"\nFound [cyan]{total_unique}[/cyan] skills to centralize:\n")
 
         # Find and resolve conflicts
         conflicts = self.find_conflicts(skills_found)
@@ -373,8 +401,21 @@ class SkillsManager:
         stats["conflicts_resolved"] = len(conflicts)
 
         # Deduplicate skills by name (process each unique skill only once)
+        # Skip extension skills - they stay in place and are only backed up via symlinks
         processed_skills = {}  # skill_name -> (agent_name, skill_path)
-        for agent_name, skill_paths in skills_found.items():
+        for agent_name, skill_data in skills_found.items():
+            # Handle both old format (list) and new format (dict with "paths")
+            if isinstance(skill_data, dict):
+                skill_paths = skill_data.get("paths", [])
+                is_extension = skill_data.get("is_extension", False)
+            else:
+                skill_paths = skill_data
+                is_extension = False
+            
+            # Skip extension skills entirely - they are NOT centralized
+            if is_extension:
+                continue
+            
             for skill_path in skill_paths:
                 skill_name = skill_path.stem if skill_path.is_file() else skill_path.name
                 # Keep first occurrence (or could keep from preferred agent)
