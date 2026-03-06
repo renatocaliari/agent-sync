@@ -160,7 +160,7 @@ def test_centralize_does_not_move_extension_skills(tmp_path):
     (skills_dir / "superpowers").symlink_to(Path("..") / "superpowers" / "skills")
 
     agent = BaseAgent("opencode", {
-        "method": "copy",
+        "method": "native",  # Use native to avoid copying skills back
         "config_dir": str(agent_home),
         "skills_dir_name": "skills",
         "check": {"always": True}
@@ -186,5 +186,6 @@ def test_centralize_does_not_move_extension_skills(tmp_path):
         "Regular skills should be centralized"
 
     # Regular skill should be removed from original location (moved, not copied)
+    # Note: With method=native, skills are NOT copied back to agent directory
     assert not (skills_dir / "regular-skill").exists(), \
         "Regular skills should be moved (not copied)"
