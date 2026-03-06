@@ -20,6 +20,7 @@ from rich.prompt import Prompt, Confirm
 from rich.table import Table
 from rich import box
 from .config import Config
+from .validators import validate_github_url
 
 console = Console()
 
@@ -115,6 +116,10 @@ def show_selection_summary(selected_names: set) -> bool:
 
 def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, interactive: bool = False) -> bool:
     """Publish selected skills to a public GitHub repository."""
+    if repo_url and not validate_github_url(repo_url):
+        console.print(f"\n[red]✗ Invalid repository URL: {repo_url}[/red]\n")
+        return False
+
     config = Config()
     
     # 1. Scan for skills on disk
@@ -236,7 +241,7 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
             "\n[bold]Enter GitHub repository URL for publishing[/]",
             default=f"https://github.com/{default_repo}",
         )
-        if not repo_url or not repo_url.startswith("https://github.com/"):
+        if not repo_url or not validate_github_url(repo_url):
             console.print("\n[red]✗ Invalid repository URL[/red]\n")
             return False
 
