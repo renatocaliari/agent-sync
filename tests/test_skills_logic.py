@@ -77,6 +77,10 @@ def test_method_copy_performs_physical_copy(tmp_path):
     home, global_dir = setup_mock_environment(tmp_path)
     agent_home = home / ".copy-agent"
     agent_home.mkdir(parents=True)
+    
+    # Create agent skills directory (required for copy method)
+    agent_skills_dir = agent_home / "plugins"
+    agent_skills_dir.mkdir(parents=True)
 
     agent = BaseAgent("copy-agent", {
         "method": "copy",
