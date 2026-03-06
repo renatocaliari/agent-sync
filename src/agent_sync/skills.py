@@ -618,24 +618,33 @@ class SkillsManager:
 
         if not result:
             # Default fallback (copy) or explicit copy
-            try:
-                copied = self._copy_skills_to_agent(agent)
+            # IMPORTANT: Only copy if agent directory already exists - don't create new ones
+            if agent.skills_path.exists():
+                try:
+                    copied = self._copy_skills_to_agent(agent)
+                    result = {
+                        "success": True,
+                        "method": "copy",
+                        "message": f"Copied {copied} skills to {agent.skills_path}",
+                    }
+                except Exception as e:
+                    result = {
+                        "success": False,
+                        "method": "copy",
+                        "message": f"Copy failed: {e}",
+                    }
+            else:
+                # Agent directory doesn't exist - skip copy, don't create
                 result = {
                     "success": True,
-                    "method": "copy",
-                    "message": f"Copied {copied} skills to {agent.skills_path}",
-                }
-            except Exception as e:
-                result = {
-                    "success": False,
-                    "method": "copy",
-                    "message": f"Copy failed: {e}",
+                    "method": "skip",
+                    "message": f"Agent directory doesn't exist (not installed): {agent.skills_path}",
                 }
 
         # Save successful method to config if not already there
         if result["success"] and not agent_conf.get("skills_method"):
             user_config.set_skills_method(agent.name, result["method"])
-            
+
         return result
 
     def _apply_config_method(self, agent: BaseAgent) -> None:
@@ -703,7 +712,11 @@ class SkillsManager:
         return removed_count
 
     def _copy_skills_to_agent(self, agent: BaseAgent) -> int:
-        """Copy all skills from global dir to agent skills directory."""
+        """Copy all skills from global dir to agent skills directory.
+        
+        IMPORTANT: This method assumes agent.skills_path already exists.
+        It will NOT create the directory - that check is done in _configure_agent.
+        """
         if not self.global_skills_dir.exists():
             return 0
 
@@ -711,7 +724,7 @@ class SkillsManager:
         if self.global_skills_dir.resolve() == agent.skills_path.resolve():
             return 0
 
-        agent.skills_path.mkdir(parents=True, exist_ok=True)
+        # Directory should already exist - don't create it
         copied = 0
 
         for skill_dir in self.global_skills_dir.iterdir():
