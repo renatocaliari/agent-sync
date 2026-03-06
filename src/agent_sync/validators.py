@@ -10,16 +10,17 @@ def validate_repo_name(name: str) -> bool:
 
     Rules:
     - Only alphanumeric characters, hyphens, underscores, periods, and a single forward slash.
-    - Cannot start with a hyphen or a slash.
+    - Cannot start with a hyphen, period, or slash.
     - Max length 100 characters.
     """
     if not name:
         return False
 
     # GitHub repo name/slug regex: [a-zA-Z0-9._/-]
-    # Cannot start with a hyphen or slash.
+    # Cannot start with a hyphen, period, or slash.
     # Optionally can have one slash in the middle.
-    pattern = r'^[a-zA-Z0-9._][a-zA-Z0-9._-]*(?:/[a-zA-Z0-9._][a-zA-Z0-9._-]*)?$'
+    # First char must be alphanumeric (not . or -)
+    pattern = r'^[a-zA-Z0-9][a-zA-Z0-9._-]*(?:/[a-zA-Z0-9][a-zA-Z0-9._-]*)?$'
 
     if not re.match(pattern, name):
         return False
