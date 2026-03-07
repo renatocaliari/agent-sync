@@ -4,7 +4,60 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [0.14.0] - 2026-03-06
+## [Unreleased]
+
+### ✨ New Features
+
+#### Flexible File Sync with Paths Support
+
+**Problem:**  
+Previously, agent-sync only synced config files (e.g., `opencode.jsonc`). Users couldn't backup plugins, commands, or other agent-specific files.
+
+**Solution:**  
+Added three new sync options in `~/.config/agent-sync/config.yaml`:
+
+1. **`all_files: true`** - Backup entire agent directory
+2. **`paths: [...]`** - Backup specific paths/glob patterns
+3. **`exclude: [...]`** - Exclude patterns (works with both)
+
+**Example Configuration:**
+
+```yaml
+# Backup everything
+agents_config:
+  opencode:
+    sync:
+      configs: true
+      all_files: true
+      exclude:
+        - "**/*.lock"
+        - "node_modules/**"
+
+# Or backup specific paths
+agents_config:
+  opencode:
+    sync:
+      configs: true
+      paths:
+        - plugins/
+        - commands/
+        - "**/*.js"
+```
+
+**Features:**
+- ✅ Glob patterns: `**/*.js`, `plugins/*`, `commands/`
+- ✅ Preserves symlinks and file permissions
+- ✅ Supports hidden files (.dotfiles)
+- ✅ Backward compatible (default: configs only)
+
+**Files Changed:**
+- `src/agent_sync/config.py` - Added sync options with defaults
+- `src/agent_sync/sync.py` - Added `_stage_agent_files()`, `_copy_directory()`, `_copy_path_pattern()`
+- `tests/test_sync_paths.py` - New test file with 6 tests
+
+---
+
+## [0.15.1] - 2026-03-06
 
 ### 🐛 Critical Fix: Extension Skills Not Centralized
 
