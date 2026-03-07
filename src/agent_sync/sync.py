@@ -12,6 +12,7 @@ from rich.console import Console
 
 from .skills import MANIFEST_FILENAME
 from .validators import validate_github_url
+from .agents import BaseAgent
 
 console = Console()
 
