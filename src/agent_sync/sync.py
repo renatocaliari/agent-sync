@@ -1,5 +1,6 @@
 """Sync management for agent-sync."""
 
+import os
 import subprocess
 import shutil
 import json
@@ -43,11 +44,12 @@ class SyncManager:
         self.repo_dir = self.DEFAULT_REPO_DIR
         self.state_file = self.STATE_FILE
 
-        # Ensure directories exist BEFORE any operations
+        # Ensure directories exist BEFORE any operations with restricted permissions
         try:
-            self.repo_dir.mkdir(parents=True, exist_ok=True)  # Create repo dir itself
-            self.repo_dir.parent.mkdir(parents=True, exist_ok=True)
+            self.repo_dir.mkdir(parents=True, exist_ok=True)
+            self.repo_dir.chmod(0o700)
             self.state_file.parent.mkdir(parents=True, exist_ok=True)
+            self.state_file.parent.chmod(0o700)
         except PermissionError as e:
             raise RuntimeError(
                 f"Cannot create directory {self.repo_dir}. "
@@ -821,7 +823,8 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
         """Save manifest to repo directory."""
         manifest_path = self.repo_dir / MANIFEST_FILENAME
         
-        with open(manifest_path, "w") as f:
+        fd = os.open(manifest_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
             json.dump(manifest, f, indent=2)
 
     def _load_manifest(self) -> Optional[dict]:
@@ -976,7 +979,8 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
             "repo_url": repo_url or self.config.repo_url,
         }
         
-        with open(self.state_file, "w") as f:
+        fd = os.open(self.state_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
             json.dump(state, f, indent=2)
     
     def _load_state(self) -> Optional[dict]:
