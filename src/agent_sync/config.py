@@ -147,9 +147,24 @@ class Config:
         self.set_agent_config(agent_name, agent_config)
     
     def get_sync_options(self, agent_name: str) -> dict:
-        """Get sync options for a specific agent."""
+        """Get sync options for a specific agent.
+        
+        Returns dict with:
+        - configs: bool - Sync config files (default: true)
+        - all_files: bool - Sync all files in agent directory (default: false)
+        - paths: list[str] - Specific paths/patterns to sync (default: None)
+        - exclude: list[str] - Patterns to exclude (default: [])
+        """
         agent_config = self.get_agent_config(agent_name)
-        return agent_config.get("sync", {})
+        sync_config = agent_config.get("sync", {})
+        
+        # Return with defaults
+        return {
+            "configs": sync_config.get("configs", True),
+            "all_files": sync_config.get("all_files", False),
+            "paths": sync_config.get("paths"),
+            "exclude": sync_config.get("exclude", []),
+        }
     
     def set_sync_option(self, agent_name: str, key: str, value) -> None:
         """Set a sync option for a specific agent."""

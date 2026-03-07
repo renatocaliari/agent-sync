@@ -3,6 +3,7 @@
 import subprocess
 import shutil
 import json
+import fnmatch
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
@@ -312,11 +313,11 @@ class SyncManager:
             # Stage only skills
             self._stage_skills()
         elif configs_only:
-            # Stage only configs
-            self._stage_agent_configs()
+            # Stage only configs (with new path support)
+            self._stage_agent_files()
         else:
             # Stage everything (default)
-            self._stage_agent_configs()
+            self._stage_agent_files()
             self._stage_skills()
 
         # Check for changes
@@ -624,15 +625,252 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
         manifest = self._create_manifest()
         self._save_manifest(manifest)
 
-    def _should_exclude(self, filename: str) -> bool:
-        """Check if a file should be excluded from sync."""
+    def _should_exclude(self, filename: str, exclude_patterns: Optional[list[str]] = None) -> bool:
+        """Check if a file should be excluded from sync.
+        
+        Args:
+            filename: Name or relative path of the file
+            exclude_patterns: Optional list of glob patterns to exclude
+        """
         import fnmatch
         
+        # Check custom exclude patterns first
+        if exclude_patterns:
+            for pattern in exclude_patterns:
+                if fnmatch.fnmatch(filename, pattern):
+                    return True
+                # Also check just the filename against pattern
+                if fnmatch.fnmatch(Path(filename).name, pattern):
+                    return True
+        
+        # Check default exclude patterns
         for pattern in self.EXCLUDE_PATTERNS:
             if fnmatch.fnmatch(filename, pattern):
                 return True
-        
+
         return False
+
+    def _copy_directory(
+        self,
+        src: Path,
+        dest: Path,
+        exclude: Optional[list[str]] = None,
+        preserve_symlinks: bool = True,
+        preserve_permissions: bool = True,
+    ) -> int:
+        """
+        Copy entire directory preserving symlinks and permissions.
+        
+        Args:
+            src: Source directory
+            dest: Destination directory
+            exclude: List of glob patterns to exclude
+            preserve_symlinks: If True, copy symlinks as symlinks (default: True)
+            preserve_permissions: If True, preserve file permissions (default: True)
+            
+        Returns:
+            Number of files copied
+        """
+        if not src.exists():
+            return 0
+        
+        dest.mkdir(parents=True, exist_ok=True)
+        copied = 0
+        
+        for item in src.rglob("*"):
+            # Get relative path from source
+            rel_path = item.relative_to(src)
+            dest_item = dest / rel_path
+            
+            # Check exclusions
+            if self._should_exclude(str(rel_path), exclude):
+                continue
+            
+            # Skip if excluded by pattern
+            if exclude:
+                skip = False
+                for pattern in exclude:
+                    if fnmatch.fnmatch(str(rel_path), pattern):
+                        skip = True
+                        break
+                if skip:
+                    continue
+            
+            if item.is_symlink():
+                if preserve_symlinks:
+                    # Copy symlink
+                    if dest_item.exists() or dest_item.is_symlink():
+                        dest_item.unlink()
+                    dest_item.symlink_to(item.readlink())
+                    copied += 1
+            elif item.is_dir():
+                dest_item.mkdir(parents=True, exist_ok=True)
+            else:
+                # Copy file
+                if dest_item.exists():
+                    dest_item.unlink()
+                dest_item.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(item, dest_item)  # copy2 preserves metadata
+                copied += 1
+        
+        return copied
+
+    def _copy_path_pattern(
+        self,
+        src: Path,
+        dest: Path,
+        pattern: str,
+        exclude: Optional[list[str]] = None,
+        preserve_symlinks: bool = True,
+    ) -> int:
+        """
+        Copy files matching a glob pattern.
+        
+        Args:
+            src: Source directory (agent config dir)
+            dest: Destination directory (repo configs/agent/)
+            pattern: Glob pattern (e.g., "plugins/", "**/*.js", "commands/*")
+            exclude: List of patterns to exclude
+            preserve_symlinks: If True, preserve symlinks
+            
+        Returns:
+            Number of files copied
+        """
+        if not src.exists():
+            return 0
+        
+        copied = 0
+        
+        # Handle different pattern types
+        if pattern.endswith("/"):
+            # Directory pattern - copy entire directory
+            dir_path = src / pattern.rstrip("/")
+            if dir_path.exists():
+                dest_dir = dest / pattern.rstrip("/")
+                copied += self._copy_directory(
+                    dir_path, dest_dir, exclude, preserve_symlinks
+                )
+        elif "**" in pattern:
+            # Recursive glob pattern
+            # Extract the file pattern from "**/*.ext" or "**/dir/*"
+            # For "**/*.js", we want to match all .js files recursively
+            file_pattern = pattern.replace("**/", "*").replace("**", "*")
+            
+            for item in src.rglob("*"):
+                # Match against relative path
+                rel_path_str = str(item.relative_to(src))
+                
+                # Check if matches pattern
+                matches = fnmatch.fnmatch(rel_path_str, pattern) or fnmatch.fnmatch(item.name, file_pattern)
+                
+                if not matches:
+                    continue
+                
+                if item.is_symlink() and preserve_symlinks:
+                    rel_path = item.relative_to(src)
+                    dest_item = dest / rel_path
+                    if not self._should_exclude(str(rel_path), exclude):
+                        if dest_item.exists() or dest_item.is_symlink():
+                            dest_item.unlink()
+                        dest_item.parent.mkdir(parents=True, exist_ok=True)
+                        dest_item.symlink_to(item.readlink())
+                        copied += 1
+                elif item.is_file():
+                    rel_path = item.relative_to(src)
+                    if not self._should_exclude(str(rel_path), exclude):
+                        dest_item = dest / rel_path
+                        dest_item.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(item, dest_item)
+                        copied += 1
+        else:
+            # Simple path or single wildcard
+            for item in src.glob(pattern):
+                if item.is_symlink() and preserve_symlinks:
+                    rel_path = item.relative_to(src)
+                    dest_item = dest / rel_path
+                    if not self._should_exclude(str(rel_path), exclude):
+                        if dest_item.exists() or dest_item.is_symlink():
+                            dest_item.unlink()
+                        dest_item.parent.mkdir(parents=True, exist_ok=True)
+                        dest_item.symlink_to(item.readlink())
+                        copied += 1
+                elif item.is_file():
+                    rel_path = item.relative_to(src)
+                    if not self._should_exclude(str(rel_path), exclude):
+                        dest_item = dest / rel_path
+                        dest_item.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(item, dest_item)
+                        copied += 1
+                elif item.is_dir():
+                    # Copy entire directory
+                    dest_dir = dest / item.name
+                    copied += self._copy_directory(
+                        item, dest_dir, exclude, preserve_symlinks
+                    )
+        
+        return copied
+
+    def _stage_agent_files(self, agent: BaseAgent) -> None:
+        """
+        Stage agent files for backup based on sync configuration.
+        
+        Supports three modes:
+        1. configs only (default) - Only config files
+        2. all_files: true - Entire agent directory
+        3. paths: [...] - Specific paths/patterns
+        
+        Args:
+            agent: Agent object with config directory
+        """
+        from .agents import get_all_agents
+        
+        # Skip if agent sync is disabled
+        if not self.config.is_agent_enabled(agent.name):
+            return
+        
+        if not agent.is_available() and agent.name != "global-skills":
+            return
+        
+        # Get sync configuration
+        sync_options = self.config.get_sync_options(agent.name)
+        sync_configs = sync_options.get("configs", True)
+        all_files = sync_options.get("all_files", False)
+        paths = sync_options.get("paths")
+        exclude = sync_options.get("exclude", [])
+        
+        agent_config_dir = Path(agent.config_dir).expanduser()
+        repo_agent_dir = self.repo_dir / "configs" / agent.name
+        
+        if not agent_config_dir.exists():
+            return
+        
+        # Always copy configs if enabled
+        if sync_configs:
+            self._stage_agent_configs()
+        
+        # Copy all files (entire directory)
+        if all_files:
+            console.print(f"  [dim]Backing up all files: {agent.name}[/dim]")
+            self._copy_directory(
+                src=agent_config_dir,
+                dest=repo_agent_dir,
+                exclude=exclude,
+                preserve_symlinks=True,
+                preserve_permissions=True,
+            )
+            return
+        
+        # Copy specific paths
+        if paths:
+            console.print(f"  [dim]Backing up paths: {agent.name} - {len(paths)} patterns[/dim]")
+            for path_pattern in paths:
+                self._copy_path_pattern(
+                    src=agent_config_dir,
+                    dest=repo_agent_dir,
+                    pattern=path_pattern,
+                    exclude=exclude,
+                    preserve_symlinks=True,
+                )
     
     def _apply_synced_configs(self) -> list[str]:
         """Apply synced configurations to local agent directories."""
