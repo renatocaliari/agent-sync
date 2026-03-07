@@ -41,8 +41,9 @@ class Config:
     
     def load(self) -> None:
         """Load configuration from files."""
-        # Ensure config directory exists
+        # Ensure config directory exists with restricted permissions
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
+        self.config_path.parent.chmod(0o700)
         
         # Load main config
         if self.config_path.exists():
@@ -57,6 +58,7 @@ class Config:
     def save(self) -> None:
         """Save configuration to file with help header."""
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
+        self.config_path.parent.chmod(0o700)
         
         header = (
             "# agent-sync - User Configuration\n"
@@ -73,7 +75,9 @@ class Config:
             "# -------------------------------\n\n"
         )
         
-        with open(self.config_path, "w") as f:
+        # Use os.open to create file with restricted permissions initially (avoids race condition)
+        fd = os.open(self.config_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
             f.write(header)
             yaml.dump(self._config, f, default_flow_style=False, sort_keys=False)
 
@@ -91,7 +95,9 @@ class Config:
     def save_overrides(self) -> None:
         """Save local overrides (not synced)."""
         self.overrides_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.overrides_path, "w") as f:
+        self.overrides_path.parent.chmod(0o700)
+        fd = os.open(self.overrides_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
             yaml.dump(self._overrides, f, default_flow_style=False, sort_keys=False)
     
     @property
