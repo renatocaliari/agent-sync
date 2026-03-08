@@ -5,6 +5,8 @@ from typing import Dict, List, Set
 from rich.console import Console
 from rich.prompt import Prompt
 
+from .validators import validate_skill_name
+
 console = Console()
 
 
@@ -136,6 +138,12 @@ class SkillsReconcile:
         }
         
         for skill_name, action in decisions.items():
+            # Validate skill name to prevent path traversal
+            if not validate_skill_name(skill_name):
+                stats["skipped"] += 1
+                console.print(f"[red]✗ Invalid skill name: {skill_name}[/red]")
+                continue
+
             if action == "local":
                 # Keep local, add to remote (happens on push)
                 stats["added_to_remote"] += 1
