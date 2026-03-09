@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 from typing import Optional
 import yaml
+
+from .security import ensure_secure_dir, secure_open
 from platformdirs import user_config_dir, user_data_dir
 
 
@@ -42,7 +44,7 @@ class Config:
     def load(self) -> None:
         """Load configuration from files."""
         # Ensure config directory exists
-        self.config_path.parent.mkdir(parents=True, exist_ok=True)
+        ensure_secure_dir(self.config_path.parent)
         
         # Load main config
         if self.config_path.exists():
@@ -56,7 +58,7 @@ class Config:
     
     def save(self) -> None:
         """Save configuration to file with help header."""
-        self.config_path.parent.mkdir(parents=True, exist_ok=True)
+        ensure_secure_dir(self.config_path.parent)
         
         header = (
             "# agent-sync - User Configuration\n"
@@ -73,7 +75,7 @@ class Config:
             "# -------------------------------\n\n"
         )
         
-        with open(self.config_path, "w") as f:
+        with secure_open(self.config_path, "w") as f:
             f.write(header)
             yaml.dump(self._config, f, default_flow_style=False, sort_keys=False)
 
@@ -90,8 +92,8 @@ class Config:
     
     def save_overrides(self) -> None:
         """Save local overrides (not synced)."""
-        self.overrides_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.overrides_path, "w") as f:
+        ensure_secure_dir(self.overrides_path.parent)
+        with secure_open(self.overrides_path, "w") as f:
             yaml.dump(self._overrides, f, default_flow_style=False, sort_keys=False)
     
     @property

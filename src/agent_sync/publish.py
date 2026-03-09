@@ -21,6 +21,7 @@ from rich.table import Table
 from rich import box
 from .config import Config
 from .validators import validate_github_url
+from .security import ensure_secure_dir, secure_open
 
 console = Console()
 
@@ -245,9 +246,10 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
             console.print("\n[red]✗ Invalid repository URL[/red]\n")
             return False
 
-        PUBLISH_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        ensure_secure_dir(PUBLISH_CONFIG_PATH.parent)
         publish_config["repo_url"] = repo_url
-        PUBLISH_CONFIG_PATH.write_text(yaml.dump(publish_config))
+        with secure_open(PUBLISH_CONFIG_PATH, "w") as f:
+            yaml.dump(publish_config, f)
 
     # Visibility check
     repo_name = repo_url.replace("https://github.com/", "").replace(".git", "")
