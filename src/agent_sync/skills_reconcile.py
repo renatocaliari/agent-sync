@@ -127,6 +127,7 @@ class SkillsReconcile:
             Statistics dictionary
         """
         import shutil
+        from .validators import validate_skill_name
         
         stats = {
             "added_to_remote": 0,
@@ -136,6 +137,12 @@ class SkillsReconcile:
         }
         
         for skill_name, action in decisions.items():
+            # Security: Validate skill name to prevent path traversal
+            if not validate_skill_name(skill_name):
+                stats["skipped"] += 1
+                console.print(f"  [red]✗ Invalid skill name (security): {skill_name}[/red]")
+                continue
+
             if action == "local":
                 # Keep local, add to remote (happens on push)
                 stats["added_to_remote"] += 1

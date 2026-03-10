@@ -49,6 +49,8 @@ class SkillsDeleter:
         Returns:
             Dictionary with deletion statistics
         """
+        from .validators import validate_skill_name
+
         stats = {
             "deleted_from_hub": 0,
             "hub_files": 0,
@@ -59,6 +61,12 @@ class SkillsDeleter:
         }
         
         for skill_name in skill_names:
+            # Security: Validate skill name to prevent path traversal
+            if not validate_skill_name(skill_name):
+                stats["errors"] += 1
+                console.print(f"[red]✗ Invalid skill name (security): {skill_name}[/red]")
+                continue
+
             # Delete from hub
             hub_skill_path = self.global_skills_dir / skill_name
             

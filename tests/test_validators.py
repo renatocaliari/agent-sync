@@ -17,6 +17,25 @@ class TestValidators:
         assert validate_repo_name("owner/repo") is True
         assert validate_repo_name("my-org/agent_sync.repo") is True
 
+    def test_validate_skill_name_valid(self):
+        """Test valid skill names."""
+        from agent_sync.validators import validate_skill_name
+        assert validate_skill_name("my-skill") is True
+        assert validate_skill_name("skill_123") is True
+        assert validate_skill_name("SimpleSkill") is True
+        assert validate_skill_name("a") is True
+
+    def test_validate_skill_name_invalid(self):
+        """Test invalid skill names (path traversal attempts)."""
+        from agent_sync.validators import validate_skill_name
+        assert validate_skill_name("") is False
+        assert validate_skill_name("../skill") is False
+        assert validate_skill_name("skill/../") is False
+        assert validate_skill_name("skill;ls") is False
+        assert validate_skill_name("skill\n") is False
+        assert validate_skill_name(" ") is False
+        assert validate_skill_name("skill!") is False
+
     def test_validate_repo_name_invalid(self):
         """Test invalid repository names."""
         assert validate_repo_name("") is False
