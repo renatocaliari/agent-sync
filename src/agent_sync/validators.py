@@ -31,6 +31,22 @@ def validate_repo_name(name: str) -> bool:
     return True
 
 
+def validate_skill_name(name: str) -> bool:
+    """
+    Validate a skill name to prevent path traversal.
+
+    Rules:
+    - Only alphanumeric characters, hyphens, and underscores.
+    - Cannot be empty.
+    """
+    if not name:
+        return False
+
+    # Allow alphanumeric, hyphens and underscores
+    pattern = r'^[a-zA-Z0-9_-]+\Z'
+    return bool(re.match(pattern, name))
+
+
 def validate_github_url(url: str) -> bool:
     """
     Validate a GitHub HTTPS URL to prevent argument injection and ensure correct format.
