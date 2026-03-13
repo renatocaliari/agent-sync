@@ -20,12 +20,37 @@ def validate_repo_name(name: str) -> bool:
     # Cannot start with a hyphen, period, or slash.
     # Optionally can have one slash in the middle.
     # First char must be alphanumeric (not . or -)
-    pattern = r'^[a-zA-Z0-9][a-zA-Z0-9._-]*(?:/[a-zA-Z0-9][a-zA-Z0-9._-]*)?$'
+    # Using \Z instead of $ to prevent newline injection
+    pattern = r'^[a-zA-Z0-9][a-zA-Z0-9._-]*(?:/[a-zA-Z0-9][a-zA-Z0-9._-]*)?\Z'
 
     if not re.match(pattern, name):
         return False
 
     if len(name) > 100:
+        return False
+
+    return True
+
+
+def validate_skill_name(name: str) -> bool:
+    """
+    Validate a skill name to prevent path traversal and ensure consistency.
+
+    Rules:
+    - Only alphanumeric characters, hyphens, and underscores.
+    - Max length 64 characters.
+    """
+    if not name:
+        return False
+
+    # Allow only alphanumeric, hyphen, and underscore
+    # Using \Z instead of $ to prevent newline injection
+    pattern = r'^[a-zA-Z0-9_-]+\Z'
+
+    if not re.match(pattern, name):
+        return False
+
+    if len(name) > 64:
         return False
 
     return True

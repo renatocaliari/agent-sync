@@ -1,7 +1,7 @@
 """Tests for validator utilities."""
 
 import pytest
-from agent_sync.validators import validate_repo_name, validate_github_url
+from agent_sync.validators import validate_repo_name, validate_github_url, validate_skill_name
 
 
 class TestValidators:
@@ -29,6 +29,7 @@ class TestValidators:
         assert validate_repo_name("owner/repo/extra") is False
         assert validate_repo_name("owner//repo") is False
         assert validate_repo_name("/repo") is False
+        assert validate_repo_name("repo\n") is False  # Newline bypass attempt
 
     def test_validate_github_url_valid(self):
         """Test valid GitHub URLs."""
@@ -46,6 +47,23 @@ class TestValidators:
         assert validate_github_url("https://github.com/owner/repo/extra") is False # Too many parts
         assert validate_github_url("https://github.com/owner/repo?query=1") is False # No query
         assert validate_github_url("https://github.com/owner/repo#frag") is False   # No fragment
+
+    def test_validate_skill_name_valid(self):
+        """Test valid skill names."""
+        assert validate_skill_name("my-skill") is True
+        assert validate_skill_name("another_skill") is True
+        assert validate_skill_name("skill123") is True
+        assert validate_skill_name("a") is True
+
+    def test_validate_skill_name_invalid(self):
+        """Test invalid skill names."""
+        assert validate_skill_name("") is False
+        assert validate_skill_name("skill name") is False
+        assert validate_skill_name("skill/path") is False  # Path traversal attempt
+        assert validate_skill_name("../skill") is False     # Path traversal attempt
+        assert validate_skill_name("skill$") is False
+        assert validate_skill_name("a" * 65) is False
+        assert validate_skill_name("skill\n") is False     # Newline bypass attempt
 
     def test_validate_github_url_injection_attempts(self):
         """Test URLs with argument injection attempts."""
