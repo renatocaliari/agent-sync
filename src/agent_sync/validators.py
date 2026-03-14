@@ -84,3 +84,28 @@ def validate_github_url(url: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def validate_skill_name(name: str) -> bool:
+    """
+    Validate a skill name.
+
+    Rules:
+    - Only alphanumeric characters, hyphens, and underscores.
+    - Max length 64 characters.
+    - Cannot be empty.
+    """
+    if not name:
+        return False
+
+    # Skill name regex: alphanumeric, hyphens, underscores
+    # Use \Z for absolute end of string matching
+    pattern = r'^[a-zA-Z0-9_-]+\Z'
+
+    if not re.match(pattern, name):
+        return False
+
+    if len(name) > 64:
+        return False
+
+    return True
