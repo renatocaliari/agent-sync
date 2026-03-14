@@ -55,3 +55,17 @@ class TestValidators:
         assert validate_github_url("https://github.com/owner/repo;ls") is False
         assert validate_github_url("https://github.com/owner/repo\nls") is False
         assert validate_github_url("https://github.com/owner/repo' -oProxyCommand") is False
+
+    def test_validate_skill_name(self):
+        """Test skill name validation."""
+        from agent_sync.validators import validate_skill_name
+        assert validate_skill_name("valid-skill") is True
+        assert validate_skill_name("another_skill_123") is True
+        assert validate_skill_name("skill") is True
+
+        assert validate_skill_name("") is False
+        assert validate_skill_name("../traversal") is False
+        assert validate_skill_name("skill; command") is False
+        assert validate_skill_name("skill\n") is False
+        assert validate_skill_name("a" * 65) is False
+        assert validate_skill_name("skill.with.dots") is False
