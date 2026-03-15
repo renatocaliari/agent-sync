@@ -1,7 +1,7 @@
 """Tests for validator utilities."""
 
 import pytest
-from agent_sync.validators import validate_repo_name, validate_github_url
+from agent_sync.validators import validate_repo_name, validate_github_url, validate_skill_name
 
 
 class TestValidators:
@@ -55,3 +55,27 @@ class TestValidators:
         assert validate_github_url("https://github.com/owner/repo;ls") is False
         assert validate_github_url("https://github.com/owner/repo\nls") is False
         assert validate_github_url("https://github.com/owner/repo' -oProxyCommand") is False
+
+    def test_validate_skill_name(self):
+        """Test skill name validation."""
+        # Valid names
+        assert validate_skill_name("my-skill") is True
+        assert validate_skill_name("skill_123") is True
+        assert validate_skill_name("SimpleSkill") is True
+
+        # Invalid names (traversal)
+        assert validate_skill_name("../traversal") is False
+        assert validate_skill_name("skill/traversal") is False
+        assert validate_skill_name("~/.ssh") is False
+
+        # Invalid names (injection/dangerous chars)
+        assert validate_skill_name("skill;ls") is False
+        assert validate_skill_name("skill\nls") is False
+        assert validate_skill_name("skill\r\nls") is False
+        assert validate_skill_name("skill ") is False
+        assert validate_skill_name(" skill") is False
+
+        # Invalid names (length/empty)
+        assert validate_skill_name("") is False
+        assert validate_skill_name("a" * 65) is False
+        assert validate_skill_name("a" * 64) is True
