@@ -1,7 +1,7 @@
 """Tests for validator utilities."""
 
 import pytest
-from agent_sync.validators import validate_repo_name, validate_github_url
+from agent_sync.validators import validate_repo_name, validate_github_url, validate_skill_name
 
 
 class TestValidators:
@@ -55,3 +55,23 @@ class TestValidators:
         assert validate_github_url("https://github.com/owner/repo;ls") is False
         assert validate_github_url("https://github.com/owner/repo\nls") is False
         assert validate_github_url("https://github.com/owner/repo' -oProxyCommand") is False
+
+    def test_validate_repo_name_newline_bypass(self):
+        """Test repository name for newline bypass."""
+        # re.match with $ could match before a trailing newline
+        assert validate_repo_name("owner/repo\n") is False
+
+    def test_validate_skill_name_valid(self):
+        """Test valid skill names."""
+        assert validate_skill_name("my-skill") is True
+        assert validate_skill_name("skill_123") is True
+        assert validate_skill_name("Skill") is True
+
+    def test_validate_skill_name_invalid(self):
+        """Test invalid skill names."""
+        assert validate_skill_name("") is False
+        assert validate_skill_name("skill name") is False
+        assert validate_skill_name("../skill") is False
+        assert validate_skill_name("skill/path") is False
+        assert validate_skill_name("a" * 65) is False
+        assert validate_skill_name("skill\n") is False
