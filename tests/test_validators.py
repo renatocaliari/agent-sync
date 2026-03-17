@@ -1,7 +1,7 @@
 """Tests for validator utilities."""
 
 import pytest
-from agent_sync.validators import validate_repo_name, validate_github_url
+from agent_sync.validators import validate_repo_name, validate_github_url, validate_skill_name
 
 
 class TestValidators:
@@ -55,3 +55,36 @@ class TestValidators:
         assert validate_github_url("https://github.com/owner/repo;ls") is False
         assert validate_github_url("https://github.com/owner/repo\nls") is False
         assert validate_github_url("https://github.com/owner/repo' -oProxyCommand") is False
+
+    def test_validate_skill_name(self):
+        """Test skill name validation."""
+        assert validate_skill_name("my-skill") is True
+        assert validate_skill_name("my_skill_2") is True
+        assert validate_skill_name("Skill123") is True
+
+        # Invalid characters
+        assert validate_skill_name("my skill") is False
+        assert validate_skill_name("my/skill") is False
+        assert validate_skill_name("my.skill") is False
+        assert validate_skill_name("skill@") is False
+
+        # Length
+        assert validate_skill_name("a" * 64) is True
+        assert validate_skill_name("a" * 65) is False
+
+        # Injection attempts
+        assert validate_skill_name("../etc/passwd") is False
+        assert validate_skill_name("skill\n") is False
+        assert validate_skill_name("skill\nls") is False
+
+    def test_regex_anchors_strict(self):
+        """Test that regex anchors are strict and don't allow trailing newlines."""
+        # validate_repo_name
+        assert validate_repo_name("my-repo\n") is False
+        assert validate_repo_name("my-repo\nother") is False
+
+        # validate_github_url
+        assert validate_github_url("https://github.com/owner/repo\n") is False
+
+        # validate_skill_name
+        assert validate_skill_name("my-skill\n") is False

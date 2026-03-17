@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 from typing import List, Optional
 from rich.console import Console
+from .validators import validate_skill_name
 
 console = Console()
 
@@ -59,6 +60,12 @@ class SkillsDeleter:
         }
         
         for skill_name in skill_names:
+            # Security: Validate skill name to prevent path traversal
+            if not validate_skill_name(skill_name):
+                stats["errors"] += 1
+                console.print(f"[red]✗ Invalid skill name: {skill_name}[/red]")
+                continue
+
             # Delete from hub
             hub_skill_path = self.global_skills_dir / skill_name
             
