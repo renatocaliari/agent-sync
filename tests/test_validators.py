@@ -29,6 +29,7 @@ class TestValidators:
         assert validate_repo_name("owner/repo/extra") is False
         assert validate_repo_name("owner//repo") is False
         assert validate_repo_name("/repo") is False
+        assert validate_repo_name("agent-sync\n") is False  # Trailing newline
 
     def test_validate_github_url_valid(self):
         """Test valid GitHub URLs."""
@@ -54,4 +55,5 @@ class TestValidators:
         assert validate_github_url("https://github.com/-owner/repo") is False # Owner starts with hyphen
         assert validate_github_url("https://github.com/owner/repo;ls") is False
         assert validate_github_url("https://github.com/owner/repo\nls") is False
+        assert validate_github_url("https://github.com/owner/repo\n") is False # Trailing newline
         assert validate_github_url("https://github.com/owner/repo' -oProxyCommand") is False
