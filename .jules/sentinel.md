@@ -1,0 +1,4 @@
+## 2025-05-22 - Regex Bypass and Path Traversal in Skill Management
+**Vulnerability:** Regex patterns for repository and GitHub URL validation used `$` instead of `\Z`, potentially allowing newline injection bypasses. Additionally, skill names were not validated before being used in file system operations (shutil.rmtree), leading to path traversal risks.
+**Learning:** In Python, the `$` anchor in regular expressions matches either the end of the string or the position just before a newline at the end of the string. This can be exploited to bypass validations if the input contains a trailing newline.
+**Prevention:** Always use `\Z` for absolute end-of-string matching in Python regex for security-critical validations. Implement strict whitelist validation for all user-provided strings used in file path construction.
