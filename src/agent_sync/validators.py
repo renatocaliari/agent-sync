@@ -20,7 +20,8 @@ def validate_repo_name(name: str) -> bool:
     # Cannot start with a hyphen, period, or slash.
     # Optionally can have one slash in the middle.
     # First char must be alphanumeric (not . or -)
-    pattern = r'^[a-zA-Z0-9][a-zA-Z0-9._-]*(?:/[a-zA-Z0-9][a-zA-Z0-9._-]*)?$'
+    # Use \Z instead of $ to ensure no trailing newline bypass
+    pattern = r"^[a-zA-Z0-9][a-zA-Z0-9._-]*(?:/[a-zA-Z0-9][a-zA-Z0-9._-]*)?\Z"
 
     if not re.match(pattern, name):
         return False
@@ -48,16 +49,16 @@ def validate_github_url(url: str) -> bool:
         parsed = urlparse(url)
 
         # Scheme must be https
-        if parsed.scheme != 'https':
+        if parsed.scheme != "https":
             return False
 
         # Netloc must be github.com
-        if parsed.netloc != 'github.com':
+        if parsed.netloc != "github.com":
             return False
 
         # Path should be /owner/repo or /owner/repo.git
-        path = parsed.path.strip('/')
-        parts = path.split('/')
+        path = parsed.path.strip("/")
+        parts = path.split("/")
 
         if len(parts) != 2:
             return False
@@ -65,16 +66,17 @@ def validate_github_url(url: str) -> bool:
         owner, repo = parts
 
         # Validate owner (alphanumeric and hyphens, no leading hyphen)
-        owner_pattern = r'^[a-zA-Z0-9][a-zA-Z0-9-]*$'
+        # Use \Z instead of $ to ensure no trailing newline bypass
+        owner_pattern = r"^[a-zA-Z0-9][a-zA-Z0-9-]*\Z"
         if not re.match(owner_pattern, owner):
             return False
 
         # Validate repo
-        if repo.endswith('.git'):
+        if repo.endswith(".git"):
             repo = repo[:-4]
 
         # Note: repo name shouldn't have a slash here because we split on '/'
-        if not validate_repo_name(repo) or '/' in repo:
+        if not validate_repo_name(repo) or "/" in repo:
             return False
 
         # No params, query, or fragment allowed
@@ -84,3 +86,30 @@ def validate_github_url(url: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def validate_skill_name(name: str) -> bool:
+    """
+    Validate a skill name to prevent path traversal and ensure consistent naming.
+
+    Rules:
+    - Only alphanumeric characters, hyphens, underscores, and periods.
+    - Cannot be empty or exceed 64 characters.
+    - Cannot start with a hyphen or period.
+    - No slashes allowed.
+    """
+    if not name:
+        return False
+
+    if len(name) > 64:
+        return False
+
+    # Skill name regex: [a-zA-Z0-9._-]
+    # First char must be alphanumeric.
+    # Use \Z instead of $ to ensure no trailing newline bypass
+    pattern = r"^[a-zA-Z0-9][a-zA-Z0-9._-]*\Z"
+
+    if not re.match(pattern, name):
+        return False
+
+    return True
