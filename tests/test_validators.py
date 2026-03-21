@@ -1,7 +1,6 @@
 """Tests for validator utilities."""
 
-import pytest
-from agent_sync.validators import validate_repo_name, validate_github_url
+from agent_sync.validators import validate_github_url, validate_repo_name, validate_skill_name
 
 
 class TestValidators:
@@ -41,17 +40,45 @@ class TestValidators:
         """Test invalidly formatted GitHub URLs."""
         assert validate_github_url("") is False
         assert validate_github_url("http://github.com/owner/repo") is False  # Must be https
-        assert validate_github_url("https://gitlab.com/owner/repo") is False # Must be github.com
-        assert validate_github_url("https://github.com/owner") is False      # Missing repo
-        assert validate_github_url("https://github.com/owner/repo/extra") is False # Too many parts
-        assert validate_github_url("https://github.com/owner/repo?query=1") is False # No query
-        assert validate_github_url("https://github.com/owner/repo#frag") is False   # No fragment
+        assert validate_github_url("https://gitlab.com/owner/repo") is False  # Must be github.com
+        assert validate_github_url("https://github.com/owner") is False  # Missing repo
+        assert validate_github_url("https://github.com/owner/repo/extra") is False  # Too many parts
+        assert validate_github_url("https://github.com/owner/repo?query=1") is False  # No query
+        assert validate_github_url("https://github.com/owner/repo#frag") is False  # No fragment
 
     def test_validate_github_url_injection_attempts(self):
         """Test URLs with argument injection attempts."""
         assert validate_github_url("https://github.com/owner/repo --upload-pack") is False
-        assert validate_github_url("https://github.com/owner/-repo") is False # Repo starts with hyphen
-        assert validate_github_url("https://github.com/-owner/repo") is False # Owner starts with hyphen
+        assert (
+            validate_github_url("https://github.com/owner/-repo") is False
+        )  # Repo starts with hyphen
+        assert (
+            validate_github_url("https://github.com/-owner/repo") is False
+        )  # Owner starts with hyphen
         assert validate_github_url("https://github.com/owner/repo;ls") is False
         assert validate_github_url("https://github.com/owner/repo\nls") is False
         assert validate_github_url("https://github.com/owner/repo' -oProxyCommand") is False
+
+    def test_validate_repo_name_newline_bypass(self):
+        """Test repository name with trailing newline bypass attempt."""
+        assert validate_repo_name("my-repo\n") is False
+        assert validate_repo_name("owner/repo\n") is False
+
+    def test_validate_skill_name_valid(self):
+        """Test valid skill names."""
+        assert validate_skill_name("my-skill") is True
+        assert validate_skill_name("my_skill") is True
+        assert validate_skill_name("skill.v1") is True
+        assert validate_skill_name("skill123") is True
+        assert validate_skill_name("A") is True
+
+    def test_validate_skill_name_invalid(self):
+        """Test invalid skill names."""
+        assert validate_skill_name("") is False
+        assert validate_skill_name("-skill") is False  # Starts with hyphen
+        assert validate_skill_name(".skill") is False  # Starts with period
+        assert validate_skill_name("skill/path") is False  # No slashes
+        assert validate_skill_name("skill name") is False  # No spaces
+        assert validate_skill_name("skill\n") is False  # No newlines
+        assert validate_skill_name("a" * 65) is False  # Too long
+        assert validate_skill_name("../traversal") is False
