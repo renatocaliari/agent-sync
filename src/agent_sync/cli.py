@@ -12,7 +12,7 @@ from typing import Optional
 from . import __version__
 from .sync import SyncManager
 from .config import Config, DEFAULT_STATE_DIR
-from .validators import validate_github_url, validate_repo_name
+from .validators import validate_github_url, validate_repo_name, validate_skill_name
 
 console = Console()
 
@@ -677,6 +677,14 @@ def delete(skill_names: tuple[str, ...], dry_run: bool, push: bool, interactive:
     skills_to_delete = set()
     
     if skill_names:
+        # Validate all provided skill names
+        invalid = [name for name in skill_names if not validate_skill_name(name)]
+        if invalid:
+            console.print(f"\n[red]✗ Invalid skill name(s): {', '.join(invalid)}[/red]")
+            console.print("   Only alphanumeric, hyphens, underscores, and periods are allowed.")
+            console.print("   Skill names cannot start with a hyphen or contain slashes.\n")
+            raise click.Abort()
+
         skills_to_delete = set(skill_names)
     elif interactive:
         # Interactive TUI selection
