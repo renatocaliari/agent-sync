@@ -12,7 +12,7 @@ from typing import Optional
 from . import __version__
 from .sync import SyncManager
 from .config import Config, DEFAULT_STATE_DIR
-from .validators import validate_github_url, validate_repo_name
+from .validators import validate_github_url, validate_repo_name, validate_skill_name
 
 console = Console()
 
@@ -677,7 +677,19 @@ def delete(skill_names: tuple[str, ...], dry_run: bool, push: bool, interactive:
     skills_to_delete = set()
     
     if skill_names:
-        skills_to_delete = set(skill_names)
+        # Validate skills provided via CLI
+        valid_skill_names = []
+        for name in skill_names:
+            if validate_skill_name(name):
+                valid_skill_names.append(name)
+            else:
+                console.print(f"[red]✗ Invalid skill name: {name}[/red]")
+
+        if not valid_skill_names:
+            console.print("[yellow]No valid skill names provided.[/yellow]\n")
+            return
+
+        skills_to_delete = set(valid_skill_names)
     elif interactive:
         # Interactive TUI selection
         console.print("\n[bold red]🗑 Select Skills to Delete[/bold red]\n")
