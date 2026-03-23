@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import List, Optional
 from rich.console import Console
 
+from .validators import validate_skill_name
+
 console = Console()
 
 
@@ -59,8 +61,26 @@ class SkillsDeleter:
         }
         
         for skill_name in skill_names:
+            # SECURITY: Validate skill name to prevent path traversal
+            if not validate_skill_name(skill_name):
+                stats["errors"] += 1
+                console.print(f"[red]✗ Invalid skill name: {skill_name}[/red]")
+                continue
+
             # Delete from hub
             hub_skill_path = self.global_skills_dir / skill_name
+
+            # Defense-in-depth: Ensure resolved path is within global skills directory
+            try:
+                resolved_hub_path = hub_skill_path.resolve()
+                if self.global_skills_dir.resolve() not in resolved_hub_path.parents:
+                    stats["errors"] += 1
+                    console.print(f"[red]✗ Security error: Path traversal attempt blocked for {skill_name}[/red]")
+                    continue
+            except Exception as e:
+                stats["errors"] += 1
+                console.print(f"[red]✗ Error validating path for {skill_name}: {e}[/red]")
+                continue
             
             if not hub_skill_path.exists():
                 stats["not_found"] += 1
@@ -95,7 +115,16 @@ class SkillsDeleter:
                     continue
                 
                 agent_skill_path = agent_skills_path / skill_name
-                
+
+                # Defense-in-depth: Ensure resolved path is within agent skills directory
+                try:
+                    resolved_agent_path = agent_skill_path.resolve()
+                    if agent_skills_path.resolve() not in resolved_agent_path.parents:
+                        # Silently skip if it would escape (already logged hub error)
+                        continue
+                except Exception:
+                    continue
+
                 if agent_skill_path.exists():
                     agent_files = self.count_skill_files(agent_skill_path)
                     agent_files_total += agent_files
