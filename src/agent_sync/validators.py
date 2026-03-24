@@ -84,3 +84,34 @@ def validate_github_url(url: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def validate_skill_name(name: str) -> bool:
+    """
+    Validate a skill name to prevent path traversal.
+
+    Rules:
+    - Only alphanumeric characters, hyphens, underscores, and periods.
+    - Must start with an alphanumeric character.
+    - Max length 64 characters.
+    - No slashes or path traversal characters.
+    """
+    if not name:
+        return False
+
+    # Alphanumeric, hyphen, underscore, period
+    # Must start with alphanumeric
+    # Use \Z to ensure no trailing newlines bypass the check
+    pattern = r'^[a-zA-Z0-9][a-zA-Z0-9._-]*\Z'
+
+    if not re.match(pattern, name):
+        return False
+
+    if len(name) > 64:
+        return False
+
+    # Extra check for path traversal patterns
+    if ".." in name or "/" in name or "\\" in name:
+        return False
+
+    return True

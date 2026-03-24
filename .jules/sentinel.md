@@ -1,0 +1,4 @@
+## 2025-05-14 - Path Traversal in Skills Deletion
+**Vulnerability:** User-provided skill names were used to construct file system paths without validation or boundary checks, allowing an attacker to delete arbitrary directories by providing names like `../../.config/agent-sync`.
+**Learning:** Python's `pathlib.Path` joining operator `/` does not automatically prevent traversal if relative components like `..` are used. Even with `resolve()`, the resulting path must be explicitly checked against the intended base directory.
+**Prevention:** 1) Implement strict whitelist validation for all user-provided file/directory names using regex (with `\Z` to prevent newline bypasses). 2) Use `Path.resolve()` combined with `Path.relative_to()` to ensure the final path stays within the intended directory boundary (Defense in Depth).

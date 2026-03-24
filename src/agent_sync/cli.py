@@ -677,6 +677,12 @@ def delete(skill_names: tuple[str, ...], dry_run: bool, push: bool, interactive:
     skills_to_delete = set()
     
     if skill_names:
+        from .validators import validate_skill_name
+        invalid_skills = [name for name in skill_names if not validate_skill_name(name)]
+        if invalid_skills:
+            console.print(f"\n[red]✗ Invalid skill names provided: {', '.join(invalid_skills)}[/red]")
+            console.print("[dim]Skill names must be alphanumeric and cannot contain path traversal characters.[/dim]\n")
+            raise click.Abort()
         skills_to_delete = set(skill_names)
     elif interactive:
         # Interactive TUI selection
