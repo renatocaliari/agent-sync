@@ -49,6 +49,8 @@ class SkillsDeleter:
         Returns:
             Dictionary with deletion statistics
         """
+        from .validators import validate_skill_name
+
         stats = {
             "deleted_from_hub": 0,
             "hub_files": 0,
@@ -59,28 +61,48 @@ class SkillsDeleter:
         }
         
         for skill_name in skill_names:
-            # Delete from hub
-            hub_skill_path = self.global_skills_dir / skill_name
-            
-            if not hub_skill_path.exists():
-                stats["not_found"] += 1
-                console.print(f"[yellow]⚠ Skill '{skill_name}' not found in hub[/yellow]")
+            # SECURITY: Validate skill name to prevent path traversal
+            if not validate_skill_name(skill_name):
+                stats["errors"] += 1
+                console.print(f"[red]✗ Invalid skill name: {skill_name} (security rejection)[/red]")
                 continue
-            
-            # Count files before deletion
-            hub_files = self.count_skill_files(hub_skill_path)
-            
-            if not dry_run:
+
+            # Delete from hub
+            try:
+                # Path Traversal Defense in Depth: .resolve() and .relative_to()
+                hub_skill_path = (self.global_skills_dir / skill_name).resolve()
+
+                # Ensure the path is actually inside global_skills_dir
                 try:
-                    shutil.rmtree(hub_skill_path)
-                    stats["deleted_from_hub"] += 1
-                    stats["hub_files"] += hub_files
-                    console.print(f"[green]✓ Deleted[/green] {skill_name} from hub ({hub_files} files)")
-                except Exception as e:
+                    hub_skill_path.relative_to(self.global_skills_dir.resolve())
+                except ValueError:
                     stats["errors"] += 1
-                    console.print(f"[red]✗ Error deleting {skill_name} from hub: {e}[/red]")
-            else:
-                console.print(f"[dim]Would delete {skill_name} from hub ({hub_files} files)[/dim]")
+                    console.print(f"[red]✗ Security Alert: Path traversal attempt blocked for {skill_name}[/red]")
+                    continue
+
+                if not hub_skill_path.exists():
+                    stats["not_found"] += 1
+                    console.print(f"[yellow]⚠ Skill '{skill_name}' not found in hub[/yellow]")
+                    continue
+
+                # Count files before deletion
+                hub_files = self.count_skill_files(hub_skill_path)
+
+                if not dry_run:
+                    try:
+                        shutil.rmtree(hub_skill_path)
+                        stats["deleted_from_hub"] += 1
+                        stats["hub_files"] += hub_files
+                        console.print(f"[green]✓ Deleted[/green] {skill_name} from hub ({hub_files} files)")
+                    except Exception as e:
+                        stats["errors"] += 1
+                        console.print(f"[red]✗ Error deleting {skill_name} from hub: {e}[/red]")
+                else:
+                    console.print(f"[dim]Would delete {skill_name} from hub ({hub_files} files)[/dim]")
+            except Exception as e:
+                stats["errors"] += 1
+                console.print(f"[red]✗ Unexpected error for {skill_name}: {e}[/red]")
+                continue
             
             # Delete from all agents
             agent_files_total = 0
@@ -91,29 +113,41 @@ class SkillsDeleter:
                 # Get agent skills path
                 agent_skills_path = agent.skills_path
                 
-                if not agent_skills_path.exists():
+                if not agent_skills_path or not agent_skills_path.exists():
                     continue
                 
-                agent_skill_path = agent_skills_path / skill_name
-                
-                if agent_skill_path.exists():
-                    agent_files = self.count_skill_files(agent_skill_path)
-                    agent_files_total += agent_files
+                try:
+                    # Path Traversal Defense in Depth
+                    agent_skill_path = (agent_skills_path / skill_name).resolve()
                     
-                    if not dry_run:
-                        try:
-                            if agent_skill_path.is_dir():
-                                shutil.rmtree(agent_skill_path)
-                            else:
-                                agent_skill_path.unlink()
-                            
-                            stats["deleted_from_agents"] += 1
-                            stats["agent_files"] += agent_files
-                        except Exception as e:
-                            stats["errors"] += 1
-                            console.print(f"[red]✗ Error deleting {skill_name} from {agent.name}: {e}[/red]")
-                    else:
-                        console.print(f"[dim]Would delete {skill_name} from {agent.name} ({agent_files} files)[/dim]")
+                    # Ensure the path is actually inside agent_skills_path
+                    try:
+                        agent_skill_path.relative_to(agent_skills_path.resolve())
+                    except ValueError:
+                        # This should be caught by validate_skill_name, but defense in depth
+                        continue
+
+                    if agent_skill_path.exists():
+                        agent_files = self.count_skill_files(agent_skill_path)
+                        agent_files_total += agent_files
+
+                        if not dry_run:
+                            try:
+                                if agent_skill_path.is_dir():
+                                    shutil.rmtree(agent_skill_path)
+                                else:
+                                    agent_skill_path.unlink()
+
+                                stats["deleted_from_agents"] += 1
+                                stats["agent_files"] += agent_files
+                            except Exception as e:
+                                stats["errors"] += 1
+                                console.print(f"[red]✗ Error deleting {skill_name} from {agent.name}: {e}[/red]")
+                        else:
+                            console.print(f"[dim]Would delete {skill_name} from {agent.name} ({agent_files} files)[/dim]")
+                except Exception:
+                    # Silently skip individual agent errors to proceed with others
+                    pass
             
             if not dry_run and agent_files_total > 0:
                 console.print(f"[dim]  └─ {agent_files_total} files removed from agent directories[/dim]")
