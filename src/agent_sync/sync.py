@@ -13,6 +13,7 @@ from rich.console import Console
 from .skills import MANIFEST_FILENAME
 from .validators import validate_github_url
 from .agents import BaseAgent
+from .security import secure_open, ensure_secure_dir
 
 console = Console()
 
@@ -45,11 +46,11 @@ class SyncManager:
         self.repo_dir = self.DEFAULT_REPO_DIR
         self.state_file = self.STATE_FILE
 
-        # Ensure directories exist BEFORE any operations
+        # Ensure directories exist BEFORE any operations with secure permissions
         try:
-            self.repo_dir.mkdir(parents=True, exist_ok=True)  # Create repo dir itself
-            self.repo_dir.parent.mkdir(parents=True, exist_ok=True)
-            self.state_file.parent.mkdir(parents=True, exist_ok=True)
+            ensure_secure_dir(self.repo_dir)
+            ensure_secure_dir(self.repo_dir.parent)
+            ensure_secure_dir(self.state_file.parent)
         except PermissionError as e:
             raise RuntimeError(
                 f"Cannot create directory {self.repo_dir}. "
@@ -105,7 +106,7 @@ class SyncManager:
             raise RuntimeError("Git is required. Install with: brew install git")
 
         # Ensure repo directory exists
-        self.repo_dir.mkdir(parents=True, exist_ok=True)
+        ensure_secure_dir(self.repo_dir)
 
         # Check if repo already exists on GitHub
         # Support both simple names and slugs
@@ -926,7 +927,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                         
                         for prompt_item in synced_prompts_dir.iterdir():
                             dest = prompts_path / prompt_item.name
-                            if not dest.exists() or (prompt_item.is_file() and dest.read_text() != prompt_item.read_text()):
+                            if not dest.exists() or (prompt_item.is_file() and prompt_item.read_text() != dest.read_text()):
                                 if prompt_item.is_dir():
                                     shutil.copytree(prompt_item, dest, dirs_exist_ok=True)
                                 else:
@@ -943,7 +944,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                         
                         for theme_item in synced_themes_dir.iterdir():
                             dest = themes_path / theme_item.name
-                            if not dest.exists() or (theme_item.is_file() and dest.read_text() != theme_item.read_text()):
+                            if not dest.exists() or (theme_item.is_file() and theme_item.read_text() != dest.read_text()):
                                 if theme_item.is_dir():
                                     shutil.copytree(theme_item, dest, dirs_exist_ok=True)
                                 else:
@@ -1060,7 +1061,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
         """Save manifest to repo directory."""
         manifest_path = self.repo_dir / MANIFEST_FILENAME
         
-        with open(manifest_path, "w") as f:
+        with secure_open(manifest_path, "w") as f:
             json.dump(manifest, f, indent=2)
 
     def _load_manifest(self) -> Optional[dict]:
@@ -1068,7 +1069,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
         manifest_path = self.repo_dir / MANIFEST_FILENAME
         
         if manifest_path.exists():
-            with open(manifest_path, "r") as f:
+            with secure_open(manifest_path, "r") as f:
                 return json.load(f)
         
         return None
@@ -1215,7 +1216,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
             "repo_url": repo_url or self.config.repo_url,
         }
         
-        with open(self.state_file, "w") as f:
+        with secure_open(self.state_file, "w") as f:
             json.dump(state, f, indent=2)
     
     def _load_state(self) -> Optional[dict]:
@@ -1223,7 +1224,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
         import json
         
         if self.state_file.exists():
-            with open(self.state_file) as f:
+            with secure_open(self.state_file, "r") as f:
                 return json.load(f)
         
         return None
