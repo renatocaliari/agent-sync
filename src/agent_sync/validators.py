@@ -4,6 +4,33 @@ import re
 from urllib.parse import urlparse
 
 
+def validate_skill_name(name: str) -> bool:
+    """
+    Validate a skill name to prevent path traversal.
+
+    Rules:
+    - Only alphanumeric characters, hyphens, underscores, and periods.
+    - Must start with an alphanumeric character.
+    - No slashes or backslashes.
+    - Max length 64 characters.
+    """
+    if not name:
+        return False
+
+    # Simple alphanumeric, hyphen, underscore, period
+    # Must start with alphanumeric
+    # \Z ensures no trailing newline bypass
+    pattern = r'^[a-zA-Z0-9][a-zA-Z0-9._-]*\Z'
+
+    if not re.match(pattern, name):
+        return False
+
+    if len(name) > 64:
+        return False
+
+    return True
+
+
 def validate_repo_name(name: str) -> bool:
     """
     Validate a GitHub repository name or slug (owner/repo).
@@ -20,7 +47,8 @@ def validate_repo_name(name: str) -> bool:
     # Cannot start with a hyphen, period, or slash.
     # Optionally can have one slash in the middle.
     # First char must be alphanumeric (not . or -)
-    pattern = r'^[a-zA-Z0-9][a-zA-Z0-9._-]*(?:/[a-zA-Z0-9][a-zA-Z0-9._-]*)?$'
+    # Use \Z instead of $ to prevent newline injection
+    pattern = r'^[a-zA-Z0-9][a-zA-Z0-9._-]*(?:/[a-zA-Z0-9][a-zA-Z0-9._-]*)?\Z'
 
     if not re.match(pattern, name):
         return False
@@ -65,7 +93,8 @@ def validate_github_url(url: str) -> bool:
         owner, repo = parts
 
         # Validate owner (alphanumeric and hyphens, no leading hyphen)
-        owner_pattern = r'^[a-zA-Z0-9][a-zA-Z0-9-]*$'
+        # Use \Z instead of $ to prevent newline injection
+        owner_pattern = r'^[a-zA-Z0-9][a-zA-Z0-9-]*\Z'
         if not re.match(owner_pattern, owner):
             return False
 
