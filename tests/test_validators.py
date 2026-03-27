@@ -29,6 +29,7 @@ class TestValidators:
         assert validate_repo_name("owner/repo/extra") is False
         assert validate_repo_name("owner//repo") is False
         assert validate_repo_name("/repo") is False
+        assert validate_repo_name("owner/repo\n") is False  # Newline injection
 
     def test_validate_github_url_valid(self):
         """Test valid GitHub URLs."""
@@ -55,3 +56,27 @@ class TestValidators:
         assert validate_github_url("https://github.com/owner/repo;ls") is False
         assert validate_github_url("https://github.com/owner/repo\nls") is False
         assert validate_github_url("https://github.com/owner/repo' -oProxyCommand") is False
+        assert validate_github_url("https://github.com/owner/repo\n") is False # Newline injection
+
+
+class TestSkillNameValidator:
+    """Tests for skill name validator."""
+
+    def test_validate_skill_name_valid(self):
+        """Test valid skill names."""
+        from agent_sync.validators import validate_skill_name
+        assert validate_skill_name("my-skill") is True
+        assert validate_skill_name("my_skill") is True
+        assert validate_skill_name("skill.123") is True
+        assert validate_skill_name("A-Valid_Skill.1") is True
+
+    def test_validate_skill_name_invalid(self):
+        """Test invalid skill names."""
+        from agent_sync.validators import validate_skill_name
+        assert validate_skill_name("") is False
+        assert validate_skill_name("-skill") is False  # Starts with hyphen
+        assert validate_skill_name(".skill") is False  # Starts with period
+        assert validate_skill_name("skill/") is False  # Contains slash
+        assert validate_skill_name("../traversal") is False
+        assert validate_skill_name("skill\n") is False  # Newline injection
+        assert validate_skill_name("a" * 65) is False   # Too long
