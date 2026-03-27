@@ -16,7 +16,7 @@ class SkillsDeleter:
         from .agents import get_agents
         
         self.config = Config()
-        self.global_skills_dir = Path.home() / ".agents" / "skills"
+        self.global_skills_dir = (Path.home() / ".agents" / "skills").resolve()
         self.agents = get_agents()
 
     def list_skills(self) -> List[str]:
@@ -49,6 +49,8 @@ class SkillsDeleter:
         Returns:
             Dictionary with deletion statistics
         """
+        from .validators import validate_skill_name
+
         stats = {
             "deleted_from_hub": 0,
             "hub_files": 0,
@@ -59,8 +61,21 @@ class SkillsDeleter:
         }
         
         for skill_name in skill_names:
+            # 🛡️ SECURITY: Validate skill name before any path construction
+            if not validate_skill_name(skill_name):
+                stats["errors"] += 1
+                console.print(f"[red]✗ Security Error: Invalid skill name '{skill_name}'[/red]")
+                continue
+
             # Delete from hub
-            hub_skill_path = self.global_skills_dir / skill_name
+            # 🛡️ SECURITY: Use resolve() and check if result is still within hub
+            try:
+                hub_skill_path = (self.global_skills_dir / skill_name).resolve()
+                hub_skill_path.relative_to(self.global_skills_dir)
+            except (ValueError, FileNotFoundError):
+                stats["errors"] += 1
+                console.print(f"[red]✗ Security Error: Path traversal attempt detected for '{skill_name}'[/red]")
+                continue
             
             if not hub_skill_path.exists():
                 stats["not_found"] += 1
@@ -89,12 +104,19 @@ class SkillsDeleter:
                     continue
                 
                 # Get agent skills path
-                agent_skills_path = agent.skills_path
+                agent_skills_path = agent.skills_path.resolve()
                 
                 if not agent_skills_path.exists():
                     continue
                 
-                agent_skill_path = agent_skills_path / skill_name
+                # 🛡️ SECURITY: Use resolve() and check if result is still within agent skills dir
+                try:
+                    agent_skill_path = (agent_skills_path / skill_name).resolve()
+                    agent_skill_path.relative_to(agent_skills_path)
+                except (ValueError, FileNotFoundError):
+                    # We don't increment errors here as it might be expected for some agents
+                    # but we definitely skip it for safety.
+                    continue
                 
                 if agent_skill_path.exists():
                     agent_files = self.count_skill_files(agent_skill_path)
