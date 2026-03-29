@@ -660,6 +660,7 @@ def delete(skill_names: tuple[str, ...], dry_run: bool, push: bool, interactive:
     Note: To delete ALL skills, use interactive mode and type 'all'.
     """
     from .skills_delete import SkillsDeleter
+    from .validators import validate_skill_name
     from rich.prompt import Confirm, Prompt
     from rich.table import Table
     from rich import box
@@ -677,6 +678,11 @@ def delete(skill_names: tuple[str, ...], dry_run: bool, push: bool, interactive:
     skills_to_delete = set()
     
     if skill_names:
+        # Validate each skill name before processing
+        for name in skill_names:
+            if not validate_skill_name(name):
+                console.print(f"\n[red]✗ Invalid skill name (security risk): {name}[/red]")
+                raise click.Abort()
         skills_to_delete = set(skill_names)
     elif interactive:
         # Interactive TUI selection
