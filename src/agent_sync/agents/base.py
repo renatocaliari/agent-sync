@@ -17,12 +17,16 @@ class BaseAgent:
         self.name = name
         self.data = data
         self.enabled: bool = True
-        
+
         # Load registry data
         self.method = data.get("method", "copy")
         self.skills_dir_name = data.get("skills_dir_name", "skills")
         self.config_dir = self._expand_path(data.get("config_dir", "~/.config"))
         self.config_filename = data.get("config_filename", "config.json")
+        
+        # Custom agents support (optional)
+        self.agents_dir_name = data.get("agents_dir_name")
+        self.agents_dir_global = self._expand_path(data.get("agents_dir_global", "")) if data.get("agents_dir_global") else None
         
     def _expand_path(self, path_str: str) -> Path:
         """Expand ~ in path strings."""
@@ -41,6 +45,18 @@ class BaseAgent:
     def skills_path(self) -> Path:
         """Path to agent-specific skills directory."""
         return self.config_dir / self.skills_dir_name
+
+    @property
+    def agents_path(self) -> Optional[Path]:
+        """Path to agent-specific custom agents directory (project-level)."""
+        if not self.agents_dir_name:
+            return None
+        return self.config_dir / self.agents_dir_name
+
+    @property
+    def agents_path_global(self) -> Optional[Path]:
+        """Path to global custom agents directory (~/.claude/agents/, etc.)."""
+        return self.agents_dir_global
 
     @property
     def global_skills_path(self) -> Path:
@@ -104,6 +120,10 @@ class BaseAgent:
     def supports_copy(self) -> bool:
         """Check if this agent uses copy method."""
         return self.method == "copy"
+
+    def supports_custom_agents(self) -> bool:
+        """Check if this agent supports custom agents (.claude/agents/, .opencode/agents/, etc.)."""
+        return self.agents_dir_name is not None
 
     def get_all_skills_paths(self) -> List[Path]:
         """Get all skills paths for this agent."""
