@@ -61,15 +61,32 @@ class SyncManager:
             raise RuntimeError(f"Failed to create directory {self.repo_dir}")
     
     def _run_git(self, *args, cwd: Optional[Path] = None) -> str:
-        """Run a git command and return output."""
+        """Run a git command and return output.
+        
+        Creates a copy of environment without GITHUB_TOKEN to avoid conflicts
+        with gh CLI keyring auth.
+        """
+        import os
+        import subprocess
+        
+        # Create a copy of environment without GITHUB_TOKEN
+        # This prevents git from using the invalid token
+        env = os.environ.copy()
+        env.pop("GITHUB_TOKEN", None)
+        
         cmd = ["git"] + list(args)
         result = subprocess.run(
             cmd,
             cwd=cwd or self.repo_dir,
             capture_output=True,
             text=True,
-            check=True,
+            check=False,
+            env=env,  # Use modified environment
         )
+        
+        if result.returncode != 0:
+            raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
+        
         return result.stdout.strip()
     
     def _check_git_installed(self) -> bool:
@@ -324,13 +341,13 @@ class SyncManager:
             self._stage_skills()
         elif configs_only:
             # Stage only configs (with new path support)
-            self._stage_agent_files()
+            self._stage_all_agent_files()
         elif agents_only:
             # Stage only custom agents
             self._stage_agents()
         else:
             # Stage everything (default)
-            self._stage_agent_files()
+            self._stage_all_agent_files()
             self._stage_skills()
             self._stage_agents()
 
@@ -350,7 +367,20 @@ class SyncManager:
         # Commit and push
         self._run_git("add", ".")
         self._run_git("commit", "-m", message)
-        self._run_git("push", "origin", "main")
+        
+        try:
+            self._run_git("push", "origin", "main")
+        except subprocess.CalledProcessError as e:
+            # Check if it's an auth error
+            if "Authentication failed" in e.stderr or "Invalid username or token" in e.stderr:
+                raise RuntimeError(
+                    "GitHub authentication failed. Try one of these solutions:\n"
+                    "  1. Unset GITHUB_TOKEN: run 'unset GITHUB_TOKEN' and try again\n"
+                    "  2. Refresh gh CLI auth: run 'gh auth refresh'\n"
+                    "  3. Check auth status: run 'gh auth status'\n"
+                    f"\nOriginal error: {e.stderr.strip()}"
+                ) from e
+            raise
 
         self._save_state("pushed", self.config.repo_url)
 
@@ -917,6 +947,17 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                     )
         
         return copied
+
+    def _stage_all_agent_files(self) -> None:
+        """Stage all agent files for backup.
+        
+        Iterates over all enabled agents and calls _stage_agent_files() for each.
+        """
+        from .agents import get_all_agents
+        
+        for agent in get_all_agents():
+            if self.config.is_agent_enabled(agent.name):
+                self._stage_agent_files(agent)
 
     def _stage_agent_files(self, agent: BaseAgent) -> None:
         """
