@@ -238,7 +238,7 @@ class SyncManager:
         
         self._save_state("linked", repo_url)
     
-    def pull(self, force: bool = False, skills_only: bool = False, configs_only: bool = False) -> list[str]:
+    def pull(self, force: bool = False, skills_only: bool = False, configs_only: bool = False, agents_only: bool = False) -> list[str]:
         """
         Fetch and apply remote configuration.
 
@@ -246,6 +246,7 @@ class SyncManager:
             force: Force pull even with local changes
             skills_only: Pull only skills (not configs)
             configs_only: Pull only configs (not skills)
+            agents_only: Pull only custom agents (not configs or skills)
 
         Returns:
             List of applied changes
@@ -255,11 +256,11 @@ class SyncManager:
 
         # If repo doesn't exist or is not a valid git repo, clone it automatically
         is_valid_git_repo = self.repo_dir.exists() and (self.repo_dir / ".git").exists()
-        
+
         if not is_valid_git_repo:
             if not self.config.repo_url:
                 raise RuntimeError("Not linked to a repository. Run 'agent-sync link <url>' or 'agent-sync config repo <url>' first")
-            
+
             console.print(f"\n[bold]📥 Cloning repository...[/]\n")
             self.link_repo(self.config.repo_url)
 
@@ -278,23 +279,30 @@ class SyncManager:
         changes = []
 
         # Apply configs (or skip based on flags)
-        if not skills_only:
+        if not skills_only and not agents_only:
             changes.extend(self._apply_synced_configs())
         else:
-            console.print("[dim]Skipping configs (skills-only mode)[/dim]")
+            console.print("[dim]Skipping configs (skills/agents-only mode)[/dim]")
 
         # Apply skills (or skip based on flags)
-        if not configs_only:
+        if not configs_only and not agents_only:
             skill_changes = self._apply_synced_skills()
             changes.extend(skill_changes)
         else:
-            console.print("[dim]Skipping skills (configs-only mode)[/dim]")
+            console.print("[dim]Skipping skills (configs/agents-only mode)[/dim]")
+
+        # Apply custom agents (or skip based on flags)
+        if not skills_only and not configs_only:
+            agent_changes = self._apply_synced_agents()
+            changes.extend(agent_changes)
+        else:
+            console.print("[dim]Skipping agents (skills/configs-only mode)[/dim]")
 
         self._save_state("pulled", self.config.repo_url)
 
         return changes
     
-    def push(self, message: str = "chore: sync config updates", skills_only: bool = False, configs_only: bool = False) -> list[str]:
+    def push(self, message: str = "chore: sync config updates", skills_only: bool = False, configs_only: bool = False, agents_only: bool = False) -> list[str]:
         """
         Commit and push local changes.
 
@@ -302,6 +310,7 @@ class SyncManager:
             message: Commit message
             skills_only: Push only skills (not configs)
             configs_only: Push only configs (not skills)
+            agents_only: Push only custom agents (not configs or skills)
 
         Returns:
             List of pushed files
@@ -316,10 +325,14 @@ class SyncManager:
         elif configs_only:
             # Stage only configs (with new path support)
             self._stage_agent_files()
+        elif agents_only:
+            # Stage only custom agents
+            self._stage_agents()
         else:
             # Stage everything (default)
             self._stage_agent_files()
             self._stage_skills()
+            self._stage_agents()
 
         # Check for changes
         status = self._run_git("status", "--porcelain")
@@ -412,7 +425,8 @@ class SyncManager:
         (self.repo_dir / "configs").mkdir(parents=True, exist_ok=True)
         (self.repo_dir / "skills").mkdir(parents=True, exist_ok=True)
         (self.repo_dir / "prompts").mkdir(parents=True, exist_ok=True)
-        
+        (self.repo_dir / "agents").mkdir(parents=True, exist_ok=True)
+
         # Create .gitignore
         gitignore = """# Secrets - NEVER sync these
 .env
@@ -431,7 +445,7 @@ Thumbs.db
 *~
 """
         (self.repo_dir / ".gitignore").write_text(gitignore)
-        
+
         # Create README
         readme = """# Agent Sync Repository
 
@@ -446,6 +460,7 @@ CLI tool: https://github.com/yourusername/agent-sync
 - `configs/` - Agent configurations
 - `skills/` - Shared skills (source of truth: ~/.agents/skills/)
 - `prompts/` - Shared prompts (optional)
+- `agents/` - Custom agents (.claude/agents/, .opencode/agents/)
 
 ## Usage
 
@@ -538,6 +553,98 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                                 shutil.copytree(ext_item, dest, dirs_exist_ok=True)
                             else:
                                 shutil.copy2(ext_item, dest)
+
+    def _stage_agents(self) -> None:
+        """
+        Stage custom agents for commit.
+        
+        Structure in repo:
+        - agents/<agent-name>/project/ - Project-level agents (.claude/agents/, .opencode/agents/)
+        - agents/<agent-name>/global/ - Global agents (~/.claude/agents/, ~/.config/opencode/agents/)
+        """
+        from .agents import get_all_agents
+        
+        repo_agents_dir = self.repo_dir / "agents"
+
+        # Ensure repo agents directory exists
+        repo_agents_dir.mkdir(parents=True, exist_ok=True)
+
+        for agent in get_all_agents():
+            # Skip if agent sync is disabled
+            if not self.config.is_agent_enabled(agent.name):
+                continue
+
+            # Skip if agent doesn't support custom agents
+            if not agent.supports_custom_agents():
+                continue
+
+            # Check if agent is available OR if agents directory exists
+            is_available = agent.is_available()
+            has_agents_dir = (agent.agents_path and agent.agents_path.exists()) or \
+                            (agent.agents_path_global and agent.agents_path_global.exists())
+            
+            if not is_available and not has_agents_dir and agent.name != "global-skills":
+                continue
+
+            agent_repo_dir = repo_agents_dir / agent.name
+            
+            # 1. Stage project-level agents (.claude/agents/, .opencode/agents/)
+            if agent.agents_path and agent.agents_path.exists():
+                project_agents_dir = agent_repo_dir / "project"
+                project_agents_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Remove agents from repo that no longer exist locally
+                if project_agents_dir.exists():
+                    for repo_agent_file in project_agents_dir.rglob("*.md"):
+                        local_file = agent.agents_path / repo_agent_file.relative_to(project_agents_dir)
+                        if not local_file.exists():
+                            repo_agent_file.unlink()
+                    # Clean up empty directories
+                    for dirpath in sorted(project_agents_dir.rglob("*"), reverse=True):
+                        if dirpath.is_dir() and not any(dirpath.iterdir()):
+                            dirpath.rmdir()
+                
+                # Copy current project agents to repo
+                for agent_file in agent.agents_path.rglob("*.md"):
+                    if agent_file.is_file():
+                        # Skip excluded files
+                        if self._should_exclude(agent_file.name):
+                            continue
+                        
+                        # Create relative path structure
+                        rel_path = agent_file.relative_to(agent.agents_path)
+                        dest = project_agents_dir / rel_path
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(agent_file, dest)
+            
+            # 2. Stage global agents (~/.claude/agents/, ~/.config/opencode/agents/)
+            if agent.agents_path_global and agent.agents_path_global.exists():
+                global_agents_dir = agent_repo_dir / "global"
+                global_agents_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Remove agents from repo that no longer exist locally
+                if global_agents_dir.exists():
+                    for repo_agent_file in global_agents_dir.rglob("*.md"):
+                        local_file = agent.agents_path_global / repo_agent_file.relative_to(global_agents_dir)
+                        if not local_file.exists():
+                            repo_agent_file.unlink()
+                    # Clean up empty directories
+                    for dirpath in sorted(global_agents_dir.rglob("*"), reverse=True):
+                        if dirpath.is_dir() and not any(dirpath.iterdir()):
+                            dirpath.rmdir()
+                
+                # Copy current global agents to repo
+                for agent_file in agent.agents_path_global.rglob("*.md"):
+                    if agent_file.is_file():
+                        # Skip excluded files
+                        if self._should_exclude(agent_file.name):
+                            continue
+                        
+                        # Create relative path structure
+                        rel_path = agent_file.relative_to(agent.agents_path_global)
+                        dest = global_agents_dir / rel_path
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(agent_file, dest)
 
     def _stage_skills(self) -> None:
         """
@@ -940,7 +1047,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                     # Apply to both themes paths
                     for themes_path in agent.themes_paths:
                         themes_path.mkdir(parents=True, exist_ok=True)
-                        
+
                         for theme_item in synced_themes_dir.iterdir():
                             dest = themes_path / theme_item.name
                             if not dest.exists() or (theme_item.is_file() and dest.read_text() != theme_item.read_text()):
@@ -950,6 +1057,61 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                                     shutil.copy2(theme_item, dest)
                                 changes.append(f"{agent.name}/themes: {theme_item.name}")
 
+        return changes
+
+    def _apply_synced_agents(self) -> list[str]:
+        """
+        Apply synced custom agents to local directories.
+        
+        Restores:
+        1. Project-level agents (.claude/agents/, .opencode/agents/)
+        2. Global agents (~/.claude/agents/, ~/.config/opencode/agents/)
+        """
+        from .agents import get_all_agents
+        
+        changes = []
+        
+        for agent in get_all_agents():
+            # Skip if agent sync is disabled
+            if not self.config.is_agent_enabled(agent.name):
+                continue
+            
+            # Skip if agent doesn't support custom agents
+            if not agent.supports_custom_agents():
+                continue
+            
+            repo_agents_dir = self.repo_dir / "agents" / agent.name
+            
+            # 1. Apply project-level agents
+            project_agents_src = repo_agents_dir / "project"
+            if project_agents_src.exists() and agent.agents_path:
+                agent.agents_path.mkdir(parents=True, exist_ok=True)
+                
+                for agent_file in project_agents_src.rglob("*.md"):
+                    if agent_file.is_file():
+                        rel_path = agent_file.relative_to(project_agents_src)
+                        dest = agent.agents_path / rel_path
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        
+                        if not dest.exists() or dest.read_text() != agent_file.read_text():
+                            shutil.copy2(agent_file, dest)
+                            changes.append(f"{agent.name}/project: {rel_path}")
+            
+            # 2. Apply global agents
+            global_agents_src = repo_agents_dir / "global"
+            if global_agents_src.exists() and agent.agents_path_global:
+                agent.agents_path_global.mkdir(parents=True, exist_ok=True)
+                
+                for agent_file in global_agents_src.rglob("*.md"):
+                    if agent_file.is_file():
+                        rel_path = agent_file.relative_to(global_agents_src)
+                        dest = agent.agents_path_global / rel_path
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        
+                        if not dest.exists() or dest.read_text() != agent_file.read_text():
+                            shutil.copy2(agent_file, dest)
+                            changes.append(f"{agent.name}/global: {rel_path}")
+        
         return changes
 
     def _apply_synced_skills(self) -> list[str]:

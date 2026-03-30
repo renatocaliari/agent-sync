@@ -99,14 +99,14 @@ def show_pending_update_notification():
 
 class ExtendedHelpGroup(click.Group):
     """Custom Click group to show categorization and vertical tree structure in help."""
-    
+
     def format_commands(self, ctx, formatter):
         # 1. Define Categories
         categories = {
             "🔄 Sync Commands": ["push", "pull", "status"],
             "🤖 Agent Management": ["agents", "enable", "disable"],
             "⚙️  Configuration": ["setup", "init", "link", "config", "generate-config"],
-            "📚 Skills Management": ["skills"],
+            "📚 Skills & Agents": ["skills", "custom-agents"],
             "🛠️  System": ["update", "version", "secrets"]
         }
         
@@ -453,14 +453,14 @@ def list_skills():
     """List all centralized skills."""
     from rich.table import Table
     from rich import box
-    
+
     skills_dir = Path.home() / ".agents" / "skills"
-    
+
     if not skills_dir.exists():
         console.print("\n[yellow]No skills directory found.[/yellow]")
         console.print("Run [green]`agent-sync skills centralize`[/green] to centralize skills.\n")
         return
-    
+
     skills = []
     for item in skills_dir.iterdir():
         if item.is_dir() and (item / "SKILL.md").exists():
@@ -475,22 +475,86 @@ def list_skills():
                 "path": str(item),
                 "valid": False
             })
-    
+
     if not skills:
         console.print("\n[yellow]No skills found in ~/.agents/skills/[/yellow]\n")
         return
-    
+
     console.print(f"\n[bold]📚 Centralized Skills ({len(skills)})[/]\n")
-    
+
     table = Table(box=box.SIMPLE)
     table.add_column("Status", style="green")
     table.add_column("Skill Name", style="cyan")
     table.add_column("Path", style="dim")
-    
+
     for skill in sorted(skills, key=lambda s: s["name"]):
         icon = "✓" if skill["valid"] else "⚠"
         status = "Valid" if skill["valid"] else "File (no SKILL.md)"
         table.add_row(icon, skill["name"], skill["path"])
+
+    console.print(table)
+    console.print()
+
+
+@main.group(cls=ExtendedHelpGroup)
+def custom_agents():
+    """Manage custom agents (.claude/agents/, .opencode/agents/)."""
+    pass
+
+
+@custom_agents.command("list")
+def list_custom_agents():
+    """List custom agents for all supported agents."""
+    from rich.table import Table
+    from rich import box
+    from .agents import get_all_agents
+    
+    console.print("\n[bold]🤖 Custom Agents\n[/]\n")
+    
+    table = Table(box=box.SIMPLE)
+    table.add_column("Agent", style="cyan")
+    table.add_column("Type", style="yellow")
+    table.add_column("Path", style="dim")
+    table.add_column("Files", style="green")
+    
+    found_any = False
+    
+    for agent in get_all_agents():
+        if not agent.supports_custom_agents():
+            continue
+        
+        # Check project-level agents
+        if agent.agents_path and agent.agents_path.exists():
+            found_any = True
+            agent_files = list(agent.agents_path.rglob("*.md"))
+            if agent_files:
+                table.add_row(
+                    agent.name,
+                    "Project",
+                    str(agent.agents_path),
+                    str(len(agent_files))
+                )
+        
+        # Check global agents
+        if agent.agents_path_global and agent.agents_path_global.exists():
+            found_any = True
+            agent_files = list(agent.agents_path_global.rglob("*.md"))
+            if agent_files:
+                table.add_row(
+                    agent.name,
+                    "Global",
+                    str(agent.agents_path_global),
+                    str(len(agent_files))
+                )
+    
+    if not found_any:
+        console.print("[yellow]No custom agents found.[/yellow]\n")
+        console.print("Custom agents are stored in:")
+        console.print("  • [dim]~/.claude/agents/[/dim] - Claude Code global agents")
+        console.print("  • [dim].claude/agents/[/dim] - Claude Code project agents")
+        console.print("  • [dim]~/.config/opencode/agents/[/dim] - OpenCode global agents")
+        console.print("  • [dim].opencode/agents/[/dim] - OpenCode project agents\n")
+        return
     
     console.print(table)
     console.print()
@@ -981,10 +1045,11 @@ def link(repo_url: str):
 @click.option("--force", is_flag=True, help="Force pull even with local changes")
 @click.option("--skills-only", is_flag=True, help="Pull only skills (not configs)")
 @click.option("--configs-only", is_flag=True, help="Pull only configs (not skills)")
-def pull(force: bool, skills_only: bool, configs_only: bool):
+@click.option("--agents-only", is_flag=True, help="Pull only custom agents (not configs or skills)")
+def pull(force: bool, skills_only: bool, configs_only: bool, agents_only: bool):
     """Fetch and apply remote configuration.
 
-    Restores global skills, extension skills, and symlinks automatically.
+    Restores global skills, extension skills, symlinks, and custom agents automatically.
 
     Examples:
       # Pull everything (default)
@@ -995,6 +1060,9 @@ def pull(force: bool, skills_only: bool, configs_only: bool):
 
       # Pull only configs
       agent-sync pull --configs-only
+
+      # Pull only custom agents
+      agent-sync pull --agents-only
 
       # Force pull (overwrite local changes)
       agent-sync pull --force
@@ -1008,7 +1076,7 @@ def pull(force: bool, skills_only: bool, configs_only: bool):
     sync_manager = SyncManager(config)
 
     try:
-        changes = sync_manager.pull(force=force, skills_only=skills_only, configs_only=configs_only)
+        changes = sync_manager.pull(force=force, skills_only=skills_only, configs_only=configs_only, agents_only=agents_only)
         if changes:
             console.print(f"\n✅ Applied {len(changes)} changes:")
             for change in changes:
@@ -1027,10 +1095,11 @@ def pull(force: bool, skills_only: bool, configs_only: bool):
 @click.option("-m", "--message", default="chore: sync config updates", help="Commit message")
 @click.option("--skills-only", is_flag=True, help="Push only skills (not configs)")
 @click.option("--configs-only", is_flag=True, help="Push only configs (not skills)")
-def push(message: str, skills_only: bool, configs_only: bool):
+@click.option("--agents-only", is_flag=True, help="Push only custom agents (not configs or skills)")
+def push(message: str, skills_only: bool, configs_only: bool, agents_only: bool):
     """Commit and push local changes.
 
-    Backs up global skills, extension skills, and symlinks automatically.
+    Backs up global skills, extension skills, symlinks, and custom agents automatically.
 
     Examples:
       # Push everything (default)
@@ -1041,6 +1110,9 @@ def push(message: str, skills_only: bool, configs_only: bool):
 
       # Push only configs
       agent-sync push --configs-only
+
+      # Push only custom agents
+      agent-sync push --agents-only
 
       # Push with custom message
       agent-sync push -m "feat: add new skill"
@@ -1054,7 +1126,7 @@ def push(message: str, skills_only: bool, configs_only: bool):
     sync_manager = SyncManager(config)
 
     try:
-        pushed = sync_manager.push(message=message, skills_only=skills_only, configs_only=configs_only)
+        pushed = sync_manager.push(message=message, skills_only=skills_only, configs_only=configs_only, agents_only=agents_only)
         if pushed:
             console.print(f"\n✅ Pushed {len(pushed)} files:")
             for file in pushed:

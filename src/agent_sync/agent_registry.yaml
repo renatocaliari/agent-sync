@@ -1,14 +1,17 @@
 # agent-sync - Global Agent Registry
 # --------------------------------------
 # This file defines how each AI agent integration works.
-# 
+#
 # SCHEMA:
-#   method: 
+#   method:
 #     - native: Agent reads directly from ~/.agents/skills/
 #     - config: Agent supports custom skill paths in its own config file
 #     - copy:   Fallback method. agent-sync copies skills to the agent's folder
 #
 #   skills_dir_name: The folder name where the agent expects skills (tools/commands)
+#
+#   agents_dir_name: (Optional) The folder name where the agent stores custom agents
+#   agents_dir_global: (Optional) Global directory for user-wide custom agents
 #
 #   check: How to detect if the agent is installed
 #     - binary: Check if a command exists in PATH
@@ -27,6 +30,8 @@ opencode:
   config_filename: "opencode.json"
   config_patterns: ["*.json", "*.jsonc", "AGENTS.md", "SYSTEM.md"]
   skills_dir_name: "skills"
+  agents_dir_name: "agents"
+  agents_dir_global: "~/.config/opencode/agents"
   check:
     binary: "opencode"
   config_update:
@@ -39,6 +44,8 @@ claude-code:
   config_filename: "settings.json"
   config_patterns: ["*.json", "AGENTS.md", "SYSTEM.md"]
   skills_dir_name: "commands"
+  agents_dir_name: "agents"
+  agents_dir_global: "~/.claude/agents"
   check:
     binary: "claude"
 
