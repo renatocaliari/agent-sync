@@ -741,7 +741,13 @@ def delete(skill_names: tuple[str, ...], dry_run: bool, push: bool, interactive:
     skills_to_delete = set()
     
     if skill_names:
-        skills_to_delete = set(skill_names)
+        from .validators import validate_skill_name
+
+        for name in skill_names:
+            if not validate_skill_name(name):
+                console.print(f"[red]✗ Invalid skill name: '{name}'[/red]")
+                return
+            skills_to_delete.add(name)
     elif interactive:
         # Interactive TUI selection
         console.print("\n[bold red]🗑 Select Skills to Delete[/bold red]\n")

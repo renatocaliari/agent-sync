@@ -58,10 +58,25 @@ class SkillsDeleter:
             "errors": 0,
         }
         
+        from .validators import validate_skill_name
+
         for skill_name in skill_names:
+            # 1. Defense-in-depth: Validate name
+            if not validate_skill_name(skill_name):
+                stats["errors"] += 1
+                console.print(f"[red]✗ Invalid skill name: '{skill_name}'[/red]")
+                continue
+
+            # 2. Defense-in-depth: Resolve and bound check for hub
+            try:
+                hub_skill_path = (self.global_skills_dir / skill_name).resolve()
+                hub_skill_path.relative_to(self.global_skills_dir.resolve())
+            except (ValueError, OSError):
+                stats["errors"] += 1
+                console.print(f"[red]✗ Illegal path traversal: '{skill_name}'[/red]")
+                continue
+
             # Delete from hub
-            hub_skill_path = self.global_skills_dir / skill_name
-            
             if not hub_skill_path.exists():
                 stats["not_found"] += 1
                 console.print(f"[yellow]⚠ Skill '{skill_name}' not found in hub[/yellow]")
@@ -94,9 +109,20 @@ class SkillsDeleter:
                 if not agent_skills_path.exists():
                     continue
                 
+                # For agents, check symlink separately before resolution
+                # This ensures we delete the symlink and not the target
                 agent_skill_path = agent_skills_path / skill_name
-                
-                if agent_skill_path.exists():
+
+                # Defense-in-depth: Ensure we don't escape agent_skills_path
+                # We don't use resolve() here because it would point to hub
+                if (
+                    ".." in skill_name
+                    or skill_name.startswith("/")
+                    or skill_name.startswith("~")
+                ):
+                    continue
+
+                if agent_skill_path.exists() or agent_skill_path.is_symlink():
                     agent_files = self.count_skill_files(agent_skill_path)
                     agent_files_total += agent_files
                     
