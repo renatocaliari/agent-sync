@@ -20,7 +20,7 @@ def validate_repo_name(name: str) -> bool:
     # Cannot start with a hyphen, period, or slash.
     # Optionally can have one slash in the middle.
     # First char must be alphanumeric (not . or -)
-    pattern = r'^[a-zA-Z0-9][a-zA-Z0-9._-]*(?:/[a-zA-Z0-9][a-zA-Z0-9._-]*)?$'
+    pattern = r'^[a-zA-Z0-9][a-zA-Z0-9._-]*(?:/[a-zA-Z0-9][a-zA-Z0-9._-]*)?\Z'
 
     if not re.match(pattern, name):
         return False
@@ -65,7 +65,7 @@ def validate_github_url(url: str) -> bool:
         owner, repo = parts
 
         # Validate owner (alphanumeric and hyphens, no leading hyphen)
-        owner_pattern = r'^[a-zA-Z0-9][a-zA-Z0-9-]*$'
+        owner_pattern = r'^[a-zA-Z0-9][a-zA-Z0-9-]*\Z'
         if not re.match(owner_pattern, owner):
             return False
 
@@ -84,3 +84,21 @@ def validate_github_url(url: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def validate_skill_name(name: str) -> bool:
+    """
+    Validate a skill name for security and filesystem compatibility.
+
+    Rules:
+    - Alphanumeric, hyphens, underscores, and periods only.
+    - Must start with an alphanumeric character.
+    - No slashes or path traversal characters.
+    - Max length 64 characters.
+    """
+    if not name or len(name) > 64:
+        return False
+
+    # Alphanumeric start, followed by alphanumeric, ., _, or -
+    pattern = r'^[a-zA-Z0-9][a-zA-Z0-9._-]*\Z'
+    return bool(re.match(pattern, name))

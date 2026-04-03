@@ -728,6 +728,15 @@ def delete(skill_names: tuple[str, ...], dry_run: bool, push: bool, interactive:
     from rich.table import Table
     from rich import box
     
+    from .validators import validate_skill_name
+
+    # Validate skill names if provided via CLI
+    if skill_names:
+        for name in skill_names:
+            if not validate_skill_name(name):
+                console.print(f"\n[red]✗ Invalid skill name: {name}[/red]")
+                raise click.Abort()
+
     deleter = SkillsDeleter()
     
     # Get list of all available skills
