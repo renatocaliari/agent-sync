@@ -1,0 +1,4 @@
+## 2026-04-04 - Path Traversal in Skill Deletion
+**Vulnerability:** Path traversal vulnerability in `SkillsDeleter.delete_skills` allowed arbitrary directory deletion by providing skill names like `../forbidden`.
+**Learning:** Python's `pathlib.Path` joining operator `/` resets the path if the second argument is an absolute path, but even with relative paths, it allows traversing upwards. Input validation alone can be bypassed if regex anchors like `$` are used incorrectly (matching before a newline).
+**Prevention:** 1) Use strict whitelist validation for all file-system related inputs. 2) Use `\Z` instead of `$` in regex to prevent newline injection. 3) Implement "Defense in Depth" by resolving absolute paths and verifying they remain within the intended base directory using `Path.relative_to()`.
