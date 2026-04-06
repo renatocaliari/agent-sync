@@ -1,0 +1,4 @@
+## 2025-05-15 - Regex Hardening and Skill Name Validation
+**Vulnerability:** Newline injection in GitHub URL and repository name validation due to the use of `$` anchor in regex. Also, potential path traversal in skill deletion because of missing validation of skill names before path joining.
+**Learning:** In Python's `re` module, `$` matches the end of the string or the position before a trailing newline. This can be bypassed if the input ends with a newline. Using `\Z` ensures the pattern matches only at the absolute end of the string. Additionally, validating user-provided identifiers (like skill names) before using them in file operations is a critical defense-in-depth measure.
+**Prevention:** Use `\Z` instead of `$` for absolute end-of-string matching in regex validators. Implement specific validation functions (e.g., `validate_skill_name`) for all user-provided names used in filesystem operations and call them as early as possible.
