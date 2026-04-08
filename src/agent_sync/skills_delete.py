@@ -49,6 +49,8 @@ class SkillsDeleter:
         Returns:
             Dictionary with deletion statistics
         """
+        from .validators import validate_skill_name
+
         stats = {
             "deleted_from_hub": 0,
             "hub_files": 0,
@@ -58,10 +60,28 @@ class SkillsDeleter:
             "errors": 0,
         }
         
+        # Ensure global skills dir is resolved for safety checks
+        self.global_skills_dir.mkdir(parents=True, exist_ok=True)
+        resolved_hub_base = self.global_skills_dir.resolve()
+
         for skill_name in skill_names:
+            # Security check: validate skill name format
+            if not validate_skill_name(skill_name):
+                stats["errors"] += 1
+                console.print(f"[red]✗ Invalid skill name: {skill_name}[/red]")
+                continue
+
             # Delete from hub
-            hub_skill_path = self.global_skills_dir / skill_name
+            hub_skill_path = (self.global_skills_dir / skill_name).resolve()
             
+            # Security check: ensure path is still within hub directory
+            try:
+                hub_skill_path.relative_to(resolved_hub_base)
+            except ValueError:
+                stats["errors"] += 1
+                console.print(f"[red]✗ Security: Path traversal attempt detected for skill '{skill_name}'[/red]")
+                continue
+
             if not hub_skill_path.exists():
                 stats["not_found"] += 1
                 console.print(f"[yellow]⚠ Skill '{skill_name}' not found in hub[/yellow]")
@@ -94,18 +114,52 @@ class SkillsDeleter:
                 if not agent_skills_path.exists():
                     continue
                 
-                agent_skill_path = agent_skills_path / skill_name
+                resolved_agent_base = agent_skills_path.resolve()
                 
-                if agent_skill_path.exists():
-                    agent_files = self.count_skill_files(agent_skill_path)
+                # Security check: ensure path is still within agent skills directory
+                try:
+                    # Note: agent_skill_path might be a symlink to hub.
+                    # If it's a symlink, resolving it will point to the hub.
+                    # shutil.rmtree or unlink on a symlink deletes the link, not the target.
+                    # But we want to be sure we are unlinking something inside the agent skills dir.
+                    # If it's a symlink, we should NOT resolve it before relative_to check
+                    # IF we want to make sure the LINK is inside the agent dir.
+
+                    # Re-evaluate: if it's a symlink, Path(agent_skills_path / skill_name) is what we want to delete.
+                    # If we use .resolve(), we might get a path outside agent_skills_path if it's a symlink.
+
+                    target_to_check = agent_skills_path / skill_name
+                    # Check if it would escape the base directory
+                    if ".." in skill_name or skill_name.startswith("/"):
+                         # validate_skill_name already caught this, but defense in depth
+                         raise ValueError("Path traversal")
+
+                    # Use .resolve() only if it's NOT a symlink?
+                    # Actually, if it's a symlink, we want to remove the symlink itself.
+                    # The safest way to check for path traversal without resolving symlinks
+                    # to their targets is to check the absolute path but WITHOUT resolving.
+
+                    abs_target = target_to_check.absolute()
+                    abs_base = resolved_agent_base.absolute()
+                    abs_target.relative_to(abs_base)
+
+                except ValueError:
+                    stats["errors"] += 1
+                    console.print(f"[red]✗ Security: Path traversal attempt detected in agent {agent.name}[/red]")
+                    continue
+
+                if target_to_check.exists() or target_to_check.is_symlink():
+                    agent_files = self.count_skill_files(target_to_check)
                     agent_files_total += agent_files
                     
                     if not dry_run:
                         try:
-                            if agent_skill_path.is_dir():
-                                shutil.rmtree(agent_skill_path)
+                            if target_to_check.is_symlink():
+                                target_to_check.unlink()
+                            elif target_to_check.is_dir():
+                                shutil.rmtree(target_to_check)
                             else:
-                                agent_skill_path.unlink()
+                                target_to_check.unlink()
                             
                             stats["deleted_from_agents"] += 1
                             stats["agent_files"] += agent_files
