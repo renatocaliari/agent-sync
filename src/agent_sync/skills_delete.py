@@ -58,11 +58,29 @@ class SkillsDeleter:
             "errors": 0,
         }
         
+        import os
+        from .validators import validate_skill_name
+
         for skill_name in skill_names:
-            # Delete from hub
+            # Validate skill name (defense in depth)
+            if not validate_skill_name(skill_name):
+                stats["errors"] += 1
+                console.print(f"[red]✗ Invalid skill name: {skill_name}[/red]")
+                continue
+
+            # Path traversal check WITHOUT following symlinks (to allow valid symlinks)
             hub_skill_path = self.global_skills_dir / skill_name
-            
-            if not hub_skill_path.exists():
+            try:
+                # Use normpath to resolve '..' but keep symlinks as-is
+                normalized_hub_path = Path(os.path.normpath(hub_skill_path))
+                normalized_base_path = Path(os.path.normpath(self.global_skills_dir))
+                normalized_hub_path.relative_to(normalized_base_path)
+            except ValueError:
+                stats["errors"] += 1
+                console.print(f"[red]✗ Security error: Attempted path traversal for {skill_name}[/red]")
+                continue
+
+            if not hub_skill_path.exists() and not hub_skill_path.is_symlink():
                 stats["not_found"] += 1
                 console.print(f"[yellow]⚠ Skill '{skill_name}' not found in hub[/yellow]")
                 continue
@@ -94,15 +112,27 @@ class SkillsDeleter:
                 if not agent_skills_path.exists():
                     continue
                 
+                # Verify agent skill path WITHOUT following symlinks
                 agent_skill_path = agent_skills_path / skill_name
+                try:
+                    normalized_agent_path = Path(os.path.normpath(agent_skill_path))
+                    normalized_agent_base = Path(os.path.normpath(agent_skills_path))
+                    normalized_agent_path.relative_to(normalized_agent_base)
+                except ValueError:
+                    stats["errors"] += 1
+                    console.print(f"[red]✗ Security error: Attempted path traversal in {agent.name} for {skill_name}[/red]")
+                    continue
                 
-                if agent_skill_path.exists():
+                if agent_skill_path.exists() or agent_skill_path.is_symlink():
                     agent_files = self.count_skill_files(agent_skill_path)
                     agent_files_total += agent_files
                     
                     if not dry_run:
                         try:
-                            if agent_skill_path.is_dir():
+                            # Safely handle symlinks vs directories
+                            if agent_skill_path.is_symlink():
+                                agent_skill_path.unlink()
+                            elif agent_skill_path.is_dir():
                                 shutil.rmtree(agent_skill_path)
                             else:
                                 agent_skill_path.unlink()
