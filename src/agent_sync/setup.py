@@ -1,16 +1,14 @@
 """Interactive setup wizard for agent-sync."""
 
-from pathlib import Path
 from typing import Optional
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt, Confirm
 from rich.table import Table
 from rich import box
-from rich.markdown import Markdown
 
 from .config import Config
-from .agents import get_all_agents, BaseAgent
+from .agents import get_all_agents
 from .skills import SkillsManager
 from .validators import validate_repo_name
 
@@ -409,7 +407,6 @@ class SetupWizard:
             config_result = self.agent_configure_results.get(agent_name, {})
             method = config_result.get("method", "unknown")
             success = config_result.get("success", False)
-            message = config_result.get("message", "")
             
             # Status icon
             if success:
@@ -435,19 +432,19 @@ class SetupWizard:
             console.print(f"   [dim]Config:[/dim] {agent.config_path}")
             
             if method == "symlink":
-                console.print(f"   [dim]Skills:[/dim] ~/.agents/skills/ (symlink)")
+                console.print("   [dim]Skills:[/dim] ~/.agents/skills/ (symlink)")
             elif method == "config":
-                console.print(f"   [dim]Skills:[/dim] ~/.agents/skills/ (configured)")
+                console.print("   [dim]Skills:[/dim] ~/.agents/skills/ (configured)")
             elif method == "fallback":
                 console.print(f"   [dim]Skills:[/dim] {agent.skills_path} (copy)")
             else:
-                console.print(f"   [dim]Skills:[/dim] ~/.agents/skills/ (native)")
+                console.print("   [dim]Skills:[/dim] ~/.agents/skills/ (native)")
 
             console.print(f"   [dim]Sync configs:[/dim] {'Yes' if sync_configs else 'No'}")
             if success:
-                console.print(f"   [dim]Status:[/dim] [green]✅ Ready[/green]")
+                console.print("   [dim]Status:[/dim] [green]✅ Ready[/green]")
             else:
-                console.print(f"   [dim]Status:[/dim] [yellow]⚠ Needs attention[/yellow]")
+                console.print("   [dim]Status:[/dim] [yellow]⚠ Needs attention[/yellow]")
             console.print()
         
         # Next steps
