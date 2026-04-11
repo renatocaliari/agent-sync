@@ -13,6 +13,7 @@ from . import __version__
 from .sync import SyncManager
 from .config import Config, DEFAULT_STATE_DIR
 from .validators import validate_github_url, validate_repo_name
+from .security import secure_open, ensure_secure_dir
 
 console = Console()
 
@@ -71,12 +72,14 @@ def _check_and_notify():
         
         if latest > __version__:
             # Save notification so we can show it after command completes
-            UPDATE_PENDING_FILE.parent.mkdir(parents=True, exist_ok=True)
-            UPDATE_PENDING_FILE.write_text(f"{latest}|{datetime.now().isoformat()}")
+            ensure_secure_dir(UPDATE_PENDING_FILE.parent)
+            with secure_open(UPDATE_PENDING_FILE, "w") as f:
+                f.write(f"{latest}|{datetime.now().isoformat()}")
         
         # Save last check time
-        UPDATE_CHECK_FILE.parent.mkdir(parents=True, exist_ok=True)
-        UPDATE_CHECK_FILE.write_text(datetime.now().isoformat())
+        ensure_secure_dir(UPDATE_CHECK_FILE.parent)
+        with secure_open(UPDATE_CHECK_FILE, "w") as f:
+            f.write(datetime.now().isoformat())
         
     except Exception:
         pass  # Silently fail (don't annoy user)
