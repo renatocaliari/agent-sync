@@ -46,10 +46,10 @@ class SyncManager:
         self.state_file = self.STATE_FILE
 
         # Ensure directories exist BEFORE any operations
+        from .security import ensure_secure_dir
         try:
-            self.repo_dir.mkdir(parents=True, exist_ok=True)  # Create repo dir itself
-            self.repo_dir.parent.mkdir(parents=True, exist_ok=True)
-            self.state_file.parent.mkdir(parents=True, exist_ok=True)
+            ensure_secure_dir(self.repo_dir)  # Create repo dir itself
+            ensure_secure_dir(self.state_file.parent)
         except PermissionError as e:
             raise RuntimeError(
                 f"Cannot create directory {self.repo_dir}. "
@@ -122,7 +122,8 @@ class SyncManager:
             raise RuntimeError("Git is required. Install with: brew install git")
 
         # Ensure repo directory exists
-        self.repo_dir.mkdir(parents=True, exist_ok=True)
+        from .security import ensure_secure_dir
+        ensure_secure_dir(self.repo_dir)
 
         # Check if repo already exists on GitHub
         # Support both simple names and slugs
@@ -1190,7 +1191,8 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
         
         # 3. Restore global skills (skip extension skills from manifest)
         if synced_skills_dir.exists():
-            global_skills_dir.mkdir(parents=True, exist_ok=True)
+            from .security import ensure_secure_dir
+            ensure_secure_dir(global_skills_dir)
             
             # Get extension skill names from manifest to skip them
             extension_skill_names = set()
@@ -1261,9 +1263,10 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
 
     def _save_manifest(self, manifest: dict) -> None:
         """Save manifest to repo directory."""
+        from .security import secure_open
         manifest_path = self.repo_dir / MANIFEST_FILENAME
         
-        with open(manifest_path, "w") as f:
+        with secure_open(manifest_path, "w") as f:
             json.dump(manifest, f, indent=2)
 
     def _load_manifest(self) -> Optional[dict]:
@@ -1411,6 +1414,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
     def _save_state(self, action: str, repo_url: Optional[str] = None) -> None:
         """Save sync state."""
         import json
+        from .security import ensure_secure_dir, secure_open
         
         state = {
             "last_sync": datetime.now().isoformat(),
@@ -1418,7 +1422,8 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
             "repo_url": repo_url or self.config.repo_url,
         }
         
-        with open(self.state_file, "w") as f:
+        ensure_secure_dir(self.state_file.parent)
+        with secure_open(self.state_file, "w") as f:
             json.dump(state, f, indent=2)
     
     def _load_state(self) -> Optional[dict]:
