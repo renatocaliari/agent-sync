@@ -87,3 +87,71 @@ def test_skills_deleter_path_traversal_blocking(tmp_path, monkeypatch):
     stats = deleter.delete_skills([".."])
     assert stats["errors"] == 1
     assert hub_dir.exists()
+
+
+def test_file_permission_hardening(tmp_path):
+    """Verify that secure_open and ensure_secure_dir enforce restricted permissions."""
+    import os
+    from agent_sync.security import secure_open, ensure_secure_dir
+
+    # Test directory creation
+    secure_dir = tmp_path / "secure_dir"
+    ensure_secure_dir(secure_dir)
+    assert secure_dir.exists()
+    # Check permissions (should be 0o700)
+    assert (os.stat(secure_dir).st_mode & 0o777) == 0o700
+
+    # Test file creation
+    secure_file = secure_dir / "secure.yaml"
+    with secure_open(secure_file, "w") as f:
+        f.write("test: content")
+
+    assert secure_file.exists()
+    # Check permissions (should be 0o600)
+    assert (os.stat(secure_file).st_mode & 0o777) == 0o600
+
+
+def test_config_save_permissions(tmp_path):
+    """Verify that Config.save enforces restricted permissions."""
+    import os
+    from agent_sync.config import Config
+
+    config_file = tmp_path / "config.yaml"
+    overrides_file = tmp_path / "overrides.yaml"
+
+    config = Config(config_path=config_file, overrides_path=overrides_file)
+    config.save()
+    config.save_overrides()
+
+    assert config_file.exists()
+    assert overrides_file.exists()
+
+    # Check permissions
+    assert (os.stat(config_file).st_mode & 0o777) == 0o600
+    assert (os.stat(overrides_file).st_mode & 0o777) == 0o600
+    assert (os.stat(config_file.parent).st_mode & 0o777) == 0o700
+
+
+def test_sync_manager_permissions(tmp_path):
+    """Verify that SyncManager enforces restricted permissions for state files."""
+    import os
+    from agent_sync.sync import SyncManager
+    from unittest.mock import MagicMock
+
+    config = MagicMock()
+    config.repo_url = "https://github.com/owner/repo"
+
+    # Mock DATA_DIR
+    data_dir = tmp_path / "data"
+
+    class TestSyncManager(SyncManager):
+        DATA_DIR = data_dir
+        DEFAULT_REPO_DIR = data_dir / "repo"
+        STATE_FILE = data_dir / "sync-state.json"
+
+    sync_mgr = TestSyncManager(config)
+    sync_mgr._save_state("test_action")
+
+    assert sync_mgr.STATE_FILE.exists()
+    assert (os.stat(sync_mgr.STATE_FILE).st_mode & 0o777) == 0o600
+    assert (os.stat(sync_mgr.STATE_FILE.parent).st_mode & 0o777) == 0o700
