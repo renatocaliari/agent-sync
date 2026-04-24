@@ -21,9 +21,11 @@ class TestPublish:
     @patch("agent_sync.publish.shutil.copytree")
     @patch("agent_sync.publish.shutil.copy2")
     @patch("agent_sync.publish.Path.write_text")
-    @patch("agent_sync.publish.PUBLISH_CONFIG_PATH")
+    @patch("agent_sync.publish.PUBLISH_CONFIG_PATH", spec=Path)
+    @patch("agent_sync.publish.secure_open")
+    @patch("agent_sync.publish.ensure_secure_dir")
     def test_publish_skills_happy_path(
-        self, mock_publish_config_path, mock_write_text, mock_copy2, mock_copytree,
+        self, mock_ensure_secure_dir, mock_secure_open, mock_publish_config_path, mock_write_text, mock_copy2, mock_copytree,
         mock_run, mock_confirm, mock_prompt, mock_config, mock_get_skills, mock_skills
     ):
         # Setup
@@ -31,6 +33,7 @@ class TestPublish:
         mock_config_instance = mock_config.return_value
         mock_config_instance.published_skills = []
         mock_publish_config_path.exists.return_value = False
+        mock_publish_config_path.parent = MagicMock(spec=Path)
 
         # Adjust mock_skills to not trigger shutil real calls
         mock_skills[0]["path"].is_dir.return_value = False
