@@ -21,6 +21,7 @@ from rich.table import Table
 from rich import box
 from .config import Config
 from .validators import validate_github_url, validate_repo_name
+from .security import secure_open
 
 console = Console()
 
@@ -247,7 +248,8 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
 
         PUBLISH_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
         publish_config["repo_url"] = repo_url
-        PUBLISH_CONFIG_PATH.write_text(yaml.dump(publish_config))
+        with secure_open(PUBLISH_CONFIG_PATH, "w") as f:
+            f.write(yaml.dump(publish_config))
 
     # Visibility check
     repo_name = repo_url.replace("https://github.com/", "").replace(".git", "")

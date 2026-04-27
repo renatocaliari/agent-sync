@@ -21,9 +21,10 @@ class TestPublish:
     @patch("agent_sync.publish.shutil.copytree")
     @patch("agent_sync.publish.shutil.copy2")
     @patch("agent_sync.publish.Path.write_text")
+    @patch("agent_sync.publish.secure_open")
     @patch("agent_sync.publish.PUBLISH_CONFIG_PATH")
     def test_publish_skills_happy_path(
-        self, mock_publish_config_path, mock_write_text, mock_copy2, mock_copytree,
+        self, mock_publish_config_path, mock_secure_open, mock_write_text, mock_copy2, mock_copytree,
         mock_run, mock_confirm, mock_prompt, mock_config, mock_get_skills, mock_skills
     ):
         # Setup

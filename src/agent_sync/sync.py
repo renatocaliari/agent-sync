@@ -13,6 +13,7 @@ from rich.console import Console
 from .skills import MANIFEST_FILENAME
 from .validators import validate_github_url
 from .agents import BaseAgent
+from .security import secure_open, ensure_secure_dir
 
 console = Console()
 
@@ -48,8 +49,8 @@ class SyncManager:
         # Ensure directories exist BEFORE any operations
         try:
             self.repo_dir.mkdir(parents=True, exist_ok=True)  # Create repo dir itself
-            self.repo_dir.parent.mkdir(parents=True, exist_ok=True)
-            self.state_file.parent.mkdir(parents=True, exist_ok=True)
+            ensure_secure_dir(self.repo_dir.parent)
+            ensure_secure_dir(self.state_file.parent)
         except PermissionError as e:
             raise RuntimeError(
                 f"Cannot create directory {self.repo_dir}. "
@@ -1262,14 +1263,14 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
     def _save_manifest(self, manifest: dict) -> None:
         """Save manifest to repo directory."""
         manifest_path = self.repo_dir / MANIFEST_FILENAME
-        
-        with open(manifest_path, "w") as f:
+
+        with secure_open(manifest_path, "w") as f:
             json.dump(manifest, f, indent=2)
 
     def _load_manifest(self) -> Optional[dict]:
         """Load manifest from repo directory."""
         manifest_path = self.repo_dir / MANIFEST_FILENAME
-        
+
         if manifest_path.exists():
             with open(manifest_path, "r") as f:
                 return json.load(f)
@@ -1411,14 +1412,14 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
     def _save_state(self, action: str, repo_url: Optional[str] = None) -> None:
         """Save sync state."""
         import json
-        
+
         state = {
             "last_sync": datetime.now().isoformat(),
             "last_action": action,
             "repo_url": repo_url or self.config.repo_url,
         }
-        
-        with open(self.state_file, "w") as f:
+
+        with secure_open(self.state_file, "w") as f:
             json.dump(state, f, indent=2)
     
     def _load_state(self) -> Optional[dict]:
