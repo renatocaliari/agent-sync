@@ -1,18 +1,19 @@
 """Sync management for agent-sync."""
 
-import subprocess
-import shutil
-import json
 import fnmatch
-from pathlib import Path
-from typing import Optional
+import json
+import shutil
+import subprocess
 from datetime import datetime
+from pathlib import Path
+
 from platformdirs import user_data_dir
 from rich.console import Console
 
+from .agents import BaseAgent
+from .security import ensure_secure_dir, secure_open
 from .skills import MANIFEST_FILENAME
 from .validators import validate_github_url
-from .agents import BaseAgent
 
 console = Console()
 
@@ -39,7 +40,7 @@ class SyncManager:
         "package-lock.json",
         "bun.lock",
     ]
-    
+
     def __init__(self, config):
         self.config = config
         self.repo_dir = self.DEFAULT_REPO_DIR
@@ -47,9 +48,9 @@ class SyncManager:
 
         # Ensure directories exist BEFORE any operations
         try:
-            self.repo_dir.mkdir(parents=True, exist_ok=True)  # Create repo dir itself
-            self.repo_dir.parent.mkdir(parents=True, exist_ok=True)
-            self.state_file.parent.mkdir(parents=True, exist_ok=True)
+            ensure_secure_dir(self.repo_dir)  # Create repo dir itself
+            ensure_secure_dir(self.repo_dir.parent)
+            ensure_secure_dir(self.state_file.parent)
         except PermissionError as e:
             raise RuntimeError(
                 f"Cannot create directory {self.repo_dir}. "
@@ -59,21 +60,21 @@ class SyncManager:
         # Verify directory was created
         if not self.repo_dir.exists():
             raise RuntimeError(f"Failed to create directory {self.repo_dir}")
-    
-    def _run_git(self, *args, cwd: Optional[Path] = None) -> str:
+
+    def _run_git(self, *args, cwd: Path | None = None) -> str:
         """Run a git command and return output.
-        
+
         Creates a copy of environment without GITHUB_TOKEN to avoid conflicts
         with gh CLI keyring auth.
         """
         import os
         import subprocess
-        
+
         # Create a copy of environment without GITHUB_TOKEN
         # This prevents git from using the invalid token
         env = os.environ.copy()
         env.pop("GITHUB_TOKEN", None)
-        
+
         cmd = ["git"] + list(args)
         result = subprocess.run(
             cmd,
@@ -83,20 +84,20 @@ class SyncManager:
             check=False,
             env=env,  # Use modified environment
         )
-        
+
         if result.returncode != 0:
             raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
-        
+
         return result.stdout.strip()
-    
+
     def _check_git_installed(self) -> bool:
         """Check if git is installed."""
         return shutil.which("git") is not None
-    
+
     def _check_gh_installed(self) -> bool:
         """Check if GitHub CLI is installed."""
         return shutil.which("gh") is not None
-    
+
     def init_repo(self, name: str, private: bool = True, agents: tuple[str, ...] = ()) -> str:
         """
         Initialize a new sync repository or link to existing one.
@@ -110,6 +111,7 @@ class SyncManager:
             Repository URL
         """
         import json
+
         from rich.console import Console
         from rich.prompt import Confirm
 
@@ -227,11 +229,11 @@ class SyncManager:
         self._save_state("initialized", repo_url)
 
         return repo_url
-    
+
     def link_repo(self, repo_url: str) -> None:
         """
         Link to an existing sync repository.
-        
+
         Args:
             repo_url: GitHub repository URL
         """
@@ -240,21 +242,21 @@ class SyncManager:
 
         if not self._check_git_installed():
             raise RuntimeError("Git is required")
-        
+
         # Clone repository
         if self.repo_dir.exists():
             shutil.rmtree(self.repo_dir)
-        
+
         subprocess.run(
             ["git", "clone", repo_url, str(self.repo_dir)],
             check=True,
         )
-        
+
         # Update config
         self.config.repo_url = repo_url
-        
+
         self._save_state("linked", repo_url)
-    
+
     def pull(self, force: bool = False, skills_only: bool = False, configs_only: bool = False, agents_only: bool = False) -> list[str]:
         """
         Fetch and apply remote configuration.
@@ -278,7 +280,7 @@ class SyncManager:
             if not self.config.repo_url:
                 raise RuntimeError("Not linked to a repository. Run 'agent-sync link <url>' or 'agent-sync config repo <url>' first")
 
-            console.print(f"\n[bold]📥 Cloning repository...[/]\n")
+            console.print("\n[bold]📥 Cloning repository...[/]\n")
             self.link_repo(self.config.repo_url)
 
         # Check for local changes
@@ -318,7 +320,7 @@ class SyncManager:
         self._save_state("pulled", self.config.repo_url)
 
         return changes
-    
+
     def push(self, message: str = "chore: sync config updates", skills_only: bool = False, configs_only: bool = False, agents_only: bool = False) -> list[str]:
         """
         Commit and push local changes.
@@ -367,7 +369,7 @@ class SyncManager:
         # Commit and push
         self._run_git("add", ".")
         self._run_git("commit", "-m", message)
-        
+
         try:
             self._run_git("push", "origin", "main")
         except subprocess.CalledProcessError as e:
@@ -385,7 +387,7 @@ class SyncManager:
         self._save_state("pushed", self.config.repo_url)
 
         return changed_files
-    
+
     def get_status(self) -> dict:
         """
         Get sync status for all agents.
@@ -448,7 +450,7 @@ class SyncManager:
             status[agent.name] = agent_status
 
         return status
-    
+
     def _create_repo_structure(self, agents: tuple[str, ...] = ()) -> None:
         """Create initial repository structure."""
         # Create directories
@@ -511,7 +513,7 @@ agent-sync push
 All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
 """
         (self.repo_dir / "README.md").write_text(readme)
-        
+
         # Create agent-specific directories
         from .agents import get_all_agents
 
@@ -519,10 +521,10 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
 
         for agent_name in target_agents:
             (self.repo_dir / "configs" / agent_name).mkdir(parents=True, exist_ok=True)
-        
+
         # Create skills directory (always)
         (self.repo_dir / "skills").mkdir(parents=True, exist_ok=True)
-    
+
     def _stage_agent_configs(self) -> None:
         """Stage agent configurations for commit."""
         from .agents import get_all_agents
@@ -587,13 +589,13 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
     def _stage_agents(self) -> None:
         """
         Stage custom agents for commit.
-        
+
         Structure in repo:
         - agents/<agent-name>/project/ - Project-level agents (.claude/agents/, .opencode/agents/)
         - agents/<agent-name>/global/ - Global agents (~/.claude/agents/, ~/.config/opencode/agents/)
         """
         from .agents import get_all_agents
-        
+
         repo_agents_dir = self.repo_dir / "agents"
 
         # Ensure repo agents directory exists
@@ -612,17 +614,17 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
             is_available = agent.is_available()
             has_agents_dir = (agent.agents_path and agent.agents_path.exists()) or \
                             (agent.agents_path_global and agent.agents_path_global.exists())
-            
+
             if not is_available and not has_agents_dir and agent.name != "global-skills":
                 continue
 
             agent_repo_dir = repo_agents_dir / agent.name
-            
+
             # 1. Stage project-level agents (.claude/agents/, .opencode/agents/)
             if agent.agents_path and agent.agents_path.exists():
                 project_agents_dir = agent_repo_dir / "project"
                 project_agents_dir.mkdir(parents=True, exist_ok=True)
-                
+
                 # Remove agents from repo that no longer exist locally
                 if project_agents_dir.exists():
                     for repo_agent_file in project_agents_dir.rglob("*.md"):
@@ -633,25 +635,25 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                     for dirpath in sorted(project_agents_dir.rglob("*"), reverse=True):
                         if dirpath.is_dir() and not any(dirpath.iterdir()):
                             dirpath.rmdir()
-                
+
                 # Copy current project agents to repo
                 for agent_file in agent.agents_path.rglob("*.md"):
                     if agent_file.is_file():
                         # Skip excluded files
                         if self._should_exclude(agent_file.name):
                             continue
-                        
+
                         # Create relative path structure
                         rel_path = agent_file.relative_to(agent.agents_path)
                         dest = project_agents_dir / rel_path
                         dest.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(agent_file, dest)
-            
+
             # 2. Stage global agents (~/.claude/agents/, ~/.config/opencode/agents/)
             if agent.agents_path_global and agent.agents_path_global.exists():
                 global_agents_dir = agent_repo_dir / "global"
                 global_agents_dir.mkdir(parents=True, exist_ok=True)
-                
+
                 # Remove agents from repo that no longer exist locally
                 if global_agents_dir.exists():
                     for repo_agent_file in global_agents_dir.rglob("*.md"):
@@ -662,14 +664,14 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                     for dirpath in sorted(global_agents_dir.rglob("*"), reverse=True):
                         if dirpath.is_dir() and not any(dirpath.iterdir()):
                             dirpath.rmdir()
-                
+
                 # Copy current global agents to repo
                 for agent_file in agent.agents_path_global.rglob("*.md"):
                     if agent_file.is_file():
                         # Skip excluded files
                         if self._should_exclude(agent_file.name):
                             continue
-                        
+
                         # Create relative path structure
                         rel_path = agent_file.relative_to(agent.agents_path_global)
                         dest = global_agents_dir / rel_path
@@ -679,42 +681,43 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
     def _stage_skills(self) -> None:
         """
         Stage skills for commit, including extension skills.
-        
+
         Structure in repo:
         - skills/_global/ or skills/<skill-name>/ - Global skills from ~/.agents/skills/
         - skills/<agent>-<extension>/ - Extension skills
         """
         from pathlib import Path
+
         from .skills import SkillsManager
-        
+
         global_skills_dir = Path.home() / ".agents" / "skills"
         repo_skills_dir = self.repo_dir / "skills"
-        
+
         # Ensure repo skills directory exists
         repo_skills_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Scan for extension skills
         skills_manager = SkillsManager()
         skills_manager.scan_all_agents()
-        
+
         # 1. Remove skills from repo that no longer exist locally
         if repo_skills_dir.exists():
             for repo_skill in repo_skills_dir.iterdir():
                 if repo_skill.name.startswith("."):
                     continue
-                
+
                 # Check if it's a global skill
                 is_global = (global_skills_dir / repo_skill.name).exists()
-                
+
                 # Check if it's an extension skill
                 is_extension = repo_skill.name in skills_manager.extension_skills
-                
+
                 if not is_global and not is_extension:
                     if repo_skill.is_dir():
                         shutil.rmtree(repo_skill)
                     else:
                         repo_skill.unlink()
-        
+
         # 2. Copy global skills to repo (under _global/ subdirectory for clarity)
         # Or keep flat structure and use manifest to differentiate
         # Using flat structure with manifest tracking
@@ -722,56 +725,56 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
             for skill_item in global_skills_dir.iterdir():
                 if skill_item.name.startswith("."):
                     continue
-                
+
                 dest = repo_skills_dir / skill_item.name
-                
+
                 if skill_item.is_dir():
                     if dest.exists():
                         shutil.rmtree(dest)
                     shutil.copytree(skill_item, dest)
                 else:
                     shutil.copy2(skill_item, dest)
-        
+
         # 3. Copy extension skills to repo
         for ext_name, ext_info in skills_manager.extension_skills.items():
             source_dir = Path(ext_info["skills_dir"])
             dest_dir = repo_skills_dir / ext_name
-            
+
             if not source_dir.exists():
                 continue
-            
+
             # Remove existing dest if present
             if dest_dir.exists():
                 shutil.rmtree(dest_dir)
-            
+
             # Copy extension skills
             dest_dir.mkdir(parents=True, exist_ok=True)
-            
+
             for skill_item in source_dir.iterdir():
                 if skill_item.name.startswith(".") or skill_item.is_symlink():
                     continue
-                
+
                 if skill_item.is_dir():
                     shutil.copytree(skill_item, dest_dir / skill_item.name)
                 else:
                     shutil.copy2(skill_item, dest_dir / skill_item.name)
-        
+
         # 4. Stage symlinks for backup
         self._stage_symlinks_for_backup()
-        
+
         # 5. Create and save manifest
         manifest = self._create_manifest()
         self._save_manifest(manifest)
 
-    def _should_exclude(self, filename: str, exclude_patterns: Optional[list[str]] = None) -> bool:
+    def _should_exclude(self, filename: str, exclude_patterns: list[str] | None = None) -> bool:
         """Check if a file should be excluded from sync.
-        
+
         Args:
             filename: Name or relative path of the file
             exclude_patterns: Optional list of glob patterns to exclude
         """
         import fnmatch
-        
+
         # Check custom exclude patterns first
         if exclude_patterns:
             for pattern in exclude_patterns:
@@ -780,7 +783,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                 # Also check just the filename against pattern
                 if fnmatch.fnmatch(Path(filename).name, pattern):
                     return True
-        
+
         # Check default exclude patterns
         for pattern in self.EXCLUDE_PATTERNS:
             if fnmatch.fnmatch(filename, pattern):
@@ -792,38 +795,38 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
         self,
         src: Path,
         dest: Path,
-        exclude: Optional[list[str]] = None,
+        exclude: list[str] | None = None,
         preserve_symlinks: bool = True,
         preserve_permissions: bool = True,
     ) -> int:
         """
         Copy entire directory preserving symlinks and permissions.
-        
+
         Args:
             src: Source directory
             dest: Destination directory
             exclude: List of glob patterns to exclude
             preserve_symlinks: If True, copy symlinks as symlinks (default: True)
             preserve_permissions: If True, preserve file permissions (default: True)
-            
+
         Returns:
             Number of files copied
         """
         if not src.exists():
             return 0
-        
+
         dest.mkdir(parents=True, exist_ok=True)
         copied = 0
-        
+
         for item in src.rglob("*"):
             # Get relative path from source
             rel_path = item.relative_to(src)
             dest_item = dest / rel_path
-            
+
             # Check exclusions
             if self._should_exclude(str(rel_path), exclude):
                 continue
-            
+
             # Skip if excluded by pattern
             if exclude:
                 skip = False
@@ -833,7 +836,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                         break
                 if skip:
                     continue
-            
+
             if item.is_symlink():
                 if preserve_symlinks:
                     # Copy symlink
@@ -850,7 +853,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                 dest_item.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(item, dest_item)  # copy2 preserves metadata
                 copied += 1
-        
+
         return copied
 
     def _copy_path_pattern(
@@ -858,27 +861,27 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
         src: Path,
         dest: Path,
         pattern: str,
-        exclude: Optional[list[str]] = None,
+        exclude: list[str] | None = None,
         preserve_symlinks: bool = True,
     ) -> int:
         """
         Copy files matching a glob pattern.
-        
+
         Args:
             src: Source directory (agent config dir)
             dest: Destination directory (repo configs/agent/)
             pattern: Glob pattern (e.g., "plugins/", "**/*.js", "commands/*")
             exclude: List of patterns to exclude
             preserve_symlinks: If True, preserve symlinks
-            
+
         Returns:
             Number of files copied
         """
         if not src.exists():
             return 0
-        
+
         copied = 0
-        
+
         # Handle different pattern types
         if pattern.endswith("/"):
             # Directory pattern - copy entire directory
@@ -893,17 +896,17 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
             # Extract the file pattern from "**/*.ext" or "**/dir/*"
             # For "**/*.js", we want to match all .js files recursively
             file_pattern = pattern.replace("**/", "*").replace("**", "*")
-            
+
             for item in src.rglob("*"):
                 # Match against relative path
                 rel_path_str = str(item.relative_to(src))
-                
+
                 # Check if matches pattern
                 matches = fnmatch.fnmatch(rel_path_str, pattern) or fnmatch.fnmatch(item.name, file_pattern)
-                
+
                 if not matches:
                     continue
-                
+
                 if item.is_symlink() and preserve_symlinks:
                     rel_path = item.relative_to(src)
                     dest_item = dest / rel_path
@@ -945,16 +948,16 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                     copied += self._copy_directory(
                         item, dest_dir, exclude, preserve_symlinks
                     )
-        
+
         return copied
 
     def _stage_all_agent_files(self) -> None:
         """Stage all agent files for backup.
-        
+
         Iterates over all enabled agents and calls _stage_agent_files() for each.
         """
         from .agents import get_all_agents
-        
+
         for agent in get_all_agents():
             if self.config.is_agent_enabled(agent.name):
                 self._stage_agent_files(agent)
@@ -962,41 +965,40 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
     def _stage_agent_files(self, agent: BaseAgent) -> None:
         """
         Stage agent files for backup based on sync configuration.
-        
+
         Supports three modes:
         1. configs only (default) - Only config files
         2. all_files: true - Entire agent directory
         3. paths: [...] - Specific paths/patterns
-        
+
         Args:
             agent: Agent object with config directory
         """
-        from .agents import get_all_agents
-        
+
         # Skip if agent sync is disabled
         if not self.config.is_agent_enabled(agent.name):
             return
-        
+
         if not agent.is_available() and agent.name != "global-skills":
             return
-        
+
         # Get sync configuration
         sync_options = self.config.get_sync_options(agent.name)
         sync_configs = sync_options.get("configs", True)
         all_files = sync_options.get("all_files", False)
         paths = sync_options.get("paths")
         exclude = sync_options.get("exclude", [])
-        
+
         agent_config_dir = Path(agent.config_dir).expanduser()
         repo_agent_dir = self.repo_dir / "configs" / agent.name
-        
+
         if not agent_config_dir.exists():
             return
-        
+
         # Always copy configs if enabled
         if sync_configs:
             self._stage_agent_configs()
-        
+
         # Copy all files (entire directory)
         if all_files:
             console.print(f"  [dim]Backing up all files: {agent.name}[/dim]")
@@ -1008,7 +1010,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                 preserve_permissions=True,
             )
             return
-        
+
         # Copy specific paths
         if paths:
             console.print(f"  [dim]Backing up paths: {agent.name} - {len(paths)} patterns[/dim]")
@@ -1020,7 +1022,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                     exclude=exclude,
                     preserve_symlinks=True,
                 )
-    
+
     def _apply_synced_configs(self) -> list[str]:
         """Apply synced configurations to local agent directories."""
         from .agents import get_all_agents
@@ -1031,7 +1033,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
             # Skip if agent sync is disabled
             if not self.config.is_agent_enabled(agent.name):
                 continue
-            
+
             synced_config_dir = self.repo_dir / "configs" / agent.name
 
             # Get sync options for this agent
@@ -1046,7 +1048,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                         if not dest.exists() or dest.read_text() != config_file.read_text():
                             shutil.copy2(config_file, dest)
                             changes.append(f"{agent.name}: {config_file.name}")
-            
+
             # Apply Pi.dev extensions if agent is pi.dev
             if agent.name == "pi.dev":
                 synced_ext_dir = synced_config_dir / "extensions"
@@ -1054,7 +1056,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                     # Apply to both extension paths
                     for ext_path in agent.extensions_paths:
                         ext_path.mkdir(parents=True, exist_ok=True)
-                        
+
                         for ext_item in synced_ext_dir.iterdir():
                             dest = ext_path / ext_item.name
                             if not dest.exists() or (ext_item.is_file() and dest.read_text() != ext_item.read_text()):
@@ -1063,7 +1065,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                                 else:
                                     shutil.copy2(ext_item, dest)
                                 changes.append(f"{agent.name}/extensions: {ext_item.name}")
-            
+
             # Apply Pi.dev prompts if agent is pi.dev
             if agent.name == "pi.dev":
                 synced_prompts_dir = synced_config_dir / "prompts"
@@ -1071,7 +1073,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                     # Apply to both prompts paths
                     for prompts_path in agent.prompts_paths:
                         prompts_path.mkdir(parents=True, exist_ok=True)
-                        
+
                         for prompt_item in synced_prompts_dir.iterdir():
                             dest = prompts_path / prompt_item.name
                             if not dest.exists() or (prompt_item.is_file() and dest.read_text() != prompt_item.read_text()):
@@ -1080,7 +1082,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                                 else:
                                     shutil.copy2(prompt_item, dest)
                                 changes.append(f"{agent.name}/prompts: {prompt_item.name}")
-            
+
             # Apply Pi.dev themes if agent is pi.dev
             if agent.name == "pi.dev":
                 synced_themes_dir = synced_config_dir / "themes"
@@ -1103,82 +1105,82 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
     def _apply_synced_agents(self) -> list[str]:
         """
         Apply synced custom agents to local directories.
-        
+
         Restores:
         1. Project-level agents (.claude/agents/, .opencode/agents/)
         2. Global agents (~/.claude/agents/, ~/.config/opencode/agents/)
         """
         from .agents import get_all_agents
-        
+
         changes = []
-        
+
         for agent in get_all_agents():
             # Skip if agent sync is disabled
             if not self.config.is_agent_enabled(agent.name):
                 continue
-            
+
             # Skip if agent doesn't support custom agents
             if not agent.supports_custom_agents():
                 continue
-            
+
             repo_agents_dir = self.repo_dir / "agents" / agent.name
-            
+
             # 1. Apply project-level agents
             project_agents_src = repo_agents_dir / "project"
             if project_agents_src.exists() and agent.agents_path:
                 agent.agents_path.mkdir(parents=True, exist_ok=True)
-                
+
                 for agent_file in project_agents_src.rglob("*.md"):
                     if agent_file.is_file():
                         rel_path = agent_file.relative_to(project_agents_src)
                         dest = agent.agents_path / rel_path
                         dest.parent.mkdir(parents=True, exist_ok=True)
-                        
+
                         if not dest.exists() or dest.read_text() != agent_file.read_text():
                             shutil.copy2(agent_file, dest)
                             changes.append(f"{agent.name}/project: {rel_path}")
-            
+
             # 2. Apply global agents
             global_agents_src = repo_agents_dir / "global"
             if global_agents_src.exists() and agent.agents_path_global:
                 agent.agents_path_global.mkdir(parents=True, exist_ok=True)
-                
+
                 for agent_file in global_agents_src.rglob("*.md"):
                     if agent_file.is_file():
                         rel_path = agent_file.relative_to(global_agents_src)
                         dest = agent.agents_path_global / rel_path
                         dest.parent.mkdir(parents=True, exist_ok=True)
-                        
+
                         if not dest.exists() or dest.read_text() != agent_file.read_text():
                             shutil.copy2(agent_file, dest)
                             changes.append(f"{agent.name}/global: {rel_path}")
-        
+
         return changes
 
     def _apply_synced_skills(self) -> list[str]:
         """
         Apply synced skills to local directories.
-        
+
         Uses manifest to:
         1. Restore extension skills to their original locations
         2. Restore symlinks
         3. Restore global skills to ~/.agents/skills/
         """
         from pathlib import Path
-        
+
         changes = []
         synced_skills_dir = self.repo_dir / "skills"
         global_skills_dir = Path.home() / ".agents" / "skills"
-        
+
         # Load manifest to get extension info
         manifest = self._load_manifest()
-        
+
         # 1. Restore extension skills first (if manifest exists)
         if manifest and manifest.get("extensions"):
             console.print("[bold]📦 Restoring extension skills...[/]\n")
             self._restore_extension_skills(manifest)
             console.print()
-        
+
         # 2. Restore symlinks (if manifest exists)
         if manifest:
             console.print("[bold]🔗 Restoring symlinks...[/]\n")
@@ -1187,25 +1189,25 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                 console.print(f"  [green]✓ Restored {symlinks_restored} symlinks[/green]\n")
             else:
                 console.print("  [dim]No symlinks to restore[/dim]\n")
-        
+
         # 3. Restore global skills (skip extension skills from manifest)
         if synced_skills_dir.exists():
             global_skills_dir.mkdir(parents=True, exist_ok=True)
-            
+
             # Get extension skill names from manifest to skip them
             extension_skill_names = set()
             if manifest:
                 for ext_name in manifest.get("extensions", {}).keys():
                     extension_skill_names.add(ext_name)
-            
+
             for skill_item in synced_skills_dir.glob("*"):
                 if skill_item.name.startswith("."):
                     continue
-                
+
                 # Skip extension skills (they were restored above)
                 if skill_item.name in extension_skill_names:
                     continue
-                
+
                 dest = global_skills_dir / skill_item.name
                 if not dest.exists() or (skill_item.is_file() and dest.read_text() != skill_item.read_text()):
                     if skill_item.is_dir():
@@ -1213,30 +1215,30 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                     else:
                         shutil.copy2(skill_item, dest)
                     changes.append(f"global-skills: {skill_item.name}")
-        
+
         return changes
 
     def _create_manifest(self) -> dict:
         """
         Create manifest for extension skills and symlinks.
-        
+
         Returns:
             Manifest dict with extensions and global_skills info
         """
         from .skills import SkillsManager
-        
+
         skills_manager = SkillsManager()
-        
+
         # Scan for extension skills
         skills_manager.scan_all_agents()
-        
+
         manifest = {
             "version": 1,
             "created_at": datetime.now().isoformat(),
             "extensions": {},
             "global_skills": [],
         }
-        
+
         # Add extension info to manifest
         for ext_name, ext_info in skills_manager.extension_skills.items():
             manifest["extensions"][ext_name] = {
@@ -1244,11 +1246,11 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                 "extension_dir": ext_info["extension"],
                 "skills_dir": ext_info["skills_dir"],
             }
-            
+
             # Add symlink info if exists
             if ext_info.get("symlink"):
                 manifest["extensions"][ext_name]["symlink"] = ext_info["symlink"]
-        
+
         # List global skills
         global_skills_dir = Path.home() / ".agents" / "skills"
         if global_skills_dir.exists():
@@ -1256,146 +1258,146 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                 if skill_item.name.startswith("."):
                     continue
                 manifest["global_skills"].append(skill_item.name)
-        
+
         return manifest
 
     def _save_manifest(self, manifest: dict) -> None:
         """Save manifest to repo directory."""
         manifest_path = self.repo_dir / MANIFEST_FILENAME
-        
-        with open(manifest_path, "w") as f:
+
+        with secure_open(manifest_path, "w") as f:
             json.dump(manifest, f, indent=2)
 
-    def _load_manifest(self) -> Optional[dict]:
+    def _load_manifest(self) -> dict | None:
         """Load manifest from repo directory."""
         manifest_path = self.repo_dir / MANIFEST_FILENAME
-        
+
         if manifest_path.exists():
-            with open(manifest_path, "r") as f:
+            with open(manifest_path) as f:
                 return json.load(f)
-        
+
         return None
 
     def _stage_symlinks_for_backup(self) -> None:
         """
         Stage symlinks from agent skill directories for backup.
-        
+
         Extension symlinks are preserved in configs/<agent>/skills/
         """
         from .agents import get_all_agents
         from .skills import SkillsManager
-        
+
         skills_manager = SkillsManager()
-        
+
         for agent in get_all_agents():
             if not agent.skills_path.exists():
                 continue
-            
+
             # Create backup directory for symlinks
             backup_dir = self.repo_dir / "configs" / agent.name / "skills"
             backup_dir.mkdir(parents=True, exist_ok=True)
-            
+
             for item in agent.skills_path.iterdir():
                 if item.is_symlink():
                     # Check if this is an extension symlink
                     if skills_manager._is_extension_symlink(item, agent):
                         # Backup the symlink itself
                         symlink_backup = backup_dir / item.name
-                        
+
                         # Remove existing backup if present
                         if symlink_backup.exists() or symlink_backup.is_symlink():
                             symlink_backup.unlink()
-                        
+
                         # Recreate symlink with same target
                         symlink_backup.symlink_to(item.readlink())
 
     def _restore_symlinks_from_backup(self) -> int:
         """
         Restore symlinks from backup to agent skill directories.
-        
+
         Returns:
             Number of symlinks restored
         """
         from .agents import get_all_agents
-        
+
         restored = 0
-        
+
         for agent in get_all_agents():
             backup_dir = self.repo_dir / "configs" / agent.name / "skills"
-            
+
             if not backup_dir.exists():
                 continue
-            
+
             # Ensure agent skills directory exists
             agent.skills_path.mkdir(parents=True, exist_ok=True)
-            
+
             for item in backup_dir.iterdir():
                 if item.is_symlink():
                     # Restore symlink to agent skills directory
                     symlink_path = agent.skills_path / item.name
-                    
+
                     # Remove existing if present
                     if symlink_path.exists() or symlink_path.is_symlink():
                         symlink_path.unlink()
-                    
+
                     # Recreate symlink with same target
                     symlink_path.symlink_to(item.readlink())
                     restored += 1
-        
+
         return restored
 
     def _restore_extension_skills(self, manifest: dict) -> int:
         """
         Restore extension skills from repo to their original locations.
-        
+
         Args:
             manifest: Loaded manifest dict
-            
+
         Returns:
             Number of extensions restored
         """
         restored = 0
-        
+
         for ext_name, ext_info in manifest.get("extensions", {}).items():
             agent_name = ext_info.get("agent")
             extension_dir = ext_info.get("extension_dir")
-            
+
             # Get agent config
             from .agents import get_agent
             agent = get_agent(agent_name)
-            
+
             if not agent:
                 console.print(f"[yellow]Warning: Agent {agent_name} not found, skipping extension {ext_name}[/yellow]")
                 continue
-            
+
             # Source in repo
             source_dir = self.repo_dir / "skills" / ext_name
-            
+
             if not source_dir.exists():
                 console.print(f"[yellow]Warning: Extension skills not found in repo: {ext_name}[/yellow]")
                 continue
-            
+
             # Destination: ~/.config/opencode/superpowers/skills/
             config_dir = Path(agent.config_dir).expanduser()
             dest_dir = config_dir / extension_dir / "skills"
-            
+
             # Create destination and copy skills
             dest_dir.mkdir(parents=True, exist_ok=True)
-            
+
             for skill_item in source_dir.iterdir():
                 if skill_item.name.startswith("."):
                     continue
-                
+
                 dest_skill = dest_dir / skill_item.name
-                
+
                 if skill_item.is_dir():
                     shutil.copytree(skill_item, dest_skill, dirs_exist_ok=True)
                 else:
                     shutil.copy2(skill_item, dest_skill)
-            
+
             restored += 1
             console.print(f"  [green]✓ Restored extension: {agent_name}-{extension_dir}[/green]")
-        
+
         return restored
 
     def _get_github_user(self) -> str:
@@ -1407,26 +1409,26 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
             check=True,
         )
         return result.stdout.strip()
-    
-    def _save_state(self, action: str, repo_url: Optional[str] = None) -> None:
+
+    def _save_state(self, action: str, repo_url: str | None = None) -> None:
         """Save sync state."""
         import json
-        
+
         state = {
             "last_sync": datetime.now().isoformat(),
             "last_action": action,
             "repo_url": repo_url or self.config.repo_url,
         }
-        
-        with open(self.state_file, "w") as f:
+
+        with secure_open(self.state_file, "w") as f:
             json.dump(state, f, indent=2)
-    
-    def _load_state(self) -> Optional[dict]:
+
+    def _load_state(self) -> dict | None:
         """Load sync state."""
         import json
-        
+
         if self.state_file.exists():
             with open(self.state_file) as f:
                 return json.load(f)
-        
+
         return None
