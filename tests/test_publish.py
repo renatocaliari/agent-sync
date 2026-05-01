@@ -13,6 +13,8 @@ class TestPublish:
         # Use existing paths or mock Path objects to avoid FileNotFoundError in shutil
         return [{"name": "skill1", "path": MagicMock(spec=Path)}]
 
+    @patch("agent_sync.publish.ensure_secure_dir")
+    @patch("agent_sync.publish.secure_open")
     @patch("agent_sync.publish.get_available_skills")
     @patch("agent_sync.publish.Config")
     @patch("agent_sync.publish.Prompt.ask")
@@ -20,11 +22,11 @@ class TestPublish:
     @patch("agent_sync.publish.subprocess.run")
     @patch("agent_sync.publish.shutil.copytree")
     @patch("agent_sync.publish.shutil.copy2")
-    @patch("agent_sync.publish.Path.write_text")
     @patch("agent_sync.publish.PUBLISH_CONFIG_PATH")
     def test_publish_skills_happy_path(
-        self, mock_publish_config_path, mock_write_text, mock_copy2, mock_copytree,
-        mock_run, mock_confirm, mock_prompt, mock_config, mock_get_skills, mock_skills
+        self, mock_publish_config_path, mock_copy2, mock_copytree,
+        mock_run, mock_confirm, mock_prompt, mock_config, mock_get_skills,
+        mock_secure_open, mock_ensure_secure_dir, mock_skills
     ):
         # Setup
         mock_get_skills.return_value = mock_skills
@@ -66,15 +68,17 @@ class TestPublish:
             cwd=ANY, capture_output=True, check=True
         )
 
+    @patch("agent_sync.publish.ensure_secure_dir")
+    @patch("agent_sync.publish.secure_open")
     @patch("agent_sync.publish.get_available_skills")
     @patch("agent_sync.publish.Config")
     @patch("agent_sync.publish.Confirm.ask")
     @patch("agent_sync.publish.subprocess.run")
     @patch("agent_sync.publish.shutil.copytree")
     @patch("agent_sync.publish.shutil.copy2")
-    @patch("agent_sync.publish.Path.write_text")
     def test_publish_skills_git_push_failure(
-        self, mock_write_text, mock_copy2, mock_copytree, mock_run, mock_confirm, mock_config, mock_get_skills, mock_skills
+        self, mock_copy2, mock_copytree, mock_run, mock_confirm, mock_config,
+        mock_get_skills, mock_secure_open, mock_ensure_secure_dir, mock_skills
     ):
         # Setup
         mock_get_skills.return_value = mock_skills
@@ -106,15 +110,17 @@ class TestPublish:
             cwd=ANY, capture_output=True, check=True
         )
 
+    @patch("agent_sync.publish.ensure_secure_dir")
+    @patch("agent_sync.publish.secure_open")
     @patch("agent_sync.publish.get_available_skills")
     @patch("agent_sync.publish.Config")
     @patch("agent_sync.publish.Confirm.ask")
     @patch("agent_sync.publish.subprocess.run")
     @patch("agent_sync.publish.shutil.copytree")
     @patch("agent_sync.publish.shutil.copy2")
-    @patch("agent_sync.publish.Path.write_text")
     def test_publish_skills_git_init_failure(
-        self, mock_write_text, mock_copy2, mock_copytree, mock_run, mock_confirm, mock_config, mock_get_skills, mock_skills
+        self, mock_copy2, mock_copytree, mock_run, mock_confirm, mock_config,
+        mock_get_skills, mock_secure_open, mock_ensure_secure_dir, mock_skills
     ):
         # Setup
         mock_get_skills.return_value = mock_skills
