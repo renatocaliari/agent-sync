@@ -5,6 +5,8 @@ import shutil
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
+from ..security import secure_open, ensure_secure_dir
+
 
 # Global skills directory (shared across all agents)
 GLOBAL_SKILLS_DIR = Path.home() / ".agents" / "skills"
@@ -93,8 +95,8 @@ class BaseAgent:
         if not self.config_path:
             return
             
-        self.config_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.config_path, "w") as f:
+        ensure_secure_dir(self.config_path.parent)
+        with secure_open(self.config_path, "w") as f:
             json.dump(config, f, indent=2)
 
     def enable(self) -> None:
