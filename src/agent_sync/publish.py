@@ -20,6 +20,7 @@ from rich.prompt import Prompt, Confirm
 from rich.table import Table
 from rich import box
 from .config import Config
+from .security import secure_open, ensure_secure_dir
 from .validators import validate_github_url, validate_repo_name
 
 console = Console()
@@ -224,7 +225,8 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
     publish_config = {}
     if PUBLISH_CONFIG_PATH.exists():
         try:
-            publish_config = yaml.safe_load(PUBLISH_CONFIG_PATH.read_text()) or {}
+            with secure_open(PUBLISH_CONFIG_PATH, "r") as f:
+                publish_config = yaml.safe_load(f) or {}
         except Exception: pass
 
     repo_url = repo_url or publish_config.get("repo_url")
@@ -245,9 +247,10 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
             console.print("\n[red]✗ Invalid repository URL[/red]\n")
             return False
 
-        PUBLISH_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        ensure_secure_dir(PUBLISH_CONFIG_PATH.parent)
         publish_config["repo_url"] = repo_url
-        PUBLISH_CONFIG_PATH.write_text(yaml.dump(publish_config))
+        with secure_open(PUBLISH_CONFIG_PATH, "w") as f:
+            yaml.dump(publish_config, f)
 
     # Visibility check
     repo_name = repo_url.replace("https://github.com/", "").replace(".git", "")
