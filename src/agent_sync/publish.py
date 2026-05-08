@@ -281,6 +281,8 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
         
         for skill in selected_skills:
             src, dst = skill["path"], skills_tmp_dir / skill["name"]
+            if src.is_symlink():
+                continue
             if src.is_dir(): shutil.copytree(src, dst)
             else: shutil.copy2(src, dst)
         

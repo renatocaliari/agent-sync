@@ -2,6 +2,7 @@
 
 import pytest
 from pathlib import Path
+from unittest.mock import MagicMock
 from agent_sync.validators import validate_skill_name, validate_repo_name, validate_github_url
 from agent_sync.skills_delete import SkillsDeleter
 
@@ -87,3 +88,111 @@ def test_skills_deleter_path_traversal_blocking(tmp_path, monkeypatch):
     stats = deleter.delete_skills([".."])
     assert stats["errors"] == 1
     assert hub_dir.exists()
+
+
+def test_sync_stage_skills_symlink_blocking(tmp_path, monkeypatch):
+    """Verify that SyncManager skips symlinks in global skills during staging."""
+    import shutil
+    import os
+    from agent_sync.sync import SyncManager
+
+    # Setup
+    global_skills_dir = tmp_path / "global_skills"
+    global_skills_dir.mkdir()
+
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+    (repo_dir / "skills").mkdir()
+
+    secrets_dir = tmp_path / "secrets"
+    secrets_dir.mkdir()
+    (secrets_dir / "confidential.txt").write_text("SENSITIVE DATA")
+
+    # Create symlink in global_skills pointing to secrets
+    os.symlink(secrets_dir, global_skills_dir / "malicious_skill")
+    (global_skills_dir / "valid_skill").mkdir()
+    (global_skills_dir / "valid_skill" / "SKILL.md").write_text("valid")
+
+    class MockConfig:
+        def __init__(self):
+            self.repo_url = "https://github.com/user/repo"
+            self.agents = []
+            self.published_skills = []
+        def is_agent_enabled(self, name): return False
+        def get_agent_config(self, name): return {}
+
+    # Mock Path.home() to return our tmp_path
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+    # The actual path used in sync.py is Path.home() / ".agents" / "skills"
+    real_global_skills = tmp_path / ".agents" / "skills"
+    real_global_skills.parent.mkdir(parents=True, exist_ok=True)
+    # Move our setup to the expected location
+    shutil.move(str(global_skills_dir), str(real_global_skills))
+
+    sync_manager = SyncManager(MockConfig())
+    sync_manager.repo_dir = repo_dir
+
+    # Mock _create_manifest and _save_manifest to avoid more setup
+    monkeypatch.setattr(sync_manager, "_create_manifest", lambda: {})
+    monkeypatch.setattr(sync_manager, "_save_manifest", lambda x: None)
+    monkeypatch.setattr(sync_manager, "_stage_symlinks_for_backup", lambda: None)
+
+    # Trigger staging
+    sync_manager._stage_skills()
+
+    # Verify malicious_skill was NOT copied
+    # Note: Currently this Fails because it IS copied (vulnerable)
+    assert not (repo_dir / "skills" / "malicious_skill").exists()
+    # Verify valid_skill WAS copied
+    assert (repo_dir / "skills" / "valid_skill").exists()
+
+
+def test_publish_skills_symlink_blocking(tmp_path, monkeypatch):
+    """Verify that publish_skills skips symlinks."""
+    import shutil
+    import os
+    from agent_sync.publish import publish_skills
+    import agent_sync.publish
+
+    # Setup
+    global_skills_dir = tmp_path / ".agents" / "skills"
+    global_skills_dir.mkdir(parents=True)
+
+    secrets_dir = tmp_path / "secrets"
+    secrets_dir.mkdir()
+    (secrets_dir / "confidential.txt").write_text("SENSITIVE DATA")
+
+    # Create symlink and valid skill
+    os.symlink(secrets_dir, global_skills_dir / "malicious_skill")
+    valid_skill = global_skills_dir / "valid_skill"
+    valid_skill.mkdir()
+    (valid_skill / "SKILL.md").write_text("valid")
+
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+    monkeypatch.setattr(agent_sync.publish, "SKILLS_DIR", global_skills_dir)
+    monkeypatch.setattr(agent_sync.publish, "PUBLISH_CONFIG_PATH", tmp_path / "publish.yaml")
+
+    # Mock subprocess and other things to avoid actual publishing
+    monkeypatch.setattr("subprocess.run", MagicMock())
+    monkeypatch.setattr("agent_sync.publish.Confirm.ask", lambda *args, **kwargs: True)
+    monkeypatch.setattr("agent_sync.publish.Prompt.ask", lambda *args, **kwargs: "https://github.com/user/repo")
+
+    # We want to check the temp directory before it's deleted, but publish_skills uses it as a context manager
+    # We can mock shutil.copytree and shutil.copy2 to see if they are called with malicious_skill
+    import shutil
+    original_copytree = shutil.copytree
+
+    copied_paths = []
+    def mock_copytree(src, dst, *args, **kwargs):
+        copied_paths.append(Path(src).name)
+        return original_copytree(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr("shutil.copytree", mock_copytree)
+
+    # Run publish (dry_run=True to skip git commands)
+    publish_skills(repo_url="https://github.com/user/pub-repo", dry_run=False, interactive=False)
+
+    # Verify malicious_skill was NOT copied
+    # Note: Currently this Fails because it IS copied (vulnerable)
+    assert "malicious_skill" not in copied_paths
+    assert "valid_skill" in copied_paths

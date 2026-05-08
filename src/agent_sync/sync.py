@@ -720,7 +720,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
         # Using flat structure with manifest tracking
         if global_skills_dir.exists():
             for skill_item in global_skills_dir.iterdir():
-                if skill_item.name.startswith("."):
+                if skill_item.name.startswith(".") or skill_item.is_symlink():
                     continue
                 
                 dest = repo_skills_dir / skill_item.name
