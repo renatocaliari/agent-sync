@@ -61,7 +61,7 @@ class ClineAgent(BaseAgent):
                             self.copy_to.mkdir(parents=True, exist_ok=True)
                             if dest.exists():
                                 shutil.rmtree(dest)
-                            shutil.copytree(skill_dir, dest)
+                            shutil.copytree(skill_dir, dest, symlinks=True)
                         
                         synced.append(f"{skill_dir.name} (from {source_path})")
         
@@ -101,7 +101,7 @@ class ClineAgent(BaseAgent):
                     if not dry_run:
                         if dest.exists():
                             shutil.rmtree(dest)
-                        shutil.copytree(skill_dir, dest)
+                        shutil.copytree(skill_dir, dest, symlinks=True)
                     
                     synced.append(skill_dir.name)
         
