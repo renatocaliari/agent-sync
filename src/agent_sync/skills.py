@@ -308,13 +308,13 @@ class SkillsManager:
 
         synced = 0
         for skill_dir in repo_skills_dir.iterdir():
-            if skill_dir.name.startswith("."):
+            if skill_dir.name.startswith(".") or skill_dir.is_symlink():
                 continue
 
             dest = self.global_skills_dir / skill_dir.name
             if not dest.exists():
                 if skill_dir.is_dir():
-                    shutil.copytree(skill_dir, dest)
+                    shutil.copytree(skill_dir, dest, symlinks=True)
                     synced += 1
 
         return synced
@@ -442,12 +442,12 @@ class SkillsManager:
                         if move:
                             shutil.move(str(skill_path), str(dest_path))
                         else:
-                            shutil.copytree(skill_path, dest_path)
+                            shutil.copytree(skill_path, dest_path, symlinks=True)
                     else:
                         if move:
                             shutil.move(str(skill_path), str(dest_path))
                         else:
-                            shutil.copy2(skill_path, dest_path)
+                            shutil.copy2(skill_path, dest_path, follow_symlinks=False)
 
                     # Remove empty parent directories if moving
                     if move and skill_path.is_dir():
@@ -728,7 +728,7 @@ class SkillsManager:
         copied = 0
 
         for skill_dir in self.global_skills_dir.iterdir():
-            if skill_dir.name.startswith("."):
+            if skill_dir.name.startswith(".") or skill_dir.is_symlink():
                 continue
 
             dest = agent.skills_path / skill_dir.name
@@ -738,7 +738,7 @@ class SkillsManager:
                 continue
 
             if skill_dir.is_dir():
-                shutil.copytree(skill_dir, dest)
+                shutil.copytree(skill_dir, dest, symlinks=True)
                 copied += 1
 
         return copied
@@ -795,7 +795,7 @@ class SkillsManager:
 
             agent_count = 0
             for skill_item in self.global_skills_dir.iterdir():
-                if skill_item.name.startswith("."):
+                if skill_item.name.startswith(".") or skill_item.is_symlink():
                     continue  # Skip .DS_Store, etc.
 
                 dest = agent.skills_path / skill_item.name
@@ -803,9 +803,9 @@ class SkillsManager:
                 if not dest.exists():
                     # Copy if doesn't exist
                     if skill_item.is_dir():
-                        shutil.copytree(skill_item, dest)
+                        shutil.copytree(skill_item, dest, symlinks=True)
                     else:
-                        shutil.copy2(skill_item, dest)
+                        shutil.copy2(skill_item, dest, follow_symlinks=False)
                     agent_count += 1
                     stats["distributed"] += 1
                 else:
