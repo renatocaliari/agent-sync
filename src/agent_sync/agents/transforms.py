@@ -135,7 +135,7 @@ def copy_skill_directory(skill_dir: Path, output_dir: Path) -> Optional[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     if dest.exists():
         shutil.rmtree(dest)
-    shutil.copytree(skill_dir, dest)
+    shutil.copytree(skill_dir, dest, symlinks=True)
     
     return dest
 

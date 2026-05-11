@@ -59,7 +59,7 @@ class CursorAgent(BaseAgent):
                             GLOBAL_SKILLS_DIR.mkdir(parents=True, exist_ok=True)
                             if dest.exists():
                                 shutil.rmtree(dest)
-                            shutil.copytree(skill_dir, dest)
+                            shutil.copytree(skill_dir, dest, symlinks=True)
                         
                         synced.append(f"{skill_dir.name} (from {source_path})")
         

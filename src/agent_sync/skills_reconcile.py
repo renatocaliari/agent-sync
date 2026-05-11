@@ -151,7 +151,7 @@ class SkillsReconcile:
                     if remote_skill.exists():
                         if not dry_run:
                             self.global_skills_dir.mkdir(parents=True, exist_ok=True)
-                            shutil.copytree(remote_skill, local_skill, dirs_exist_ok=True)
+                            shutil.copytree(remote_skill, local_skill, dirs_exist_ok=True, symlinks=True)
                             stats["downloaded_to_local"] += 1
                             console.print(f"  [green]✓ {skill_name}[/green] [dim](downloaded from remote)[/dim]")
                     else:

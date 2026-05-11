@@ -87,3 +87,60 @@ def test_skills_deleter_path_traversal_blocking(tmp_path, monkeypatch):
     stats = deleter.delete_skills([".."])
     assert stats["errors"] == 1
     assert hub_dir.exists()
+
+
+def test_shutil_copy_preserves_symlinks(tmp_path, monkeypatch):
+    """Verify that SyncManager doesn't follow symlinks during staging to prevent data leakage."""
+    from agent_sync.sync import SyncManager
+    from unittest.mock import MagicMock
+
+    # Setup directories
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+    agent_dir = tmp_path / "agent"
+    agent_dir.mkdir()
+    secret_file = tmp_path / "secret.txt"
+    secret_file.write_text("SENSITIVE DATA")
+
+    # Create symlink that could be leaked
+    leak_link = agent_dir / "leak.txt"
+    leak_link.symlink_to(secret_file)
+
+    # Mock Config
+    mock_config = MagicMock()
+    mock_config.repo_url = "https://github.com/user/repo.git"
+    mock_config.is_agent_enabled.return_value = True
+    mock_config.get_sync_options.return_value = {
+        "configs": True,
+        "all_files": False,
+        "paths": ["leak.txt"]
+    }
+
+    # Mock Agent
+    mock_agent = MagicMock()
+    mock_agent.name = "test-agent"
+    mock_agent.config_dir = str(agent_dir)
+    mock_agent.is_available.return_value = True
+
+    # Use monkeypatch for get_all_agents
+    # Note: get_all_agents is NOT imported directly in sync.py, it's imported inside methods.
+    # We should patch where it's used if possible, or patch agent_sync.agents.get_all_agents
+    monkeypatch.setattr("agent_sync.sync.BaseAgent", MagicMock()) # Just to be safe
+    # It seems get_all_agents is imported inside _stage_all_agent_files and _stage_agents
+    # but NOT in _stage_agent_files which we are calling.
+    # Wait, _stage_agent_files doesn't call get_all_agents.
+
+    # Mock DATA_DIR and other paths to use tmp_path
+    monkeypatch.setattr("agent_sync.sync.SyncManager.DATA_DIR", tmp_path / "data")
+    monkeypatch.setattr("agent_sync.sync.SyncManager.DEFAULT_REPO_DIR", repo_dir)
+
+    sync_mgr = SyncManager(mock_config)
+    sync_mgr.repo_dir = repo_dir
+
+    # Perform staging
+    sync_mgr._stage_agent_files(mock_agent)
+
+    # Check the result
+    staged_file = repo_dir / "configs" / "test-agent" / "leak.txt"
+    assert staged_file.exists(), "Staged file should exist"
+    assert staged_file.is_symlink(), "Symlink should be preserved, not followed"
