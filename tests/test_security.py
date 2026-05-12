@@ -87,3 +87,37 @@ def test_skills_deleter_path_traversal_blocking(tmp_path, monkeypatch):
     stats = deleter.delete_skills([".."])
     assert stats["errors"] == 1
     assert hub_dir.exists()
+
+def test_shutil_copy_preserves_symlinks(tmp_path, monkeypatch):
+    """Verify that SyncManager and SkillsManager operations preserve symlinks instead of following them."""
+    import os
+    import shutil
+    from agent_sync.sync import SyncManager
+
+    # Setup
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+
+    target_dir = tmp_path / "target"
+    target_dir.mkdir()
+    (target_dir / "secret.txt").write_text("secret")
+
+    # Create symlink in src pointing to target
+    os.symlink(target_dir, src_dir / "link_to_target")
+
+    dest_dir = tmp_path / "dest"
+
+    # Test SyncManager._copy_directory (used by push/pull)
+    class MockConfig:
+        repo_url = "https://github.com/owner/repo"
+        def is_agent_enabled(self, name): return True
+        def get_sync_options(self, name): return {}
+
+    sync_mgr = SyncManager(MockConfig())
+    sync_mgr._copy_directory(src_dir, dest_dir, preserve_symlinks=True)
+
+    assert (dest_dir / "link_to_target").is_symlink()
+
+    # If we delete the target, a preserved symlink becomes broken
+    shutil.rmtree(target_dir)
+    assert not (dest_dir / "link_to_target").exists()

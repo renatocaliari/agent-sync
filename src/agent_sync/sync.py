@@ -565,9 +565,9 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                             if self._should_exclude(config_file.name):
                                 continue
 
-                            # Copy config file as-is
+                            # Copy config file as-is (security: don't follow symlinks)
                             dest = agent_config_dir / config_file.name
-                            shutil.copy2(config_file, dest)
+                            shutil.copy2(config_file, dest, follow_symlinks=False)
 
             # Copy Pi.dev extensions if agent is pi.dev
             if agent.name == "pi.dev" and hasattr(agent, 'extensions_paths'):
@@ -580,9 +580,11 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                         for ext_item in ext_path.iterdir():
                             dest = repo_ext_dir / ext_item.name
                             if ext_item.is_dir():
-                                shutil.copytree(ext_item, dest, dirs_exist_ok=True)
+                                # Security: symlinks=True preserves symlinks, avoids following them
+                                shutil.copytree(ext_item, dest, dirs_exist_ok=True, symlinks=True)
                             else:
-                                shutil.copy2(ext_item, dest)
+                                # Security: follow_symlinks=False avoids following symlinks
+                                shutil.copy2(ext_item, dest, follow_symlinks=False)
 
     def _stage_agents(self) -> None:
         """
@@ -645,7 +647,8 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                         rel_path = agent_file.relative_to(agent.agents_path)
                         dest = project_agents_dir / rel_path
                         dest.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(agent_file, dest)
+                        # Security: don't follow symlinks
+                        shutil.copy2(agent_file, dest, follow_symlinks=False)
             
             # 2. Stage global agents (~/.claude/agents/, ~/.config/opencode/agents/)
             if agent.agents_path_global and agent.agents_path_global.exists():
@@ -674,7 +677,8 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                         rel_path = agent_file.relative_to(agent.agents_path_global)
                         dest = global_agents_dir / rel_path
                         dest.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(agent_file, dest)
+                        # Security: don't follow symlinks
+                        shutil.copy2(agent_file, dest, follow_symlinks=False)
 
     def _stage_skills(self) -> None:
         """
@@ -724,13 +728,19 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                     continue
                 
                 dest = repo_skills_dir / skill_item.name
+
+                # Security: Never follow top-level symlinks
+                if skill_item.is_symlink():
+                    continue
                 
                 if skill_item.is_dir():
                     if dest.exists():
                         shutil.rmtree(dest)
-                    shutil.copytree(skill_item, dest)
+                    # Security: symlinks=True preserves symlinks, avoids following them
+                    shutil.copytree(skill_item, dest, symlinks=True)
                 else:
-                    shutil.copy2(skill_item, dest)
+                    # Security: follow_symlinks=False avoids following symlinks
+                    shutil.copy2(skill_item, dest, follow_symlinks=False)
         
         # 3. Copy extension skills to repo
         for ext_name, ext_info in skills_manager.extension_skills.items():
@@ -748,13 +758,16 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
             dest_dir.mkdir(parents=True, exist_ok=True)
             
             for skill_item in source_dir.iterdir():
+                # Security: Never follow top-level symlinks
                 if skill_item.name.startswith(".") or skill_item.is_symlink():
                     continue
                 
                 if skill_item.is_dir():
-                    shutil.copytree(skill_item, dest_dir / skill_item.name)
+                    # Security: symlinks=True preserves symlinks, avoids following them
+                    shutil.copytree(skill_item, dest_dir / skill_item.name, symlinks=True)
                 else:
-                    shutil.copy2(skill_item, dest_dir / skill_item.name)
+                    # Security: follow_symlinks=False avoids following symlinks
+                    shutil.copy2(skill_item, dest_dir / skill_item.name, follow_symlinks=False)
         
         # 4. Stage symlinks for backup
         self._stage_symlinks_for_backup()
@@ -848,7 +861,8 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                 if dest_item.exists():
                     dest_item.unlink()
                 dest_item.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(item, dest_item)  # copy2 preserves metadata
+                # Security: follow_symlinks=False avoids following symlinks
+                shutil.copy2(item, dest_item, follow_symlinks=False)  # copy2 preserves metadata
                 copied += 1
         
         return copied
@@ -918,7 +932,8 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                     if not self._should_exclude(str(rel_path), exclude):
                         dest_item = dest / rel_path
                         dest_item.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(item, dest_item)
+                        # Security: follow_symlinks=False avoids following symlinks
+                        shutil.copy2(item, dest_item, follow_symlinks=False)
                         copied += 1
         else:
             # Simple path or single wildcard
@@ -937,7 +952,8 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                     if not self._should_exclude(str(rel_path), exclude):
                         dest_item = dest / rel_path
                         dest_item.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(item, dest_item)
+                        # Security: follow_symlinks=False avoids following symlinks
+                        shutil.copy2(item, dest_item, follow_symlinks=False)
                         copied += 1
                 elif item.is_dir():
                     # Copy entire directory
@@ -1041,10 +1057,15 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
             # Apply configs
             if sync_configs and synced_config_dir.exists() and agent.config_path.parent.exists():
                 for config_file in synced_config_dir.glob("*"):
+                    # Security: skip top-level symlinks
+                    if config_file.is_symlink():
+                        continue
+
                     if config_file.is_file():
                         dest = agent.config_path.parent / config_file.name
                         if not dest.exists() or dest.read_text() != config_file.read_text():
-                            shutil.copy2(config_file, dest)
+                            # Security: follow_symlinks=False avoids following symlinks
+                            shutil.copy2(config_file, dest, follow_symlinks=False)
                             changes.append(f"{agent.name}: {config_file.name}")
             
             # Apply Pi.dev extensions if agent is pi.dev
@@ -1056,12 +1077,18 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                         ext_path.mkdir(parents=True, exist_ok=True)
                         
                         for ext_item in synced_ext_dir.iterdir():
+                            # Security: skip top-level symlinks
+                            if ext_item.is_symlink():
+                                continue
+
                             dest = ext_path / ext_item.name
                             if not dest.exists() or (ext_item.is_file() and dest.read_text() != ext_item.read_text()):
                                 if ext_item.is_dir():
-                                    shutil.copytree(ext_item, dest, dirs_exist_ok=True)
+                                    # Security: symlinks=True preserves symlinks, avoids following them
+                                    shutil.copytree(ext_item, dest, dirs_exist_ok=True, symlinks=True)
                                 else:
-                                    shutil.copy2(ext_item, dest)
+                                    # Security: follow_symlinks=False avoids following symlinks
+                                    shutil.copy2(ext_item, dest, follow_symlinks=False)
                                 changes.append(f"{agent.name}/extensions: {ext_item.name}")
             
             # Apply Pi.dev prompts if agent is pi.dev
@@ -1073,12 +1100,18 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                         prompts_path.mkdir(parents=True, exist_ok=True)
                         
                         for prompt_item in synced_prompts_dir.iterdir():
+                            # Security: skip top-level symlinks
+                            if prompt_item.is_symlink():
+                                continue
+
                             dest = prompts_path / prompt_item.name
                             if not dest.exists() or (prompt_item.is_file() and dest.read_text() != prompt_item.read_text()):
                                 if prompt_item.is_dir():
-                                    shutil.copytree(prompt_item, dest, dirs_exist_ok=True)
+                                    # Security: symlinks=True preserves symlinks, avoids following them
+                                    shutil.copytree(prompt_item, dest, dirs_exist_ok=True, symlinks=True)
                                 else:
-                                    shutil.copy2(prompt_item, dest)
+                                    # Security: follow_symlinks=False avoids following symlinks
+                                    shutil.copy2(prompt_item, dest, follow_symlinks=False)
                                 changes.append(f"{agent.name}/prompts: {prompt_item.name}")
             
             # Apply Pi.dev themes if agent is pi.dev
@@ -1090,12 +1123,18 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                         themes_path.mkdir(parents=True, exist_ok=True)
 
                         for theme_item in synced_themes_dir.iterdir():
+                            # Security: skip top-level symlinks
+                            if theme_item.is_symlink():
+                                continue
+
                             dest = themes_path / theme_item.name
                             if not dest.exists() or (theme_item.is_file() and dest.read_text() != theme_item.read_text()):
                                 if theme_item.is_dir():
-                                    shutil.copytree(theme_item, dest, dirs_exist_ok=True)
+                                    # Security: symlinks=True preserves symlinks, avoids following them
+                                    shutil.copytree(theme_item, dest, dirs_exist_ok=True, symlinks=True)
                                 else:
-                                    shutil.copy2(theme_item, dest)
+                                    # Security: follow_symlinks=False avoids following symlinks
+                                    shutil.copy2(theme_item, dest, follow_symlinks=False)
                                 changes.append(f"{agent.name}/themes: {theme_item.name}")
 
         return changes
@@ -1135,7 +1174,8 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                         dest.parent.mkdir(parents=True, exist_ok=True)
                         
                         if not dest.exists() or dest.read_text() != agent_file.read_text():
-                            shutil.copy2(agent_file, dest)
+                            # Security: follow_symlinks=False avoids following symlinks
+                            shutil.copy2(agent_file, dest, follow_symlinks=False)
                             changes.append(f"{agent.name}/project: {rel_path}")
             
             # 2. Apply global agents
@@ -1150,7 +1190,8 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                         dest.parent.mkdir(parents=True, exist_ok=True)
                         
                         if not dest.exists() or dest.read_text() != agent_file.read_text():
-                            shutil.copy2(agent_file, dest)
+                            # Security: follow_symlinks=False avoids following symlinks
+                            shutil.copy2(agent_file, dest, follow_symlinks=False)
                             changes.append(f"{agent.name}/global: {rel_path}")
         
         return changes
@@ -1206,12 +1247,18 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                 if skill_item.name in extension_skill_names:
                     continue
                 
+                # Security: skip top-level symlinks
+                if skill_item.is_symlink():
+                    continue
+
                 dest = global_skills_dir / skill_item.name
                 if not dest.exists() or (skill_item.is_file() and dest.read_text() != skill_item.read_text()):
                     if skill_item.is_dir():
-                        shutil.copytree(skill_item, dest, dirs_exist_ok=True)
+                        # Security: symlinks=True preserves symlinks, avoids following them
+                        shutil.copytree(skill_item, dest, dirs_exist_ok=True, symlinks=True)
                     else:
-                        shutil.copy2(skill_item, dest)
+                        # Security: follow_symlinks=False avoids following symlinks
+                        shutil.copy2(skill_item, dest, follow_symlinks=False)
                     changes.append(f"global-skills: {skill_item.name}")
         
         return changes
@@ -1386,12 +1433,18 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                 if skill_item.name.startswith("."):
                     continue
                 
+                # Security: skip top-level symlinks
+                if skill_item.is_symlink():
+                    continue
+
                 dest_skill = dest_dir / skill_item.name
                 
                 if skill_item.is_dir():
-                    shutil.copytree(skill_item, dest_skill, dirs_exist_ok=True)
+                    # Security: symlinks=True preserves symlinks, avoids following them
+                    shutil.copytree(skill_item, dest_skill, dirs_exist_ok=True, symlinks=True)
                 else:
-                    shutil.copy2(skill_item, dest_skill)
+                    # Security: follow_symlinks=False avoids following symlinks
+                    shutil.copy2(skill_item, dest_skill, follow_symlinks=False)
             
             restored += 1
             console.print(f"  [green]✓ Restored extension: {agent_name}-{extension_dir}[/green]")

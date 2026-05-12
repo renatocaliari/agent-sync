@@ -281,8 +281,18 @@ def publish_skills(repo_url: Optional[str] = None, dry_run: bool = False, intera
         
         for skill in selected_skills:
             src, dst = skill["path"], skills_tmp_dir / skill["name"]
-            if src.is_dir(): shutil.copytree(src, dst)
-            else: shutil.copy2(src, dst)
+
+            # Security: Never follow top-level symlinks to prevent data leakage
+            if src.is_symlink():
+                console.print(f"  [yellow]⚠ Skipping symlink: {skill['name']}[/yellow]")
+                continue
+
+            if src.is_dir():
+                # symlinks=True: copy symlinks as symlinks, don't follow them
+                shutil.copytree(src, dst, symlinks=True)
+            else:
+                # follow_symlinks=False: don't follow if src is a symlink
+                shutil.copy2(src, dst, follow_symlinks=False)
         
         (tmp_path / "README.md").write_text(generate_readme(selected_skills, repo_url))
         (tmp_path / ".gitignore").write_text("*.json\n*.yaml\n*.yml\n.env\n*auth*\n*token*\n*key*\n*secret*\n*credentials*\n")
