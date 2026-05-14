@@ -6,6 +6,8 @@
 
 `agent-sync` solves the fragmentation of the AI agent ecosystem by providing a unified workflow for your CLI tools.
 
+> 🔗 **DotAgents Protocol compatible** — agent-sync's `~/.agents/skills/` hub follows the [DotAgents Protocol](https://dotagentsprotocol.com/) convention for portable, version-controlled agent configuration. See [docs/dotagents.md](docs/dotagents.md).
+
 ---
 
 ## 🎯 Why agent-sync?
@@ -119,9 +121,28 @@ agent-sync skills publish --repo https://github.com/YOUR_USERNAME/agent-sync-pub
 
 #### 📚 Skills
 - `skills list` - List all centralized skills in `~/.agents/skills/`
-- `skills centralize` - Move skills from agent directories to global hub
+- `skills centralize` - Move skills from agent directories to global hub (with safety TUI)
+  - `--yes` - Non-interactive: skip all orphan skills
+  - `--import-all` - Import all orphans without TUI (old behavior)
+  - `--dry-run` - Preview changes without modifying anything
+  - `--copy` - Copy instead of move
+  - `--distribute` - After centralizing, copy all skills to all agent directories
+
+  > 🛡️ **Safety features** (v0.15+): Interactive TUI selects which orphans to import (default: none). Content comparison via hash detects divergent copies. Post-selection prompt: Keep or Remove unselected.
+  > 🔗 **DotAgents Protocol**: Structure automatically follows `.agents/` convention (https://dotagentsprotocol.com/)
 - `skills diff` - Show differences between local and remote skills
 - `skills reconcile` - Resolve divergences between local and remote
+- `skills delete` - Delete skills from hub and all agent directories (interactive)
+
+#### 🔧 Utilities
+- `config export` - Export DotAgents-compatible config to `~/.agents/config.json`
+  - `--dry-run` - Preview without creating file
+  - `--output PATH` - Custom output path
+- `mcp` - Export unified MCP config from vendor configs
+  - `--dry-run` - Preview merge without creating file
+  - `--force` - Overwrite existing `~/.agents/mcp.json`
+  - `--conflicts` - Show conflict report only
+  - `-s, --source PATH` - Additional MCP config sources
 - `skills delete` - Delete skills from hub and all agent directories (interactive)
 - `skills publish` - Share selected skills to a public repository
 - `custom-agents list` - List custom agents per CLI tool
@@ -182,6 +203,41 @@ If you are an AI model (LLM) contributing to this project, please read [AGENTS.m
 ## 🙏 Inspiration
 
 Inspired by [opencode-synced](https://github.com/iHildy/opencode-synced), expanded to support multiple agent CLIs and other powerful features.
+
+---
+
+## 🔗 DotAgents Protocol
+
+This project aligns with the [DotAgents Protocol](https://dotagentsprotocol.com/) for AI agent configuration.
+
+### What we follow
+
+| Aspect | Status | Details |
+|--------|--------|---------|
+| `~/.agents/skills/` hub | ✅ Applied | Vendor-neutral skills directory |
+| `.agents/` directory structure | ✅ Applied | Skills and agents organized under `.agents/` |
+| Git-friendly config | ✅ Applied | Version-controllable via private GitHub repo |
+| Vendor-neutral skills | ✅ Applied | All skills share `~/.agents/skills/` as source of truth |
+
+### What's different (and why)
+
+| Aspect | DotAgents | agent-sync | Why |
+|--------|-----------|------------|-----|
+| Sub-agents | `~/.agents/agents/` (unified) | Per-vendor paths | Agents store profiles in vendor-specific formats; unificar perderia features |
+| MCP config | `~/.agents/mcp.json` (unified) | Per-vendor MCPs | Each vendor has unique MCP capabilities; merging would lose features |
+| Workspace override | `./.agents/` (overlay) | Not supported | Would require complex merge semantics; not a priority |
+| Config format | JSON | YAML | YAML is more readable for humans; JSON is optional in the spec |
+| Public bundles | hub.dotagentsprotocol.com | Not integrated | Would require separate publishing workflow |
+
+### What we'd need to change for 100% compliance
+
+These are **not planned** because they would reduce functionality:
+
+1. **Unified `~/.agents/agents/`** — Would require converting Claude/Cursor/etc. agent formats to a standard format
+2. **Unified `~/.agents/mcp.json`** — Would lose vendor-specific MCP features
+3. **Workspace overrides** — Complex merge semantics for marginal benefit
+
+The current approach (DotAgents for skills, vendor-specific for everything else) gives you the best of both: standard skills management + full vendor features.
 
 ---
 
