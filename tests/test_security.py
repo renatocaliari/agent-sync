@@ -87,3 +87,39 @@ def test_skills_deleter_path_traversal_blocking(tmp_path, monkeypatch):
     stats = deleter.delete_skills([".."])
     assert stats["errors"] == 1
     assert hub_dir.exists()
+
+
+def test_shutil_copy_preserves_symlinks(tmp_path):
+    """Verify that shutil copy operations preserve symlinks to avoid content leakage."""
+    import shutil
+
+    # Create a secret file outside the source directory
+    outside_dir = tmp_path / "outside"
+    outside_dir.mkdir()
+    secret_file = outside_dir / "secret.txt"
+    secret_file.write_text("SENSITIVE DATA")
+
+    # Create a source directory with a symlink to the secret file
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    symlink_file = src_dir / "link.txt"
+    symlink_file.symlink_to(secret_file)
+
+    # Create a destination directory
+    dest_dir = tmp_path / "dest"
+    dest_dir.mkdir()
+
+    # 1. Test shutil.copy2 (vulnerable if follow_symlinks=True, which is default)
+    # We want to ensure we use follow_symlinks=False in the codebase
+    target_copy2 = dest_dir / "copy2_link.txt"
+    shutil.copy2(symlink_file, target_copy2, follow_symlinks=False)
+    assert target_copy2.is_symlink()
+    assert str(target_copy2.readlink()) == str(secret_file)
+
+    # 2. Test shutil.copytree (vulnerable if symlinks=False, which is default)
+    # We want to ensure we use symlinks=True in the codebase
+    target_copytree = dest_dir / "copytree_dir"
+    shutil.copytree(src_dir, target_copytree, symlinks=True)
+    target_in_copytree = target_copytree / "link.txt"
+    assert target_in_copytree.is_symlink()
+    assert str(target_in_copytree.readlink()) == str(secret_file)
