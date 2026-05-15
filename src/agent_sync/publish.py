@@ -29,12 +29,6 @@ PUBLISH_CONFIG_PATH = Path.home() / ".config" / "agent-sync" / "publish.yaml"
 SKILLS_DIR = Path.home() / ".agents" / "skills"
 
 
-console = Console()
-
-PUBLISH_CONFIG_PATH = Path.home() / ".config" / "agent-sync" / "publish.yaml"
-SKILLS_DIR = Path.home() / ".agents" / "skills"
-
-
 # =============================================================================
 # SHARED HELPERS
 # =============================================================================
@@ -314,7 +308,7 @@ def _push_agents_to_repo(items: list[dict], repo_url: str, config: Config) -> bo
         for item in items:
             agent_subdir = agents_dir / item["agent"]
             agent_subdir.mkdir(exist_ok=True)
-            shutil.copy2(item["path"], agent_subdir / item["filename"])
+            shutil.copy2(item["path"], agent_subdir / item["filename"], follow_symlinks=False)
 
         readme_path = tmp_path / "README.md"
         if readme_path.exists():
@@ -362,7 +356,7 @@ def get_available_skills() -> list[dict]:
         return []
 
     for item in SKILLS_DIR.iterdir():
-        if item.name.startswith("."):
+        if item.name.startswith(".") or item.is_symlink():
             continue
 
         # We consider anything in the skills directory a publishable unit
@@ -601,8 +595,10 @@ def publish_skills(repo_url: str | None = None, dry_run: bool = False, interacti
 
         for skill in selected_skills:
             src, dst = skill["path"], skills_tmp_dir / skill["name"]
-            if src.is_dir(): shutil.copytree(src, dst)
-            else: shutil.copy2(src, dst)
+            if src.is_dir():
+                shutil.copytree(src, dst, symlinks=True)
+            else:
+                shutil.copy2(src, dst, follow_symlinks=False)
 
         (tmp_path / "README.md").write_text(generate_readme(selected_skills, repo_url))
         (tmp_path / ".gitignore").write_text("*.json\n*.yaml\n*.yml\n.env\n*auth*\n*token*\n*key*\n*secret*\n*credentials*\n")
