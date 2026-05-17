@@ -621,9 +621,11 @@ def _push_agents_to_repo(items: list[dict], repo_url: str, config: Config) -> bo
         agents_dir.mkdir(exist_ok=True)
 
         for item in items:
+            if item["path"].is_symlink():
+                continue  # Skip symlinked instruction files
             agent_subdir = agents_dir / item["agent"]
             agent_subdir.mkdir(exist_ok=True)
-            shutil.copy2(item["path"], agent_subdir / item["filename"])
+            shutil.copy2(item["path"], agent_subdir / item["filename"], follow_symlinks=False)
 
         readme_path = tmp_path / "README.md"
         if readme_path.exists():
@@ -671,7 +673,7 @@ def get_available_skills() -> list[dict]:
         return []
 
     for item in SKILLS_DIR.iterdir():
-        if item.name.startswith("."):
+        if item.name.startswith(".") or item.is_symlink():
             continue
 
         # We consider anything in the skills directory a publishable unit
@@ -919,8 +921,12 @@ def publish_skills(
 
         for skill in selected_skills:
             src, dst = skill["path"], skills_tmp_dir / skill["name"]
-            if src.is_dir(): shutil.copytree(src, dst)
-            else: shutil.copy2(src, dst)
+            if src.is_symlink():
+                continue  # Skip top-level symlinks
+            if src.is_dir():
+                shutil.copytree(src, dst, symlinks=True)
+            else:
+                shutil.copy2(src, dst, follow_symlinks=False)
 
         (tmp_path / "README.md").write_text(_generate_public_repo_readme(repo_url))
         (tmp_path / "skills" / "README.md").write_text(_generate_skills_readme(repo_url))

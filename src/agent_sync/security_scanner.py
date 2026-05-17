@@ -173,10 +173,7 @@ def scan_file(path: Path) -> ScanResult:
     except Exception as e:
         return ScanResult(safe=False, issues=[], summary=f"Could not read file: {e}")
 
-    # Step 1: Mask false positives FIRST
-    masked_content, mask_info = _mask_false_positives(content)
-
-    # Track which issues are in masked regions
+    # Track masked regions for context determination
     masked_regions: list[tuple[int, int]] = []
     for pattern in [CODE_BLOCK_PATTERN, PROCESS_ENV_PATTERN, VARIABLE_REF_PATTERN,
                     PLACEHOLDER_PATTERN, SECRET_EXAMPLE_PATTERN]:
@@ -185,7 +182,8 @@ def scan_file(path: Path) -> ScanResult:
 
     issues: list[Issue] = []
     for rule, severity, pattern, explanation in PATTERNS:
-        for match in pattern.finditer(masked_content):
+        # Scan ORIGINAL content (don't skip secrets in code blocks)
+        for match in pattern.finditer(content):
             snippet = match.group(0)
 
             # Truncate snippet for display (max 50 chars)
@@ -194,20 +192,23 @@ def scan_file(path: Path) -> ScanResult:
 
             # Determine context
             match_pos = match.start()
+            match_end = match.end()
             context = "hardcoded"
 
-            # Check if this match overlaps with a masked region in original
+            # Check if this match overlaps with a masked region
             for orig_start, orig_end in masked_regions:
-                if abs(match_pos - orig_start) < 10:  # Close to masked region
+                if (orig_start <= match_pos < orig_end) or (orig_start < match_end <= orig_end):
                     # Determine context type
-                    lookback = content[max(0, match_pos-30):match_pos].lower()
+                    lookback = content[max(0, match_pos - 30):match_pos].lower()
                     if 'process.env' in lookback:
                         context = "variable"
                     elif '$' in lookback or '${' in lookback:
                         context = "variable"
                     elif 'example' in lookback or 'demo' in lookback:
                         context = "example"
-                    elif 'code' in lookback or '```' in lookback:
+                    # Check if inside a code block
+                    region_text = content[orig_start:orig_end]
+                    if region_text.startswith('```') or region_text.startswith('`'):
                         context = "code"
                     break
 
