@@ -29,11 +29,35 @@ PUBLISH_CONFIG_PATH = Path.home() / ".config" / "agent-sync" / "publish.yaml"
 SKILLS_DIR = Path.home() / ".agents" / "skills"
 
 # Files to skip during publish (not meaningful to publish, machine-specific, or binary)
-SKIP_EXTENSIONS = {".pyc", ".pyo", ".pyd", ".so", ".dll", ".dylib", ".exe", ".bin",
-                   ".whl", ".zip", ".tar", ".gz", ".bz2", ".xz",
-                   ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico",
-                   ".pdf", ".doc", ".docx", ".xls", ".xlsx",
-                   ".pycache__", ".egg-info__"}
+SKIP_EXTENSIONS = {
+    ".pyc",
+    ".pyo",
+    ".pyd",
+    ".so",
+    ".dll",
+    ".dylib",
+    ".exe",
+    ".bin",
+    ".whl",
+    ".zip",
+    ".tar",
+    ".gz",
+    ".bz2",
+    ".xz",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".bmp",
+    ".ico",
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".pycache__",
+    ".egg-info__",
+}
 
 # Templates path
 TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -43,20 +67,24 @@ TEMPLATES_DIR = Path(__file__).parent / "templates"
 # SHARED HELPERS
 # =============================================================================
 
+
 def _resolve_repo_url(repo_url: str | None = None) -> str | None:
     """Resolve repo URL: param → publish.yaml → prompt."""
     publish_config = {}
     if PUBLISH_CONFIG_PATH.exists():
         try:
             publish_config = yaml.safe_load(PUBLISH_CONFIG_PATH.read_text()) or {}
-        except Exception: pass
+        except Exception:
+            pass
 
     resolved = repo_url or publish_config.get("repo_url")
     if not resolved:
         try:
             result = subprocess.run(
                 ["gh", "api", "user", "--jq", ".login"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             username = result.stdout.strip() if result.returncode == 0 else "YOUR_USERNAME"
         except Exception:
@@ -84,7 +112,9 @@ def _check_repo_visibility(repo_url: str) -> None:
     try:
         res = subprocess.run(
             ["gh", "api", f"repos/{repo_name}"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if res.returncode == 0:
             is_private = json.loads(res.stdout).get("private", False)
@@ -92,7 +122,8 @@ def _check_repo_visibility(repo_url: str) -> None:
                 console.print(f"\n[yellow]⚠️  Warning: Repository {repo_name} is PRIVATE.[/yellow]")
             else:
                 console.print(f"\n[green]✓ Repository {repo_name} is PUBLIC.[/green]")
-    except Exception: pass
+    except Exception:
+        pass
 
 
 def _git_clone_or_init(repo_url: str, tmp_path: Path) -> None:
@@ -100,11 +131,14 @@ def _git_clone_or_init(repo_url: str, tmp_path: Path) -> None:
     try:
         subprocess.run(
             ["git", "clone", "--depth", "1", repo_url, str(tmp_path)],
-            capture_output=True, timeout=60,
+            capture_output=True,
+            timeout=60,
         )
     except Exception:
         subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, timeout=15)
-        subprocess.run(["git", "branch", "-M", "main"], cwd=tmp_path, capture_output=True, timeout=15)
+        subprocess.run(
+            ["git", "branch", "-M", "main"], cwd=tmp_path, capture_output=True, timeout=15
+        )
 
 
 def _git_push(tmp_path: Path, repo_url: str, message: str) -> None:
@@ -134,6 +168,7 @@ def _git_push(tmp_path: Path, repo_url: str, message: str) -> None:
 # =============================================================================
 # SHARED HELPERS (DRY)
 # =============================================================================
+
 
 def _render_flagged_table(
     flagged_items: list[tuple],
@@ -192,13 +227,14 @@ def _interactive_flagged_selection(
         if not result.safe:
             return True
         return any(
-            issue.get('context') not in ('variable', 'deprecated')
-            and issue.get('severity') in ('critical', 'high')
+            issue.get("context") not in ("variable", "deprecated")
+            and issue.get("severity") in ("critical", "high")
             for issue in result.issues
         )
 
     display_items = [
-        (item, result, prefix) for item, result, prefix in flagged_items
+        (item, result, prefix)
+        for item, result, prefix in flagged_items
         if has_significant_issues(result)
     ]
 
@@ -227,7 +263,9 @@ def _interactive_flagged_selection(
     while True:
         console.clear()
         console.print(f"\n[bold yellow]⚠️  {title}[/bold yellow]\n")
-        console.print(f"[dim]Showing {len(display_items)} items with HIGH or CRITICAL security concerns[/dim]\n")
+        console.print(
+            f"[dim]Showing {len(display_items)} items with HIGH or CRITICAL security concerns[/dim]\n"
+        )
         console.print("[dim]Items with 🔴 deprecated or 🟡 env var issues are hidden[/dim]\n")
 
         # Render table with security status + detailed issues
@@ -268,7 +306,12 @@ def _interactive_flagged_selection(
                 sev_label = next((k for k, v in priority.items() if v == highest), "medium")
 
                 # Color mapping
-                color_map = {"critical": "red bold", "high": "yellow bold", "medium": "magenta", "low": "cyan"}
+                color_map = {
+                    "critical": "red bold",
+                    "high": "yellow bold",
+                    "medium": "magenta",
+                    "low": "cyan",
+                }
                 color = color_map.get(sev_label, "white")
 
                 # Show rules
@@ -300,7 +343,7 @@ def _interactive_flagged_selection(
         if selected:
             console.print(f"\n[dim]Selected: {len(selected)} of {len(item_names)}[/dim]")
         else:
-            console.print(f"\n[dim]None selected[/dim]")
+            console.print("\n[dim]None selected[/dim]")
 
         console.print("\n[bold]Controls:[/bold]")
         console.print("  • Enter numbers to toggle (e.g. [green]'1,3,5'[/green])")
@@ -339,8 +382,6 @@ def _interactive_flagged_selection(
 
     # Always return True for flagged selection - user can skip items by typing 'none'
     return selected_items, True
-
-
 
 
 def _generate_public_repo_readme(repo_url: str) -> str:
@@ -415,6 +456,7 @@ npx skills add {full_repo_name}
 # AGENT INSTRUCTIONS PUBLISHING
 # =============================================================================
 
+
 def get_available_agents() -> list[dict]:
     """Get available agent instruction files from discovery."""
     return get_available_agents_from_discovery()
@@ -422,8 +464,7 @@ def get_available_agents() -> list[dict]:
 
 def render_agents_table(agents: list, selected_names: set) -> Table:
     """Render TUI table for agent instruction selection."""
-    table = Table(box=box.ROUNDED, show_header=True,
-                  header_style="bold cyan", expand=True)
+    table = Table(box=box.ROUNDED, show_header=True, header_style="bold cyan", expand=True)
     table.add_column("ID", justify="right", style="dim", width=4)
     table.add_column("Pub", justify="center", width=5)
     table.add_column("Agent", style="green")
@@ -434,7 +475,7 @@ def render_agents_table(agents: list, selected_names: set) -> Table:
         key = f"{agent['agent']}:{agent['filename']}"
         is_selected = key in selected_names
         status = "[bold green]✓[/]" if is_selected else "[red]○[/]"
-        result = scan_file(agent['path'])
+        result = scan_file(agent["path"])
         security_icon = "[red]⚠️[/]" if not result.safe else "[green]✓[/]"
         table.add_row(str(i), status, agent["agent"], agent["filename"], security_icon)
 
@@ -459,7 +500,7 @@ def interactive_agents_selection(agents: list, initial_selected: set) -> set:
         if selected:
             console.print(f"\n[dim]Selected: {len(selected)} of {len(agents)}[/dim]")
         else:
-            console.print(f"\n[dim]None selected[/dim]")
+            console.print("\n[dim]None selected[/dim]")
 
         console.print("\n[bold]Controls:[/bold]")
         console.print("  • Enter numbers to toggle (e.g. [green]'1,3,5'[/green])")
@@ -501,11 +542,13 @@ def show_security_panel(results: dict[Path, ScanResult]) -> str | list[Path]:
         issues_text = format_issues_for_display(result.issues)
         panel_content.append(f"[bold]{path.name}[/] ([yellow]{path.parent.name}[/])\n{issues_text}")
 
-    console.print(Panel(
-        "\n\n".join(panel_content),
-        title="[bold yellow]⚠️  Security Warnings Detected[/bold yellow]",
-        border_style="yellow",
-    ))
+    console.print(
+        Panel(
+            "\n\n".join(panel_content),
+            title="[bold yellow]⚠️  Security Warnings Detected[/bold yellow]",
+            border_style="yellow",
+        )
+    )
 
     console.print("\n[bold]What would you like to do?[/]")
     console.print("  [[bold green]c[/]] Continue publishing (you've been warned)")
@@ -559,8 +602,7 @@ def publish_agents(
             selected = {f"{a['agent']}:{a['filename']}" for a in available_agents}
 
     selected_items = [
-        item for item in available_agents
-        if f"{item['agent']}:{item['filename']}" in selected
+        item for item in available_agents if f"{item['agent']}:{item['filename']}" in selected
     ]
 
     if not selected_items:
@@ -601,10 +643,16 @@ def publish_agents(
         return False
 
     if dry_run:
-        console.print(f"\n[blue]🔍 DRY RUN: Would publish {len(selected_items)} agent instructions to {repo_url}[/blue]\n")
+        console.print(
+            f"\n[blue]🔍 DRY RUN: Would publish {len(selected_items)} agent instructions to {repo_url}[/blue]\n"
+        )
         return True
 
-    if interactive and not skip_confirm and not Confirm.ask("\n[bold red]Confirm publishing?[/]", default=True):
+    if (
+        interactive
+        and not skip_confirm
+        and not Confirm.ask("\n[bold red]Confirm publishing?[/]", default=True)
+    ):
         console.print("\n[yellow]Publish cancelled[/yellow]\n")
         return False
 
@@ -623,7 +671,7 @@ def _push_agents_to_repo(items: list[dict], repo_url: str, config: Config) -> bo
         for item in items:
             agent_subdir = agents_dir / item["agent"]
             agent_subdir.mkdir(exist_ok=True)
-            shutil.copy2(item["path"], agent_subdir / item["filename"])
+            shutil.copy2(item["path"], agent_subdir / item["filename"], follow_symlinks=False)
 
         readme_path = tmp_path / "README.md"
         if readme_path.exists():
@@ -633,7 +681,9 @@ def _push_agents_to_repo(items: list[dict], repo_url: str, config: Config) -> bo
 
         try:
             _git_push(tmp_path, repo_url, f"feat: publish {len(items)} agent instructions")
-            console.print(f"\n[green]✓ Published {len(items)} agent instructions to {repo_url}![/green]\n")
+            console.print(
+                f"\n[green]✓ Published {len(items)} agent instructions to {repo_url}![/green]\n"
+            )
             config.published_agents = [f"{i['agent']}:{i['filename']}" for i in items]
             return True
         except Exception as e:
@@ -643,7 +693,7 @@ def _push_agents_to_repo(items: list[dict], repo_url: str, config: Config) -> bo
 
 def _generate_readme_for_agents(items: list[dict], repo_url: str) -> str:
     """Generate agents/README section for the repository README."""
-    repo_name = repo_url.replace("https://github.com/", "").replace(".git", "")
+    repo_url.replace("https://github.com/", "").replace(".git", "")
     sections: dict[str, list[str]] = {}
     for item in items:
         agent = item["agent"]
@@ -676,10 +726,7 @@ def get_available_skills() -> list[dict]:
 
         # We consider anything in the skills directory a publishable unit
         if item.is_dir() or (item.is_file() and item.suffix in [".md", ".py", ".sh"]):
-            skills_list.append({
-                "name": item.name,
-                "path": item
-            })
+            skills_list.append({"name": item.name, "path": item})
     return sorted(skills_list, key=lambda x: x["name"])
 
 
@@ -716,7 +763,7 @@ def interactive_selection(skills: list, initial_selected: set) -> set:
         if selected:
             console.print(f"\n[dim]Selected: {len(selected)} of {len(skills)}[/dim]")
         else:
-            console.print(f"\n[dim]None selected[/dim]")
+            console.print("\n[dim]None selected[/dim]")
 
         console.print("\n[bold]Controls:[/bold]")
         console.print("  • Enter numbers to toggle (e.g. [green]'1,3,5'[/green])")
@@ -787,7 +834,9 @@ def publish_skills(
         return False
 
     available_names = {s["name"] for s in skill_list}
-    saved_selection = config.published_skills if available_skills is None else []  # Only use saved if not override
+    saved_selection = (
+        config.published_skills if available_skills is None else []
+    )  # Only use saved if not override
 
     # 3. Interactive flow
     selected_names = set()
@@ -817,7 +866,7 @@ def publish_skills(
                 elif choice == "a":
                     selected_names = available_names
                     confirmed = show_selection_summary(selected_names)
-                else: # e (edit)
+                else:  # e (edit)
                     selected_names = set(saved_selection)
                     selected_names = interactive_selection(skill_list, selected_names)
                     confirmed = show_selection_summary(selected_names)
@@ -856,27 +905,29 @@ def publish_skills(
     # 4. SECURITY WARNING & REPO SETTINGS (Skip if already shown by caller)
     if not skip_security_panel:
         console.print("\n")
-        console.print(Panel(
-            "[yellow]⚠️  SECURITY WARNING[/yellow]\n\n"
-            "You are about to publish skills to a [bold]PUBLIC[/] repository.\n\n"
-            "What WILL be published:\n"
-            "  ✓ SKILL.md files (skill definitions)\n"
-            "  ✓ .md, .py, .sh files (skill scripts)\n"
-            "  ✓ references/, templates/, scripts/ directories\n\n"
-            "What will NEVER be published:\n"
-            "  ✗ Any config files (settings.json, config.yaml, etc.)\n"
-            "  ✗ Files with: auth, token, key, secret, credentials in name\n"
-            "  ✗ .env files\n"
-            "  ✗ Your private agent-sync-private repository",
-            border_style="yellow",
-            title="[bold yellow]Public Disclosure[/]",
-        ))
+        console.print(
+            Panel(
+                "[yellow]⚠️  SECURITY WARNING[/yellow]\n\n"
+                "You are about to publish skills to a [bold]PUBLIC[/] repository.\n\n"
+                "What WILL be published:\n"
+                "  ✓ SKILL.md files (skill definitions)\n"
+                "  ✓ .md, .py, .sh files (skill scripts)\n"
+                "  ✓ references/, templates/, scripts/ directories\n\n"
+                "What will NEVER be published:\n"
+                "  ✗ Any config files (settings.json, config.yaml, etc.)\n"
+                "  ✗ Files with: auth, token, key, secret, credentials in name\n"
+                "  ✗ .env files\n"
+                "  ✗ Your private agent-sync-private repository",
+                border_style="yellow",
+                title="[bold yellow]Public Disclosure[/]",
+            )
+        )
 
     # Use agent-sync-public for public publishing
     repo_url = "https://github.com/renatocaliari/agent-sync-public"
     repo_name = repo_url.replace("https://github.com/", "").replace(".git", "")
     console.print()
-    
+
     # 5. SECURITY SCAN
     console.print("\n[dim]🔍 Scanning skills for sensitive content...[/dim]")
 
@@ -886,7 +937,12 @@ def publish_skills(
     for skill in selected_skills:
         if skill["path"].is_dir():
             for f in skill["path"].rglob("*"):
-                if f.is_file() and not f.name.startswith(".") and f.suffix not in SKIP_EXTENSIONS and "__pycache__" not in str(f):
+                if (
+                    f.is_file()
+                    and not f.name.startswith(".")
+                    and f.suffix not in SKIP_EXTENSIONS
+                    and "__pycache__" not in str(f)
+                ):
                     all_files.append(f)
                     file_to_skill[f] = skill["name"]
         elif skill["path"].is_file() and skill["path"].suffix not in SKIP_EXTENSIONS:
@@ -897,14 +953,13 @@ def publish_skills(
     scan_results = {f: scan_file(f) for f in all_files}
 
     # Identify flagged files (scanner detected issues - warning only, still published)
-    flagged_files = {
-        f: r for f, r in scan_results.items()
-        if not r.safe
-    }
+    flagged_files = {f: r for f, r in scan_results.items() if not r.safe}
 
     # Show flagged files summary
     if flagged_files:
-        console.print(f"[yellow]  ⚠️ {len(flagged_files)} files with security warnings (will be scanned before publish)[/yellow]")
+        console.print(
+            f"[yellow]  ⚠️ {len(flagged_files)} files with security warnings (will be scanned before publish)[/yellow]"
+        )
         for f, result in flagged_files.items():
             skill_name = file_to_skill[f]
             console.print(f"    [dim]• {skill_name}/{f.name}[/dim]")
@@ -919,12 +974,16 @@ def publish_skills(
 
         for skill in selected_skills:
             src, dst = skill["path"], skills_tmp_dir / skill["name"]
-            if src.is_dir(): shutil.copytree(src, dst)
-            else: shutil.copy2(src, dst)
+            if src.is_dir():
+                shutil.copytree(src, dst, symlinks=True)
+            else:
+                shutil.copy2(src, dst, follow_symlinks=False)
 
         (tmp_path / "README.md").write_text(_generate_public_repo_readme(repo_url))
         (tmp_path / "skills" / "README.md").write_text(_generate_skills_readme(repo_url))
-        (tmp_path / ".gitignore").write_text("*.json\n*.yaml\n*.yml\n.env\n*auth*\n*token*\n*key*\n*secret*\n*credentials*\n")
+        (tmp_path / ".gitignore").write_text(
+            "*.json\n*.yaml\n*.yml\n.env\n*auth*\n*token*\n*key*\n*secret*\n*credentials*\n"
+        )
 
         console.print(f"\n[bold]📤 Publishing {len(selected_skills)} skills...[/]")
 
@@ -933,13 +992,43 @@ def publish_skills(
             if not validate_repo_name(repo_name):
                 raise ValueError(f"Invalid repository name: {repo_name}")
 
-            subprocess.run(["gh", "api", f"repos/{repo_name}"], capture_output=True, check=False, timeout=30)
-            subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True, timeout=15)
-            subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True, check=True, timeout=30)
-            subprocess.run(["git", "commit", "-m", f"feat: publish {len(selected_skills)} skills"], cwd=tmp_path, capture_output=True, check=True, timeout=30)
-            subprocess.run(["git", "branch", "-M", "main"], cwd=tmp_path, capture_output=True, check=True, timeout=15)
-            subprocess.run(["git", "remote", "add", "origin", repo_url], cwd=tmp_path, capture_output=True, check=True, timeout=15)
-            subprocess.run(["git", "push", "-u", "origin", "main", "--force"], cwd=tmp_path, capture_output=True, check=True, timeout=120)
+            subprocess.run(
+                ["gh", "api", f"repos/{repo_name}"], capture_output=True, check=False, timeout=30
+            )
+            subprocess.run(
+                ["git", "init"], cwd=tmp_path, capture_output=True, check=True, timeout=15
+            )
+            subprocess.run(
+                ["git", "add", "."], cwd=tmp_path, capture_output=True, check=True, timeout=30
+            )
+            subprocess.run(
+                ["git", "commit", "-m", f"feat: publish {len(selected_skills)} skills"],
+                cwd=tmp_path,
+                capture_output=True,
+                check=True,
+                timeout=30,
+            )
+            subprocess.run(
+                ["git", "branch", "-M", "main"],
+                cwd=tmp_path,
+                capture_output=True,
+                check=True,
+                timeout=15,
+            )
+            subprocess.run(
+                ["git", "remote", "add", "origin", repo_url],
+                cwd=tmp_path,
+                capture_output=True,
+                check=True,
+                timeout=15,
+            )
+            subprocess.run(
+                ["git", "push", "-u", "origin", "main", "--force"],
+                cwd=tmp_path,
+                capture_output=True,
+                check=True,
+                timeout=120,
+            )
 
             console.print(f"[green]✓ Successfully published to {repo_url}![/green]")
             return True
