@@ -623,7 +623,8 @@ def _push_agents_to_repo(items: list[dict], repo_url: str, config: Config) -> bo
         for item in items:
             agent_subdir = agents_dir / item["agent"]
             agent_subdir.mkdir(exist_ok=True)
-            shutil.copy2(item["path"], agent_subdir / item["filename"])
+            # Use follow_symlinks=False to prevent leaking content if the instruction itself is a symlink
+            shutil.copy2(item["path"], agent_subdir / item["filename"], follow_symlinks=False)
 
         readme_path = tmp_path / "README.md"
         if readme_path.exists():
@@ -675,6 +676,10 @@ def get_available_skills() -> list[dict]:
             continue
 
         # We consider anything in the skills directory a publishable unit
+        # Skip symbolic links to prevent leaking content from outside the skills directory
+        if item.is_symlink():
+            continue
+
         if item.is_dir() or (item.is_file() and item.suffix in [".md", ".py", ".sh"]):
             skills_list.append({
                 "name": item.name,
@@ -886,10 +891,11 @@ def publish_skills(
     for skill in selected_skills:
         if skill["path"].is_dir():
             for f in skill["path"].rglob("*"):
-                if f.is_file() and not f.name.startswith(".") and f.suffix not in SKIP_EXTENSIONS and "__pycache__" not in str(f):
+                # Only scan real files, skip symlinks to prevent content leakage
+                if f.is_file() and not f.is_symlink() and not f.name.startswith(".") and f.suffix not in SKIP_EXTENSIONS and "__pycache__" not in str(f):
                     all_files.append(f)
                     file_to_skill[f] = skill["name"]
-        elif skill["path"].is_file() and skill["path"].suffix not in SKIP_EXTENSIONS:
+        elif skill["path"].is_file() and not skill["path"].is_symlink() and skill["path"].suffix not in SKIP_EXTENSIONS:
             all_files.append(skill["path"])
             file_to_skill[skill["path"]] = skill["name"]
 
@@ -919,8 +925,9 @@ def publish_skills(
 
         for skill in selected_skills:
             src, dst = skill["path"], skills_tmp_dir / skill["name"]
-            if src.is_dir(): shutil.copytree(src, dst)
-            else: shutil.copy2(src, dst)
+            # Use symlinks=True/follow_symlinks=False to prevent leaking content from outside the skills directory
+            if src.is_dir(): shutil.copytree(src, dst, symlinks=True)
+            else: shutil.copy2(src, dst, follow_symlinks=False)
 
         (tmp_path / "README.md").write_text(_generate_public_repo_readme(repo_url))
         (tmp_path / "skills" / "README.md").write_text(_generate_skills_readme(repo_url))

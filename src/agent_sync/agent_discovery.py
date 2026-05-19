@@ -86,7 +86,8 @@ def discover_agent_instructions(
 
             try:
                 for match in config_dir.glob(pattern):
-                    if match.is_file() and not match.name.startswith("."):
+                    # Only add real files, skip symlinks to prevent content leakage
+                    if match.is_file() and not match.is_symlink() and not match.name.startswith("."):
                         results.append(AgentInstructionFile(
                             agent_name=agent_name,
                             filename=match.name,
