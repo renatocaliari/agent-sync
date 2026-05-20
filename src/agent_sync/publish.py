@@ -627,7 +627,7 @@ def _push_agents_to_repo(items: list[dict], repo_url: str, config: Config) -> bo
         for item in items:
             agent_subdir = agents_dir / item["agent"]
             agent_subdir.mkdir(exist_ok=True)
-            shutil.copy2(item["path"], agent_subdir / item["filename"])
+            shutil.copy2(item["path"], agent_subdir / item["filename"], follow_symlinks=False)
 
         readme_path = tmp_path / "README.md"
         if readme_path.exists():
@@ -923,8 +923,10 @@ def publish_skills(
 
         for skill in selected_skills:
             src, dst = skill["path"], skills_tmp_dir / skill["name"]
-            if src.is_dir(): shutil.copytree(src, dst)
-            else: shutil.copy2(src, dst)
+            if src.is_dir():
+                shutil.copytree(src, dst, symlinks=True)
+            else:
+                shutil.copy2(src, dst, follow_symlinks=False)
 
         (tmp_path / "README.md").write_text(_generate_public_repo_readme(repo_url))
         (tmp_path / "skills" / "README.md").write_text(_generate_skills_readme(repo_url))

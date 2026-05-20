@@ -56,51 +56,6 @@ def _is_valid_skill(skill_name: str) -> bool:
 # Kept as noop for backward compatibility
 
 
-def _mask_false_positives(content: str) -> tuple[str, dict]:
-    """
-    Mask known false-positive patterns in content.
-
-    Returns:
-        (masked_content, mask_info) where mask_info describes what was masked
-    """
-    mask_info = {
-        "code_blocks": 0,
-        "env_refs": 0,
-        "variables": 0,
-        "placeholders": 0,
-        "examples": 0,
-    }
-
-    # Count and mask code blocks
-    mask_info["code_blocks"] = len(CODE_BLOCK_PATTERN.findall(content))
-    content = CODE_BLOCK_PATTERN.sub('[CODE_BLOCK_REDACTED]', content)
-
-    # Count and mask inline code (less aggressive)
-    mask_info["env_refs"] = len(PROCESS_ENV_PATTERN.findall(content))
-    content = PROCESS_ENV_PATTERN.sub('[ENV_REF_REDACTED]', content)
-
-    # Mask variable references like $VAR, ${VAR}
-    mask_info["variables"] = len(VARIABLE_REF_PATTERN.findall(content))
-    content = VARIABLE_REF_PATTERN.sub('[VAR_REDACTED]', content)
-
-    # Mask <placeholder> patterns
-    mask_info["placeholders"] = len(PLACEHOLDER_PATTERN.findall(content))
-    content = PLACEHOLDER_PATTERN.sub('[PLACEHOLDER]', content)
-
-    # Mask example secrets like "secret_abc123", "password_example"
-    mask_info["examples"] = len(SECRET_EXAMPLE_PATTERN.findall(content))
-    content = SECRET_EXAMPLE_PATTERN.sub('[EXAMPLE_SECRET]', content)
-
-    return content, mask_info
-
-
-def _is_in_masked_region(content: str, match_start: int) -> bool:
-    """Check if a match is in a masked region."""
-    # Simple check - if nearby there's a redacted marker, skip
-    lookback = content[:match_start][-50:] if match_start > 50 else content[:match_start]
-    return any(marker in lookback for marker in [
-        '[CODE_BLOCK', '[ENV_REF', '[VAR_REDACTED]', '[PLACEHOLDER]', '[EXAMPLE_SECRET]'
-    ])
 
 
 # Regex patterns for detection
@@ -173,19 +128,21 @@ def scan_file(path: Path) -> ScanResult:
     except Exception as e:
         return ScanResult(safe=False, issues=[], summary=f"Could not read file: {e}")
 
-    # Step 1: Mask false positives FIRST
-    masked_content, mask_info = _mask_false_positives(content)
-
-    # Track which issues are in masked regions
-    masked_regions: list[tuple[int, int]] = []
-    for pattern in [CODE_BLOCK_PATTERN, PROCESS_ENV_PATTERN, VARIABLE_REF_PATTERN,
-                    PLACEHOLDER_PATTERN, SECRET_EXAMPLE_PATTERN]:
+    # Track masked regions for context determination
+    masked_regions: list[tuple[int, int, str]] = []
+    for pattern, label in [
+        (CODE_BLOCK_PATTERN, "code"),
+        (PROCESS_ENV_PATTERN, "variable"),
+        (VARIABLE_REF_PATTERN, "variable"),
+        (PLACEHOLDER_PATTERN, "example"),
+        (SECRET_EXAMPLE_PATTERN, "example"),
+    ]:
         for m in pattern.finditer(content):
-            masked_regions.append((m.start(), m.end()))
+            masked_regions.append((m.start(), m.end(), label))
 
     issues: list[Issue] = []
     for rule, severity, pattern, explanation in PATTERNS:
-        for match in pattern.finditer(masked_content):
+        for match in pattern.finditer(content):
             snippet = match.group(0)
 
             # Truncate snippet for display (max 50 chars)
@@ -196,19 +153,10 @@ def scan_file(path: Path) -> ScanResult:
             match_pos = match.start()
             context = "hardcoded"
 
-            # Check if this match overlaps with a masked region in original
-            for orig_start, orig_end in masked_regions:
-                if abs(match_pos - orig_start) < 10:  # Close to masked region
-                    # Determine context type
-                    lookback = content[max(0, match_pos-30):match_pos].lower()
-                    if 'process.env' in lookback:
-                        context = "variable"
-                    elif '$' in lookback or '${' in lookback:
-                        context = "variable"
-                    elif 'example' in lookback or 'demo' in lookback:
-                        context = "example"
-                    elif 'code' in lookback or '```' in lookback:
-                        context = "code"
+            # Check if this match falls within a masked region
+            for m_start, m_end, m_label in masked_regions:
+                if m_start <= match_pos < m_end:
+                    context = m_label
                     break
 
             # Context-based severity adjustment
@@ -238,12 +186,14 @@ def scan_file(path: Path) -> ScanResult:
             seen.add(key)
             unique.append(issue)
 
-    # File is safe if no critical hardcoded issues
-    has_critical_hardcoded = any(
-        i["severity"] == "critical" and i.get("context") != "variable"
+    # File is safe if no critical issues (except variables/examples)
+    # or high issues that are hardcoded or in code blocks
+    has_serious_issues = any(
+        (i["severity"] == "critical" and i.get("context") not in ("variable", "example")) or
+        (i["severity"] == "high" and i.get("context") in ("hardcoded", "code"))
         for i in unique
     )
-    safe = len(unique) == 0 or not has_critical_hardcoded
+    safe = not has_serious_issues
 
     return ScanResult(safe=safe, issues=unique, summary="")
 
