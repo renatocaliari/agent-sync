@@ -112,3 +112,25 @@ def validate_github_url(url: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def validate_editor(editor: str) -> bool:
+    """
+    Validate editor command to prevent shell injection.
+
+    Rules:
+    - Max length 255 characters.
+    - No dangerous shell metacharacters: ; | & > < $ ( ) [ ] { } * ? # ~
+    """
+    if not editor:
+        return False
+
+    if len(editor) > 255:
+        return False
+
+    # Disallow common shell metacharacters that could be used for injection
+    dangerous_chars = ";|&><$()[]{}*?#~"
+    if any(char in editor for char in dangerous_chars):
+        return False
+
+    return True

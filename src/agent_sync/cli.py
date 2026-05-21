@@ -27,7 +27,7 @@ from .publish import (
     set_published_repo,
 )
 from .sync import SyncManager
-from .validators import validate_github_url
+from .validators import validate_github_url, validate_editor
 from .mcp_merger import MCPMerger
 from .secrets import SecretsManager
 from ._tui import print_footer
@@ -1420,7 +1420,15 @@ def config_edit():
     config = Config()
     if not config.config_path.exists():
         config.generate_default()
-    editor = os.environ.get("EDITOR", "nano")
+
+    # Prioritize VISUAL then EDITOR, fallback to nano
+    editor = os.environ.get("VISUAL") or os.environ.get("EDITOR") or "nano"
+
+    if not validate_editor(editor):
+        console.print(f"\n[yellow]⚠️  Warning: Dangerous editor configured: '{editor}'[/yellow]")
+        console.print("[dim]Falling back to 'nano' for security.[/dim]\n")
+        editor = "nano"
+
     try:
         subprocess.run([editor, str(config.config_path)], check=True)
         console.print("\n[green]✓ Configuration saved[/green]\n")
@@ -1480,7 +1488,15 @@ def secrets_edit():
     if not secrets_mgr.env_file.exists():
         secrets_mgr.env_file.parent.mkdir(parents=True, exist_ok=True)
         secrets_mgr.env_file.write_text("# agent-sync environment variables\n")
-    editor = os.environ.get("EDITOR", "nano")
+
+    # Prioritize VISUAL then EDITOR, fallback to nano
+    editor = os.environ.get("VISUAL") or os.environ.get("EDITOR") or "nano"
+
+    if not validate_editor(editor):
+        console.print(f"\n[yellow]⚠️  Warning: Dangerous editor configured: '{editor}'[/yellow]")
+        console.print("[dim]Falling back to 'nano' for security.[/dim]\n")
+        editor = "nano"
+
     try:
         subprocess.run([editor, str(secrets_mgr.env_file)], check=True)
         console.print("\n[green]✓ Secrets saved[/green]\n")
