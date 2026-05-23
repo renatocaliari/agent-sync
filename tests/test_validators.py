@@ -1,6 +1,7 @@
 """Tests for validator utilities."""
 
-from agent_sync.validators import validate_github_url, validate_repo_name
+from pathlib import Path
+from agent_sync.validators import validate_github_url, validate_repo_name, validate_editor, is_safe_path
 
 
 class TestValidators:
@@ -54,3 +55,52 @@ class TestValidators:
         assert validate_github_url("https://github.com/owner/repo;ls") is False
         assert validate_github_url("https://github.com/owner/repo\nls") is False
         assert validate_github_url("https://github.com/owner/repo' -oProxyCommand") is False
+
+    def test_validate_editor(self):
+        """Test editor command validation."""
+        assert validate_editor("nano") is True
+        assert validate_editor("vim") is True
+        assert validate_editor("code --wait") is True
+        assert validate_editor("") is False
+        assert validate_editor("nano; ls") is False
+        assert validate_editor("vim | rm -rf /") is False
+        assert validate_editor("code && echo hacked") is False
+        assert validate_editor("editor < file") is False
+        assert validate_editor("editor > file") is False
+        assert validate_editor("editor $(whoami)") is False
+        assert validate_editor("editor `whoami`") is False
+        assert validate_editor("editor 'file'") is False
+        assert validate_editor("editor \"file\"") is False
+        assert validate_editor("a" * 256) is False
+
+    def test_is_safe_path(self, tmp_path):
+        """Test path containment validation."""
+        base = tmp_path / "base"
+        base.mkdir()
+
+        assert is_safe_path(base / "file.txt", base) is True
+        assert is_safe_path(base / "subdir" / "file.txt", base) is True
+        assert is_safe_path(base, base) is True
+
+        # Traversal attempts
+        assert is_safe_path(base / ".." / "outside.txt", base) is False
+        assert is_safe_path(Path("/etc/passwd"), base) is False
+
+        # Symlink tests
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        outside_file = outside / "secret.txt"
+        outside_file.write_text("secret")
+
+        link = base / "link"
+        link.symlink_to(outside_file)
+
+        # resolve() follows symlinks, so this should be False as it points outside base
+        assert is_safe_path(link, base) is False
+
+        # Link to inside should be True
+        inside_file = base / "inside.txt"
+        inside_file.write_text("inside")
+        inner_link = base / "inner_link"
+        inner_link.symlink_to(inside_file)
+        assert is_safe_path(inner_link, base) is True

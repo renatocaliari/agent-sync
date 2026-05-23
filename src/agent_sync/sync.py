@@ -15,7 +15,7 @@ from rich.console import Console
 
 from .agents import BaseAgent
 from .skills import MANIFEST_FILENAME
-from .validators import validate_github_url
+from .validators import validate_github_url, is_safe_path
 
 console = Console()
 
@@ -2297,8 +2297,13 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                 continue
 
             # Destination: ~/.config/opencode/superpowers/skills/
-            config_dir = Path(agent.config_dir).expanduser()
-            dest_dir = config_dir / extension_dir / "skills"
+            config_dir = Path(agent.config_dir).expanduser().resolve()
+            dest_dir = (config_dir / extension_dir / "skills").resolve()
+
+            # Path containment check
+            if not is_safe_path(dest_dir, config_dir):
+                console.print(f"[red]✗ Security Alert: Path traversal attempt blocked for extension {ext_name}[/red]")
+                continue
 
             # Create destination and copy skills
             dest_dir.mkdir(parents=True, exist_ok=True)

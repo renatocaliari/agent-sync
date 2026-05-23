@@ -27,7 +27,7 @@ from .publish import (
     set_published_repo,
 )
 from .sync import SyncManager
-from .validators import validate_github_url
+from .validators import validate_github_url, validate_editor
 from .mcp_merger import MCPMerger
 from .secrets import SecretsManager
 from ._tui import print_footer, build_footer_commands
@@ -1446,16 +1446,24 @@ def config_repo(repo_url: str | None, remove: bool):
 @config_group.command("edit")
 def config_edit():
     """Open configuration file in editor."""
-    import os, subprocess
+    import os, subprocess, shlex
     config = Config()
     if not config.config_path.exists():
         config.generate_default()
-    editor = os.environ.get("EDITOR", "nano")
+
+    # Prioritize VISUAL over EDITOR
+    editor_cmd = os.environ.get("VISUAL") or os.environ.get("EDITOR") or "nano"
+
+    if not validate_editor(editor_cmd):
+        console.print(f"\n[red]✗ Invalid editor command: {editor_cmd}[/red]\n")
+        return
+
     try:
-        subprocess.run([editor, str(config.config_path)], check=True)
+        cmd = shlex.split(editor_cmd) + [str(config.config_path)]
+        subprocess.run(cmd, check=True)
         console.print("\n[green]✓ Configuration saved[/green]\n")
     except FileNotFoundError:
-        console.print(f"\n[yellow]Editor '{editor}' not found[/yellow]\n")
+        console.print(f"\n[yellow]Editor '{editor_cmd}' not found[/yellow]\n")
     except Exception as e:
         console.print(f"\n[red]Error: {e}[/red]\n")
 
@@ -1505,17 +1513,25 @@ def secrets_list():
 @secrets_group.command("edit")
 def secrets_edit():
     """Edit secrets in your $EDITOR."""
-    import os, subprocess
+    import os, subprocess, shlex
     secrets_mgr = SecretsManager()
     if not secrets_mgr.env_file.exists():
         secrets_mgr.env_file.parent.mkdir(parents=True, exist_ok=True)
         secrets_mgr.env_file.write_text("# agent-sync environment variables\n")
-    editor = os.environ.get("EDITOR", "nano")
+
+    # Prioritize VISUAL over EDITOR
+    editor_cmd = os.environ.get("VISUAL") or os.environ.get("EDITOR") or "nano"
+
+    if not validate_editor(editor_cmd):
+        console.print(f"\n[red]✗ Invalid editor command: {editor_cmd}[/red]\n")
+        return
+
     try:
-        subprocess.run([editor, str(secrets_mgr.env_file)], check=True)
+        cmd = shlex.split(editor_cmd) + [str(secrets_mgr.env_file)]
+        subprocess.run(cmd, check=True)
         console.print("\n[green]✓ Secrets saved[/green]\n")
     except FileNotFoundError:
-        console.print(f"\n[yellow]Editor '{editor}' not found[/yellow]\n")
+        console.print(f"\n[yellow]Editor '{editor_cmd}' not found[/yellow]\n")
     except Exception as e:
         console.print(f"\n[red]Error: {e}[/red]\n")
 

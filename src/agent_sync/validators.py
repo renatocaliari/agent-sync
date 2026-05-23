@@ -1,7 +1,41 @@
 """Validation utilities for agent-sync."""
 
 import re
+from pathlib import Path
 from urllib.parse import urlparse
+
+
+def is_safe_path(path: Path, base_dir: Path) -> bool:
+    """Check if a path is safely contained within a base directory."""
+    try:
+        # resolve() handles '..' and symlinks.
+        # We want to ensure the final path is still under base_dir.
+        resolved_path = path.resolve()
+        resolved_base = base_dir.resolve()
+        return resolved_base in resolved_path.parents or resolved_path == resolved_base
+    except Exception:
+        return False
+
+
+def validate_editor(editor: str) -> bool:
+    """
+    Validate an editor command string to prevent shell injection.
+
+    Rules:
+    - Max length 255 characters.
+    - No dangerous shell metacharacters.
+    """
+    if not editor:
+        return False
+
+    if len(editor) > 255:
+        return False
+
+    # Strictly forbid common shell injection characters
+    if any(c in editor for c in ";|&<>($)`'\"{}"):
+        return False
+
+    return True
 
 
 def validate_repo_name(name: str) -> bool:
