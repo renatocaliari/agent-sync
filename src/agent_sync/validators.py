@@ -1,6 +1,7 @@
 """Validation utilities for agent-sync."""
 
 import re
+from pathlib import Path
 from urllib.parse import urlparse
 
 
@@ -110,5 +111,41 @@ def validate_github_url(url: str) -> bool:
             return False
 
         return True
+    except Exception:
+        return False
+
+
+def validate_editor(editor_cmd: str) -> bool:
+    """
+    Validate an editor command string to prevent command injection.
+
+    Allows alphanumeric, hyphens, underscores, periods, path separators, and spaces.
+    """
+    if not editor_cmd:
+        return False
+
+    # Allow alphanumeric, hyphens, underscores, periods, and spaces.
+    # Also allow path separators (/ and \) and drive specifiers (:) for absolute paths.
+    # Using ' ' specifically instead of \s to avoid matching newlines/tabs.
+    pattern = r'^[a-zA-Z0-9._\- /\\:]+\Z'
+    return bool(re.match(pattern, editor_cmd))
+
+
+def is_safe_path(path: Path | str, base_dir: Path | str) -> bool:
+    """
+    Check if a path is safely contained within a base directory.
+
+    Prevents path traversal attacks by resolving the path and ensuring
+    it starts with the base directory.
+    """
+    try:
+        p = Path(path)
+        base = Path(base_dir)
+
+        # resolve() handles '..' and symlinks.
+        resolved_path = p.resolve()
+        resolved_base = base.resolve()
+
+        return resolved_base in resolved_path.parents or resolved_path == resolved_base
     except Exception:
         return False
