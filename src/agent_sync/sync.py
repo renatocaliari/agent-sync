@@ -1207,7 +1207,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
 
                             # Copy config file as-is
                             dest = agent_config_dir / config_file.name
-                            shutil.copy2(config_file, dest)
+                            shutil.copy2(config_file, dest, follow_symlinks=False)
 
             # Pi.dev extra paths - copy each path category to its repo subdirectory
             if agent.name == "pi.dev":
@@ -1228,9 +1228,9 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                                     continue
                                 dest = repo_category_dir / item.name
                                 if item.is_dir():
-                                    shutil.copytree(item, dest, dirs_exist_ok=True, ignore=shutil.ignore_patterns('.git'))
+                                    shutil.copytree(item, dest, dirs_exist_ok=True, symlinks=True, ignore=shutil.ignore_patterns('.git'))
                                 else:
-                                    shutil.copy2(item, dest)
+                                    shutil.copy2(item, dest, follow_symlinks=False)
 
     def _stage_pi_extra_paths(self, agent) -> None:
         """Backup pi.dev extra paths to the repo directory.
@@ -1266,9 +1266,9 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                     for item in src_path.iterdir():
                         item_dest = dest / item.name
                         if item.is_dir():
-                            shutil.copytree(item, item_dest, dirs_exist_ok=True, ignore=shutil.ignore_patterns('.git'))
+                            shutil.copytree(item, item_dest, dirs_exist_ok=True, symlinks=True, ignore=shutil.ignore_patterns('.git'))
                         else:
-                            shutil.copy2(item, item_dest)
+                            shutil.copy2(item, item_dest, follow_symlinks=False)
 
         # Copy single-file paths
         for attr_name, (filename, subdir) in single_file_map.items():
@@ -1279,7 +1279,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                 if src_path.exists() and src_path.is_file():
                     dest_file = pi_dir / subdir / filename
                     dest_file.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(src_path, dest_file)
+                    shutil.copy2(src_path, dest_file, follow_symlinks=False)
 
         # Git worktrees - skip (cache, not config)
         if hasattr(agent, 'git_paths'):
@@ -1296,7 +1296,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                     pkg_dest.mkdir(parents=True, exist_ok=True)
                     if pkg_dest.exists():
                         shutil.rmtree(pkg_dest)
-                    shutil.copytree(package_path, pkg_dest, ignore=shutil.ignore_patterns('.git'))
+                    shutil.copytree(package_path, pkg_dest, symlinks=True, ignore=shutil.ignore_patterns('.git'))
 
     def _restore_pi_extra_paths(self, agent, synced_config_dir: Path, changes: list[str]) -> None:
         """Restore pi.dev extra paths from repo to their original locations.
@@ -1335,9 +1335,9 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                     dest = dst_path / item.name
                     if not dest.exists() or (item.is_file() and self._same_content(dest, item)):
                         if item.is_dir():
-                            shutil.copytree(item, dest, dirs_exist_ok=True, ignore=shutil.ignore_patterns('.git'))
+                            shutil.copytree(item, dest, dirs_exist_ok=True, symlinks=True, ignore=shutil.ignore_patterns('.git'))
                         else:
-                            shutil.copy2(item, dest)
+                            shutil.copy2(item, dest, follow_symlinks=False)
                         changes.append(f"{agent.name}/{subdir}: {item.name}")
 
         # Single-file copies
@@ -1352,7 +1352,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                 dst_path.parent.mkdir(parents=True, exist_ok=True)
                 dest = dst_path
                 if not dest.exists() or self._same_content(dest, synced_file):
-                    shutil.copy2(synced_file, dest)
+                    shutil.copy2(synced_file, dest, follow_symlinks=False)
                     changes.append(f"{agent.name}: {filename}")
 
         # Git worktrees - skip (cache, not config)
@@ -1371,7 +1371,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                     if package_item.is_dir():
                         if dest.exists():
                             shutil.rmtree(dest)
-                        shutil.copytree(package_item, dest, ignore=shutil.ignore_patterns('.git'))
+                        shutil.copytree(package_item, dest, symlinks=True, ignore=shutil.ignore_patterns('.git'))
                         changes.append(f"{agent.name}/package: {package_item.name}")
 
     def _stage_agents(self) -> None:
@@ -1488,7 +1488,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                         rel_path = agent_file.relative_to(agent.agents_path)
                         dest = project_agents_dir / rel_path
                         dest.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(agent_file, dest)
+                        shutil.copy2(agent_file, dest, follow_symlinks=False)
 
             # 2. Stage global agents (~/.claude/agents/, ~/.config/opencode/agents/)
             if has_global:
@@ -1519,7 +1519,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                         rel_path = agent_file.relative_to(agent.agents_path_global)
                         dest = global_agents_dir / rel_path
                         dest.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(agent_file, dest)
+                        shutil.copy2(agent_file, dest, follow_symlinks=False)
                 continue
 
             agent_repo_dir = repo_agents_dir / agent.name
@@ -1560,7 +1560,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                         rel_path = agent_file.relative_to(agent.agents_path)
                         dest = project_agents_dir / rel_path
                         dest.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(agent_file, dest)
+                        shutil.copy2(agent_file, dest, follow_symlinks=False)
 
             # 2. Stage global agents (~/.claude/agents/, ~/.config/opencode/agents/)
             if agent.agents_path_global and agent.agents_path_global.exists():
@@ -1592,7 +1592,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                         rel_path = agent_file.relative_to(agent.agents_path_global)
                         dest = global_agents_dir / rel_path
                         dest.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(agent_file, dest)
+                        shutil.copy2(agent_file, dest, follow_symlinks=False)
 
     def _stage_skills(self) -> None:
         """
@@ -1643,9 +1643,9 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                 if skill_item.is_dir():
                     if dest.exists():
                         shutil.rmtree(dest)
-                    shutil.copytree(skill_item, dest)
+                    shutil.copytree(skill_item, dest, symlinks=True)
                 else:
-                    shutil.copy2(skill_item, dest)
+                    shutil.copy2(skill_item, dest, follow_symlinks=False)
 
         # 3. Copy extension skills to repo
         for ext_name, ext_info in skills_manager.extension_skills.items():
@@ -1667,9 +1667,9 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                     continue
 
                 if skill_item.is_dir():
-                    shutil.copytree(skill_item, dest_dir / skill_item.name)
+                    shutil.copytree(skill_item, dest_dir / skill_item.name, symlinks=True)
                 else:
-                    shutil.copy2(skill_item, dest_dir / skill_item.name)
+                    shutil.copy2(skill_item, dest_dir / skill_item.name, follow_symlinks=False)
 
         # 4. Stage symlinks for backup
         self._stage_symlinks_for_backup()
@@ -1800,7 +1800,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
 
         if item.is_file():
             dest_item.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(item, dest_item)
+            shutil.copy2(item, dest_item, follow_symlinks=False)
             return 1
 
         if item.is_dir():
@@ -1964,7 +1964,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                     if config_file.is_file():
                         dest = agent.config_path.parent / config_file.name
                         if not dest.exists() or self._same_content(dest, config_file):
-                            shutil.copy2(config_file, dest)
+                            shutil.copy2(config_file, dest, follow_symlinks=False)
                             changes.append(f"{agent.name}: {config_file.name}")
 
             # Restore pi.dev extra paths from repo to original locations
@@ -1986,9 +1986,9 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                                 if item.is_dir():
                                     if dest.exists():
                                         shutil.rmtree(dest)
-                                    shutil.copytree(item, dest, ignore=shutil.ignore_patterns('.git'))
+                                    shutil.copytree(item, dest, symlinks=True, ignore=shutil.ignore_patterns('.git'))
                                 else:
-                                    shutil.copy2(item, dest)
+                                    shutil.copy2(item, dest, follow_symlinks=False)
                                 changes.append(f"{agent.name}/{category}: {item.name}")
 
         return changes
@@ -2044,7 +2044,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                         dest.parent.mkdir(parents=True, exist_ok=True)
 
                         if not dest.exists() or self._same_content(dest, agent_file):
-                            shutil.copy2(agent_file, dest)
+                            shutil.copy2(agent_file, dest, follow_symlinks=False)
                             changes.append(f"{agent.name}/project: {rel_path}")
 
             # 2. Apply global agents
@@ -2059,7 +2059,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                         dest.parent.mkdir(parents=True, exist_ok=True)
 
                         if not dest.exists() or self._same_content(dest, agent_file):
-                            shutil.copy2(agent_file, dest)
+                            shutil.copy2(agent_file, dest, follow_symlinks=False)
                             changes.append(f"{agent.name}/global: {rel_path}")
 
         return changes
@@ -2130,9 +2130,9 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                 dest = global_skills_dir / skill_item.name
                 if not dest.exists() or (skill_item.is_file() and self._same_content(dest, skill_item)):
                     if skill_item.is_dir():
-                        shutil.copytree(skill_item, dest, dirs_exist_ok=True)
+                        shutil.copytree(skill_item, dest, dirs_exist_ok=True, symlinks=True)
                     else:
-                        shutil.copy2(skill_item, dest)
+                        shutil.copy2(skill_item, dest, follow_symlinks=False)
                     changes.append(f"global-skills: {skill_item.name}")
 
         return changes
@@ -2310,9 +2310,9 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
                 dest_skill = dest_dir / skill_item.name
 
                 if skill_item.is_dir():
-                    shutil.copytree(skill_item, dest_skill, dirs_exist_ok=True)
+                    shutil.copytree(skill_item, dest_skill, dirs_exist_ok=True, symlinks=True)
                 else:
-                    shutil.copy2(skill_item, dest_skill)
+                    shutil.copy2(skill_item, dest_skill, follow_symlinks=False)
 
             restored += 1
             console.print(f"  [green]✓ Restored extension: {agent_name}-{extension_dir}[/green]")

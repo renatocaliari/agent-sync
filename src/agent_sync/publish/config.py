@@ -36,7 +36,7 @@ def load_config() -> PublishConfig:
     except (yaml.YAMLError, KeyError, ValueError) as e:
         # If config is corrupted, backup and return default
         backup_path = CONFIG_PATH.with_suffix(".yaml.bak")
-        shutil.copy2(CONFIG_PATH, backup_path)
+        shutil.copy2(CONFIG_PATH, backup_path, follow_symlinks=False)
         return PublishConfig(published_repo="")
 
 
