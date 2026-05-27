@@ -112,3 +112,23 @@ def validate_github_url(url: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def validate_editor(editor: str) -> bool:
+    """
+    Validate an editor command to prevent shell injection.
+
+    Allows alphanumeric characters, common editor names, paths, and flags.
+    Blocks dangerous shell metacharacters like ;, |, &, `, $, etc.
+    """
+    if not editor:
+        return False
+
+    # Block dangerous shell metacharacters
+    # We allow spaces for flags and colons for Windows paths
+    if any(c in editor for c in ";|&`$()<>\\!#*?[]{}"):
+        return False
+
+    # Allow alphanumeric, spaces, hyphens, underscores, dots, slashes, and colons
+    pattern = r'^[a-zA-Z0-9/_.\s:-]+\Z'
+    return bool(re.match(pattern, editor))

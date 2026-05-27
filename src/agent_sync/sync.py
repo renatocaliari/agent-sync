@@ -13,6 +13,7 @@ from typing import Optional
 from platformdirs import user_data_dir
 from rich.console import Console
 
+from .security import ensure_secure_dir, secure_open
 from .agents import BaseAgent
 from .skills import MANIFEST_FILENAME
 from .validators import validate_github_url
@@ -135,9 +136,9 @@ class SyncManager:
 
         # Ensure directories exist BEFORE any operations
         try:
-            self.repo_dir.mkdir(parents=True, exist_ok=True)  # Create repo dir itself
-            self.repo_dir.parent.mkdir(parents=True, exist_ok=True)
-            self.state_file.parent.mkdir(parents=True, exist_ok=True)
+            ensure_secure_dir(self.repo_dir)  # Create repo dir itself
+            ensure_secure_dir(self.repo_dir.parent)
+            ensure_secure_dir(self.state_file.parent)
         except PermissionError as e:
             raise RuntimeError(
                 f"Cannot create directory {self.repo_dir}. "
@@ -2338,7 +2339,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
             "repo_url": repo_url or self.config.repo_url,
         }
 
-        with open(self.state_file, "w") as f:
+        with secure_open(self.state_file, "w") as f:
             json.dump(state, f, indent=2)
 
     def _load_state(self) -> dict | None:

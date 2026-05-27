@@ -6,6 +6,8 @@ from pathlib import Path
 import yaml
 from platformdirs import user_config_dir, user_data_dir
 
+from .security import ensure_secure_dir, secure_open
+
 
 def _get_app_name() -> str:
     """Get app name from package metadata (or fallback)."""
@@ -48,18 +50,18 @@ class Config:
 
     def load(self) -> None:
         """Load configuration from files."""
-        # Ensure config directory exists
-        self.config_path.parent.mkdir(parents=True, exist_ok=True)
+        # Ensure config directory exists with secure permissions
+        ensure_secure_dir(self.config_path.parent)
 
         # Load main config
         if self.config_path.exists():
-            with open(self.config_path) as f:
+            with secure_open(self.config_path, "r") as f:
                 loaded = yaml.safe_load(f)
                 self._config = loaded if isinstance(loaded, dict) else {}
 
         # Load overrides (local-only, not synced)
         if self.overrides_path.exists():
-            with open(self.overrides_path) as f:
+            with secure_open(self.overrides_path, "r") as f:
                 loaded = yaml.safe_load(f)
                 self._overrides = loaded if isinstance(loaded, dict) else {}
 
@@ -83,7 +85,7 @@ class Config:
 
     def save(self) -> None:
         """Save configuration to file with help header."""
-        self.config_path.parent.mkdir(parents=True, exist_ok=True)
+        ensure_secure_dir(self.config_path.parent)
 
         header = (
             "# agent-sync - User Configuration\n"
@@ -100,7 +102,7 @@ class Config:
             "# -------------------------------\n\n"
         )
 
-        with open(self.config_path, "w") as f:
+        with secure_open(self.config_path, "w") as f:
             f.write(header)
             yaml.dump(self._config, f, default_flow_style=False, sort_keys=False)
 
@@ -132,8 +134,8 @@ class Config:
 
     def save_overrides(self) -> None:
         """Save local overrides (not synced)."""
-        self.overrides_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.overrides_path, "w") as f:
+        ensure_secure_dir(self.overrides_path.parent)
+        with secure_open(self.overrides_path, "w") as f:
             yaml.dump(self._overrides, f, default_flow_style=False, sort_keys=False)
 
     @property

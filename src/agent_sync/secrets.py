@@ -4,6 +4,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from .security import ensure_secure_dir, secure_open
+
 
 class SecretsManager:
     """Manages secrets and environment variables for agent-sync."""
@@ -33,7 +35,16 @@ class SecretsManager:
 
     def __init__(self):
         self.env_file = self.ENV_FILE
-        self.env_file.parent.mkdir(parents=True, exist_ok=True)
+        ensure_secure_dir(self.env_file.parent)
+        # Ensure file exists with secure permissions before loading
+        if not self.env_file.exists():
+            with secure_open(self.env_file, "w") as f:
+                f.write("# agent-sync environment variables\n")
+        else:
+            # Force secure permissions if it already exists
+            import os
+            os.chmod(self.env_file, 0o600)
+
         load_dotenv(self.env_file)
 
     def enable(self, include_mcp: bool = False) -> None:
