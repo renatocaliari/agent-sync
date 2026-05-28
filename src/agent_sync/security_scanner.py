@@ -2,7 +2,7 @@
 Security scanner for agent instruction files.
 
 Detects potentially sensitive content before public publishing:
-- Absolute paths (/Users/, /home/, /root/, C:\)
+- Absolute paths (/Users/, /home/, /root/, C:\\)
 - API tokens and keys (sk-, ghp_, api_, secret)
 - Internal commands (/skill:, /ctx-, ctx_batch_execute)
 - Server paths (server., .renatocaliari.com)
