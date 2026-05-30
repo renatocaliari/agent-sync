@@ -343,7 +343,7 @@ class SkillsManager:
             dest = self.global_skills_dir / skill_dir.name
             if not dest.exists():
                 if skill_dir.is_dir():
-                    shutil.copytree(skill_dir, dest)
+                    shutil.copytree(skill_dir, dest, symlinks=True)
                     synced += 1
 
         return synced
@@ -530,12 +530,12 @@ class SkillsManager:
                             if move:
                                 shutil.move(str(source_path), str(dest_path))
                             else:
-                                shutil.copytree(source_path, dest_path)
+                                shutil.copytree(source_path, dest_path, symlinks=True)
                         else:
                             if move:
                                 shutil.move(str(source_path), str(dest_path))
                             else:
-                                shutil.copy2(source_path, dest_path)
+                                shutil.copy2(source_path, dest_path, follow_symlinks=False)
 
                         # Clean up empty source dir
                         if move and source_path.is_dir():
@@ -877,7 +877,7 @@ class SkillsManager:
                 continue
 
             if skill_dir.is_dir():
-                shutil.copytree(skill_dir, dest)
+                shutil.copytree(skill_dir, dest, symlinks=True)
                 copied += 1
 
         return copied
@@ -942,9 +942,9 @@ class SkillsManager:
                 if not dest.exists():
                     # Copy if doesn't exist
                     if skill_item.is_dir():
-                        shutil.copytree(skill_item, dest)
+                        shutil.copytree(skill_item, dest, symlinks=True)
                     else:
-                        shutil.copy2(skill_item, dest)
+                        shutil.copy2(skill_item, dest, follow_symlinks=False)
                     agent_count += 1
                     stats["distributed"] += 1
                 else:

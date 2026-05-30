@@ -67,9 +67,9 @@ class Snapshot:
                     continue  # Pular .snapshot_dir e outros ocultos
                 dest = self._backup_path / item.name
                 if item.is_dir():
-                    shutil.copytree(item, dest)
+                    shutil.copytree(item, dest, symlinks=True)
                 else:
-                    shutil.copy2(item, dest)
+                    shutil.copy2(item, dest, follow_symlinks=False)
                 self._manifest["skills"].append(item.name)
                 self._manifest["skills_count"] += 1
 
@@ -121,9 +121,9 @@ class Snapshot:
                 continue
             dest = self.hub_path / item.name
             if item.is_dir():
-                shutil.copytree(item, dest)
+                shutil.copytree(item, dest, symlinks=True)
             else:
-                shutil.copy2(item, dest)
+                shutil.copy2(item, dest, follow_symlinks=False)
             restored += 1
 
         console.print(

@@ -89,7 +89,10 @@ class SkillsDeleter:
 
             if not dry_run:
                 try:
-                    shutil.rmtree(hub_skill_path)
+                    if hub_skill_path.is_symlink():
+                        hub_skill_path.unlink()
+                    else:
+                        shutil.rmtree(hub_skill_path)
                     stats["deleted_from_hub"] += 1
                     stats["hub_files"] += hub_files
                     console.print(f"[green]✓ Deleted[/green] {skill_name} from hub ({hub_files} files)")
@@ -125,7 +128,9 @@ class SkillsDeleter:
 
                     if not dry_run:
                         try:
-                            if agent_skill_path.is_dir():
+                            if agent_skill_path.is_symlink():
+                                agent_skill_path.unlink()
+                            elif agent_skill_path.is_dir():
                                 shutil.rmtree(agent_skill_path)
                             else:
                                 agent_skill_path.unlink()
