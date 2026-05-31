@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 """Agent source discovery for publishing."""
 
 import shutil
@@ -9,15 +8,13 @@ import tempfile
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 from rich.console import Console
 from rich.prompt import Prompt
 
+from ..agent_discovery import discover_agent_instructions
 from .config import get_published_repo, load_config, save_selected_skills
 from .tui import MultiSelectTUI, SourceInfo
-from ..agent_discovery import AgentInstructionFile, discover_agent_instructions
-
 
 console = Console()
 
@@ -26,7 +23,7 @@ def _confirm(prompt: str, default_yes: bool = True) -> bool:
     """Ask a confirmation question with Y as default."""
     default_char = "Y" if default_yes else "n"
     choices = ["Y", "n"] if default_yes else ["y", "N"]
-    
+
     result = Prompt.ask(
         prompt,
         choices=choices,
@@ -54,14 +51,14 @@ class AgentSourceStatus(Enum):
 
 def discover_local_agents() -> list[AgentSource]:
     """Discover agent instruction files from local config directories.
-    
+
     Returns:
         List of AgentSource objects for all found agent instruction files.
     """
     results: list[AgentSource] = []
-    
+
     agent_files = discover_agent_instructions()
-    
+
     for agent_file in agent_files:
         if agent_file.exists:
             results.append(AgentSource(
@@ -69,7 +66,7 @@ def discover_local_agents() -> list[AgentSource]:
                 filename=agent_file.filename,
                 path=str(agent_file.full_path),
             ))
-    
+
     return results
 
 
@@ -85,24 +82,24 @@ def get_local_agent_status() -> AgentSourceStatus:
 
 def run_agents_publish_flow() -> bool:
     """Main publish flow for agents using the reusable TUI."""
-    
+
     config = load_config()
     published_repo = get_published_repo()
-    
+
     if not published_repo:
         console.print("[red]✗ Published repo not configured![/]")
         console.print("[dim]Run: agent-sync publish --repo https://github.com/user/repo[/]")
         return False
-    
+
     console.print("\n[blue]🔍 Discovering agents...[/]")
-    
+
     # Discover agents
     agents = discover_local_agents()
-    
+
     if not agents:
         console.print("[yellow]⚠ No agent instruction files found![/]")
         return False
-    
+
     # Build source info (single source: local agents)
     source_infos = [
         SourceInfo(
@@ -114,10 +111,10 @@ def run_agents_publish_flow() -> bool:
             extra="",
         )
     ]
-    
+
     # Initial selection from config (if saved)
     initial_selection = config.selected_skills.get("agents", {})
-    
+
     # Calculate range
     total_count = len(agents)
     footer_commands = [
@@ -127,9 +124,9 @@ def run_agents_publish_flow() -> bool:
         ("publish", "publish"),
         ("quit", "exit"),
     ]
-    
+
     # Create callback for publish
-    def on_publish_callback(selection: dict[str, list[str]]) -> Optional[dict[str, list[str]]]:
+    def on_publish_callback(selection: dict[str, list[str]]) -> dict[str, list[str]] | None:
         # Save selection to config
         save_selected_skills(selection)
         total = sum(len(v) for v in selection.values())
@@ -137,7 +134,7 @@ def run_agents_publish_flow() -> bool:
             if publish_agents(selection, published_repo):
                 return selection
         return None
-    
+
     # Create and run TUI
     tui = MultiSelectTUI(
         title="🤖 Agents Selection",
@@ -145,10 +142,10 @@ def run_agents_publish_flow() -> bool:
         on_publish=on_publish_callback,
     )
     result = tui.run(source_infos, {"agents": initial_selection} if initial_selection else None)
-    
+
     if not result:
         console.print("\n[yellow]Publishing cancelled.[/]")
-    
+
     return bool(result)
 
 
@@ -157,7 +154,6 @@ def publish_agents(
     published_repo: str,
 ) -> bool:
     """Publish selected agents to the target repository."""
-    import subprocess
 
     agents_to_publish = selected.get("agents", [])
 
@@ -183,7 +179,8 @@ def publish_agents(
                 # Use the name as filename, sanitized
                 safe_name = agent_name.replace("/", "_").replace(" ", "_")
                 dest = agents_dir / f"{safe_name}.md"
-                shutil.copy2(Path(agent.path), dest)
+
+                shutil.copy2(Path(agent.path), dest, follow_symlinks=False)
                 published_count += 1
             else:
                 console.print(f"[dim]  ⚠ Not found: {agent_name}[/dim]")

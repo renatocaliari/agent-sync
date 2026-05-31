@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 """Git operations for publish feature.
 
 SoC: Git operations separated from discovery and UI logic.
@@ -8,12 +7,10 @@ DRY: Single _do_git_publish() used by both skills and agents.
 """
 
 import shutil
-import re
 import subprocess
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional
-
 
 # Default patterns to exclude from publish (private data)
 DEFAULT_IGNORE_PATTERNS = [
@@ -49,7 +46,6 @@ from rich.console import Console
 
 from .base import SourceWithSkills
 
-
 console = Console()
 
 
@@ -66,9 +62,9 @@ def do_git_publish(
     repo: str,
 ) -> bool:
     """Generic git publish operation.
-    
+
     DRY: Single implementation used by both skills and agents.
-    
+
     Args:
         items: List of (source_path, dest_name) tuples
         subdir: Subdirectory name (e.g., "skills", "agents")
@@ -76,43 +72,44 @@ def do_git_publish(
         count: Number of items
         item_name: Name for messages (e.g., "skills", "agents")
         repo: Target repository URL
-    
+
     Returns:
         True if published successfully
     """
     tmp_dir = Path(tempfile.mkdtemp(prefix="agent-sync-publish-"))
-    
+
     try:
         # Create subdirectory
         items_dir = tmp_dir / subdir
         items_dir.mkdir(parents=True)
-        
+
         # Copy items (handles both files and directories)
         for src_path, dest_name in items:
             dest = items_dir / dest_name
             if src_path.is_dir():
-                shutil.copytree(src_path, dest, dirs_exist_ok=True,
+                shutil.copytree(src_path, dest, dirs_exist_ok=True, symlinks=True,
                                ignore=_ignore_func(*DEFAULT_IGNORE_PATTERNS))
             else:
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(src_path, dest)
-        
+
+                shutil.copy2(src_path, dest, follow_symlinks=False)
+
         # Generate README
         readme_generator(items_dir, items, repo)
-        
+
         # Git operations
         git_commit_and_push(tmp_dir, repo, count)
-        
+
         console.print(f"\n[green]✓ Published {count} {item_name}![/]")
         return True
-        
+
     except subprocess.CalledProcessError as e:
         console.print(f"\n[red]✗ Git error: {e.stderr or str(e)}[/]")
         return False
     except Exception as e:
         console.print(f"\n[red]✗ Error publishing: {e}[/]")
         return False
-        
+
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
@@ -124,101 +121,104 @@ def publish_all(
     published_repo: str,
 ) -> bool:
     """Publish skills AND agents in a single push.
-    
+
     This prevents the --force push from overwriting previous content.
     Both skills and agents are published together in one git commit.
-    
+
     Args:
         skills_selected: Dict of source_id -> [skill_names]
         skills_sources: List of SourceWithSkills for lookup
         agents_selected: List of agent names to publish
         published_repo: Target repository URL
-    
+
     Returns:
         True if published successfully
     """
     tmp_dir = Path(tempfile.mkdtemp(prefix="agent-sync-publish-"))
-    
+
     try:
         # Build source lookup for skills
         source_map = {src.source_id: src for src in skills_sources}
-        
+
         total_items = 0
-        
+
         # Copy skills
         if skills_selected and any(len(v) > 0 for v in skills_selected.values()):
             skills_dir = tmp_dir / "skills"
             skills_dir.mkdir(parents=True)
-            
+
             skills_to_publish: list[tuple[Path, str]] = []
             for source_id, skill_names in skills_selected.items():
                 src = source_map.get(source_id)
                 if not src:
                     continue
-                
+
                 for skill_name in skill_names:
                     for skill in src.skills:
                         if skill.name == skill_name:
                             dest_name = f"{source_id}/{skill_name}"
                             dest = skills_dir / dest_name
                             if skill.path.is_dir():
-                                shutil.copytree(skill.path, dest, dirs_exist_ok=True,
+
+                                shutil.copytree(skill.path, dest, dirs_exist_ok=True, symlinks=True,
                                                ignore=_ignore_func(*DEFAULT_IGNORE_PATTERNS))
                             else:
                                 dest.parent.mkdir(parents=True, exist_ok=True)
-                                shutil.copy2(skill.path, dest)
+
+                                shutil.copy2(skill.path, dest, follow_symlinks=False)
                             skills_to_publish.append((skill.path, dest_name))
                             break
-            
+
             if skills_to_publish:
                 generate_skills_readme(skills_dir, skills_to_publish, published_repo)
                 total_items += len(skills_to_publish)
-        
+
         # Copy agents
         if agents_selected:
             from .agents_source import discover_local_agents
-            
+
             agents_dir = tmp_dir / "agents"
             agents_dir.mkdir(parents=True)
-            
+
             all_agents = {a.name: a for a in discover_local_agents()}
             agents_to_publish: list[tuple[Path, str]] = []
-            
+
             for agent_name in agents_selected:
                 agent = all_agents.get(agent_name)
                 if agent:
                     dest = agents_dir / f"{agent_name}.md"
-                    shutil.copy2(Path(agent.path), dest)
+
+                    shutil.copy2(Path(agent.path), dest, follow_symlinks=False)
                     agents_to_publish.append((Path(agent.path), f"agents/{agent_name}.md"))
-            
+
             if agents_to_publish:
                 generate_agents_readme(agents_dir, agents_to_publish, published_repo)
                 total_items += len(agents_to_publish)
-        
+
         if total_items == 0:
             console.print("[yellow]⚠ Nothing selected to publish[/]")
             return False
-        
+
         # Single git commit and push for everything
         git_commit_and_push(tmp_dir, published_repo, total_items)
-        
+
         console.print(f"\n[green]✓ Published {total_items} items (skills + agents)![/]")
         return True
-        
+
     except subprocess.CalledProcessError as e:
         console.print(f"\n[red]✗ Git error: {e.stderr or str(e)}[/]")
         return False
     except Exception as e:
         console.print(f"\n[red]✗ Error publishing: {e}[/]")
         return False
-        
+
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 def git_commit_and_push(tmp_dir: Path, repo_url: str, count: int) -> None:
     """Git add, commit, and push to repo.
-    
+
     Args:
         tmp_dir: Temporary directory with content to publish
         repo_url: Target repository URL
@@ -227,7 +227,7 @@ def git_commit_and_push(tmp_dir: Path, repo_url: str, count: int) -> None:
     # Initialize git
     subprocess.run(["git", "init"], cwd=tmp_dir, check=True, capture_output=True, timeout=10)
     subprocess.run(["git", "branch", "-M", "main"], cwd=tmp_dir, check=True, capture_output=True, timeout=10)
-    
+
     # Configure git user (required for commits)
     subprocess.run(
         ["git", "config", "user.email", "agent-sync@local"],
@@ -237,7 +237,7 @@ def git_commit_and_push(tmp_dir: Path, repo_url: str, count: int) -> None:
         ["git", "config", "user.name", "agent-sync"],
         cwd=tmp_dir, check=True, capture_output=True, timeout=10
     )
-    
+
     # Add and commit
     subprocess.run(["git", "add", "."], cwd=tmp_dir, check=True, capture_output=True, timeout=30)
     commit_result = subprocess.run(
@@ -252,7 +252,7 @@ def git_commit_and_push(tmp_dir: Path, repo_url: str, count: int) -> None:
             commit_result.returncode, "git commit",
             commit_result.stdout, commit_result.stderr
         )
-    
+
     # Push
     subprocess.run(
         ["git", "remote", "add", "origin", repo_url],
@@ -285,36 +285,36 @@ def publish_skills(
     published_repo: str,
 ) -> bool:
     """Publish selected skills to the target repository.
-    
+
     Args:
         selected: Dict of source_id -> [skill_names]
         sources: List of SourceWithSkills for lookup
         published_repo: Target repository URL
-    
+
     Returns:
         True if published successfully
     """
     # Build source lookup
     source_map = {src.source_id: src for src in sources}
-    
+
     # Collect skills to publish
     skills_to_publish: list[tuple[Path, str]] = []
-    
+
     for source_id, skill_names in selected.items():
         src = source_map.get(source_id)
         if not src:
             continue
-        
+
         for skill_name in skill_names:
             for skill in src.skills:
                 if skill.name == skill_name:
                     skills_to_publish.append((skill.path, f"{source_id}/{skill_name}"))
                     break
-    
+
     if not skills_to_publish:
         console.print("[yellow]⚠ No skills selected to publish[/]")
         return False
-    
+
     return do_git_publish(
         items=skills_to_publish,
         subdir="skills",
@@ -334,34 +334,34 @@ def publish_agents(
     published_repo: str,
 ) -> bool:
     """Publish selected agents to the target repository.
-    
+
     Args:
         selected: Dict with "agents" key -> [agent_names]
         published_repo: Target repository URL
-    
+
     Returns:
         True if published successfully
     """
     from .agents_source import discover_local_agents
-    
+
     agents_to_publish = selected.get("agents", [])
-    
+
     if not agents_to_publish:
         console.print("[yellow]⚠ No agents selected to publish[/]")
         return False
-    
+
     # Find agent paths
     all_agents = {a.name: a for a in discover_local_agents()}
     items: list[tuple[Path, str]] = []
-    
+
     for agent_name in agents_to_publish:
         agent = all_agents.get(agent_name)
         if agent:
             items.append((Path(agent.path), f"agents/{agent_name}.md"))
-    
+
     if not items:
         return False
-    
+
     return do_git_publish(
         items=items,
         subdir="agents",
@@ -378,20 +378,20 @@ def publish_agents(
 
 def generate_skills_readme(skills_dir: Path, selected: list, repo_url: str) -> None:
     """Generate README.md for skills directory.
-    
+
     Args:
         skills_dir: Directory containing published skills
         selected: List of (path, name) tuples that were published
         repo_url: Repository URL for install instructions
     """
     repo_name = repo_url.split("/")[-1].replace(".git", "")
-    
+
     lines = [
         "# Skills\n",
         f"Published from [{repo_name}]({repo_url})\n",
         "\n## Available Skills\n",
     ]
-    
+
     # Group by source
     by_source: dict[str, list[str]] = {}
     for _, name in selected:
@@ -404,43 +404,43 @@ def generate_skills_readme(skills_dir: Path, selected: list, repo_url: str) -> N
             if "local" not in by_source:
                 by_source["local"] = []
             by_source["local"].append(name)
-    
+
     # Generate list
     for source, skills in sorted(by_source.items()):
         lines.append(f"\n### {source.upper()}\n")
         for skill in sorted(skills):
             lines.append(f"- {skill}\n")
-    
+
     lines.append(f"\n## Install All\n\n```bash\nnpx skills add {repo_url}\n```\n")
-    
+
     readme_path = skills_dir / "README.md"
     readme_path.write_text("".join(lines))
 
 
 def generate_agents_readme(agents_dir: Path, selected: list, repo_url: str) -> None:
     """Generate README.md for agents directory.
-    
+
     Args:
         agents_dir: Directory containing published agents
         selected: List of (path, name) tuples that were published
         repo_url: Repository URL
     """
     repo_name = repo_url.split("/")[-1].replace(".git", "")
-    
+
     lines = [
         "# Agents\n",
         f"Published from [{repo_name}]({repo_url})\n",
         "\n## Available Agents\n",
     ]
-    
+
     agent_names = []
     for _, name in selected:
         if "/" in name:
             agent_name = name.split("/")[-1].replace(".md", "")
             agent_names.append(agent_name)
-    
+
     for name in sorted(agent_names):
         lines.append(f"- {name}\n")
-    
+
     readme_path = agents_dir / "README.md"
     readme_path.write_text("".join(lines))
