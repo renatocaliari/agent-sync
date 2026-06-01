@@ -7,6 +7,7 @@ This module handles publishing skills from multiple sources to a central
 public repository for sharing with the community.
 """
 
+from ..security_scanner import ScanResult
 
 
 def has_significant_issues(result: ScanResult) -> bool:

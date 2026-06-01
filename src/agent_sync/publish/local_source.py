@@ -26,7 +26,7 @@ def discover_local_skills() -> list[SkillSource]:
     # Collect all skill paths first
     skill_paths = []
     for item in SKILLS_DIR.iterdir():
-        if item.name.startswith("."):
+        if item.name.startswith(".") or item.is_symlink():
             continue
         
         # Skill can be a directory (with SKILL.md) or a .md file
@@ -86,7 +86,7 @@ def _is_valid_skill_name(name: str) -> bool:
     """
     import re
     # Match: starts with letter, then letters/numbers/hyphens, ends with letter/number
-    pattern = r'^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+    pattern = r'^[a-z][a-z0-9]*(-[a-z0-9]+)*\Z'
     return bool(re.match(pattern, name))
 
 
