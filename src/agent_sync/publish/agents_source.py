@@ -183,7 +183,8 @@ def publish_agents(
                 # Use the name as filename, sanitized
                 safe_name = agent_name.replace("/", "_").replace(" ", "_")
                 dest = agents_dir / f"{safe_name}.md"
-                shutil.copy2(Path(agent.path), dest)
+                # SECURITY: Use follow_symlinks=False to avoid following symlinks
+                shutil.copy2(Path(agent.path), dest, follow_symlinks=False)
                 published_count += 1
             else:
                 console.print(f"[dim]  ⚠ Not found: {agent_name}[/dim]")

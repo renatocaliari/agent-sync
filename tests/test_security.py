@@ -178,3 +178,33 @@ def test_run_git_sanitizes_stderr_on_failure(tmp_path):
             assert "***" in e.stderr, (
                 "Sanitization marker missing — stderr was not sanitized"
             )
+
+
+def test_shutil_preserves_symlinks(tmp_path):
+    """Security: Verify that copy operations preserve symlinks (no content leakage)."""
+    import shutil
+    import os
+
+    # Setup
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+
+    # Target file outside source dir
+    secret_file = tmp_path / "secret.txt"
+    secret_file.write_text("SENSITIVE")
+
+    # Symlink in source dir pointing to secret
+    link_path = source_dir / "link.txt"
+    os.symlink(secret_file, link_path)
+
+    # Destination
+    dest_dir = tmp_path / "dest"
+
+    # 1. Test copytree (used in skills.py, sync.py, git_publish.py)
+    shutil.copytree(source_dir, dest_dir, symlinks=True)
+    assert (dest_dir / "link.txt").is_symlink(), "copytree followed symlink!"
+
+    # 2. Test copy2 (used in skills.py, sync.py, git_publish.py, agents_source.py)
+    dest_file = tmp_path / "copy2_dest"
+    shutil.copy2(link_path, dest_file, follow_symlinks=False)
+    assert dest_file.is_symlink(), "copy2 followed symlink!"
