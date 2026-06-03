@@ -42,6 +42,15 @@ def test_validate_skill_name_security():
     assert validate_skill_name("skill$(id)") is False
 
 
+def test_internal_publish_skill_name_validators_newline_injection():
+    """Verify that internal skill name validators in publish module block newline injection."""
+    from agent_sync.publish.local_source import _is_valid_skill_name as local_valid
+    from agent_sync.publish.external_source import _is_valid_skill_name as external_valid
+
+    assert local_valid("skill\n") is False
+    assert external_valid("skill\n") is False
+
+
 def test_validate_repo_name_newline_injection():
     """Verify that validate_repo_name blocks newline injection."""
     assert validate_repo_name("repo\n") is False
