@@ -104,7 +104,7 @@ def test_skills_deleter_path_traversal_blocking(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 
 import subprocess
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from agent_sync.sync import _sanitize_git_output
 
@@ -178,3 +178,16 @@ def test_run_git_sanitizes_stderr_on_failure(tmp_path):
             assert "***" in e.stderr, (
                 "Sanitization marker missing — stderr was not sanitized"
             )
+
+
+def test_internal_publish_skill_name_validators_newline_injection():
+    """Verify that internal publish skill name validators are vulnerable to newline injection.
+
+    These validators currently use '$' instead of '\\Z', which allows trailing newlines.
+    """
+    from agent_sync.publish.external_source import _is_valid_skill_name as external_is_valid
+    from agent_sync.publish.local_source import _is_valid_skill_name as local_is_valid
+
+    # After the fix, they should correctly reject "skill\n"
+    assert local_is_valid("skill\n") is False
+    assert external_is_valid("skill\n") is False
