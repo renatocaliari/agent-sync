@@ -1,7 +1,45 @@
 """Security regression tests for agent-sync."""
 
+import shutil
+from pathlib import Path
 from agent_sync.skills_delete import SkillsDeleter
 from agent_sync.validators import validate_github_url, validate_repo_name, validate_skill_name
+from agent_sync.publish.local_source import _is_valid_skill_name as _is_valid_local_skill_name
+from agent_sync.publish.external_source import _is_valid_skill_name as _is_valid_external_skill_name
+
+
+def test_internal_publish_skill_name_validators_newline_injection():
+    """Verify that internal skill name validators in publish modules block newline injection."""
+    # These currently use $ which is vulnerable
+    assert _is_valid_local_skill_name("skill\n") is False
+    assert _is_valid_external_skill_name("skill\n") is False
+
+
+def test_shutil_preserves_symlinks(tmp_path):
+    """Verify that shutil copy operations preserve symbolic links.
+
+    This ensures that hardening using symlinks=True/follow_symlinks=False
+    works as expected in our environment.
+    """
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    target_file = tmp_path / "target.txt"
+    target_file.write_text("secret")
+
+    symlink_file = src_dir / "link.txt"
+    symlink_file.symlink_to(target_file)
+
+    # Test copytree
+    dst_dir = tmp_path / "dst_tree"
+    shutil.copytree(src_dir, dst_dir, symlinks=True)
+    assert (dst_dir / "link.txt").is_symlink()
+    assert (dst_dir / "link.txt").readlink() == target_file
+
+    # Test copy2
+    dst_file = tmp_path / "dst_file.txt"
+    shutil.copy2(symlink_file, dst_file, follow_symlinks=False)
+    assert dst_file.is_symlink()
+    assert dst_file.readlink() == target_file
 
 
 def test_validate_repo_name_argument_injection():
