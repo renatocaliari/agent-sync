@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-
 """Publish module for agent-sync skills publishing.
 
 This module handles publishing skills from multiple sources to a central
 public repository for sharing with the community.
 """
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..security_scanner import ScanResult
 
 
 def has_significant_issues(result: ScanResult) -> bool:
