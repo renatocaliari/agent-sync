@@ -91,11 +91,12 @@ def do_git_publish(
         for src_path, dest_name in items:
             dest = items_dir / dest_name
             if src_path.is_dir():
-                shutil.copytree(src_path, dest, dirs_exist_ok=True,
-                               ignore=_ignore_func(*DEFAULT_IGNORE_PATTERNS))
+                # symlinks=True prevents content leakage by preserving links instead of following them
+                shutil.copytree(src_path, dest, dirs_exist_ok=True, symlinks=True, ignore=_ignore_func(*DEFAULT_IGNORE_PATTERNS))
             else:
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(src_path, dest)
+                # follow_symlinks=False prevents content leakage
+                shutil.copy2(src_path, dest, follow_symlinks=False)
         
         # Generate README
         readme_generator(items_dir, items, repo)
@@ -162,11 +163,12 @@ def publish_all(
                             dest_name = f"{source_id}/{skill_name}"
                             dest = skills_dir / dest_name
                             if skill.path.is_dir():
-                                shutil.copytree(skill.path, dest, dirs_exist_ok=True,
-                                               ignore=_ignore_func(*DEFAULT_IGNORE_PATTERNS))
+                                # symlinks=True prevents content leakage
+                                shutil.copytree(skill.path, dest, dirs_exist_ok=True, symlinks=True, ignore=_ignore_func(*DEFAULT_IGNORE_PATTERNS))
                             else:
                                 dest.parent.mkdir(parents=True, exist_ok=True)
-                                shutil.copy2(skill.path, dest)
+                                # follow_symlinks=False prevents content leakage
+                                shutil.copy2(skill.path, dest, follow_symlinks=False)
                             skills_to_publish.append((skill.path, dest_name))
                             break
             
@@ -188,7 +190,8 @@ def publish_all(
                 agent = all_agents.get(agent_name)
                 if agent:
                     dest = agents_dir / f"{agent_name}.md"
-                    shutil.copy2(Path(agent.path), dest)
+                    # follow_symlinks=False prevents content leakage
+                    shutil.copy2(Path(agent.path), dest, follow_symlinks=False)
                     agents_to_publish.append((Path(agent.path), f"agents/{agent_name}.md"))
             
             if agents_to_publish:

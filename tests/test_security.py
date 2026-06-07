@@ -178,3 +178,42 @@ def test_run_git_sanitizes_stderr_on_failure(tmp_path):
             assert "***" in e.stderr, (
                 "Sanitization marker missing — stderr was not sanitized"
             )
+
+def test_internal_publish_skill_name_validators_newline_injection():
+    """Verify that internal publish validators correctly reject trailing newlines (regression for \\Z vs $)."""
+    from agent_sync.publish.local_source import _is_valid_skill_name as v_local
+    from agent_sync.publish.external_source import _is_valid_skill_name as v_external
+
+    assert v_local("valid-skill") is True
+    assert v_local("valid-skill\n") is False
+    assert v_external("valid-skill") is True
+    assert v_external("valid-skill\n") is False
+
+
+def test_shutil_preserves_symlinks():
+    """Verify that shutil copy operations preserve symlinks to prevent content leakage."""
+    import shutil
+    from pathlib import Path
+
+    test_dir = Path("test_symlink_preservation")
+    test_dir.mkdir(exist_ok=True)
+    try:
+        target = test_dir / "target.txt"
+        target.write_text("SENSITIVE CONTENT")
+
+        src = test_dir / "src"
+        src.mkdir(exist_ok=True)
+        link = src / "link.txt"
+        link.symlink_to(target)
+
+        # Test copytree
+        dest_tree = test_dir / "dest_tree"
+        shutil.copytree(src, dest_tree, symlinks=True)
+        assert (dest_tree / "link.txt").is_symlink(), "copytree did not preserve symlink"
+
+        # Test copy2
+        dest_file = test_dir / "dest_file"
+        shutil.copy2(link, dest_file, follow_symlinks=False)
+        assert dest_file.is_symlink(), "copy2 did not preserve symlink"
+    finally:
+        shutil.rmtree(test_dir, ignore_errors=True)
