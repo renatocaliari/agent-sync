@@ -178,3 +178,29 @@ def test_run_git_sanitizes_stderr_on_failure(tmp_path):
             assert "***" in e.stderr, (
                 "Sanitization marker missing — stderr was not sanitized"
             )
+
+
+def test_shutil_preserves_symlinks(tmp_path):
+    """Verify that file copy operations preserve symlinks instead of following them.
+
+    This is a critical security property to prevent content leakage when
+    backing up user-controlled directories.
+    """
+    import shutil
+
+    src = tmp_path / "src"
+    src.mkdir()
+    secret = tmp_path / "secret"
+    secret.write_text("my secret")
+    link = src / "link"
+    link.symlink_to(secret)
+
+    # Test shutil.copytree with our hardening (symlinks=True)
+    dest_tree = tmp_path / "dest_tree"
+    shutil.copytree(src, dest_tree, symlinks=True)
+    assert (dest_tree / "link").is_symlink(), "copytree followed symlink instead of preserving it!"
+
+    # Test shutil.copy2 with our hardening (follow_symlinks=False)
+    dest_file = tmp_path / "dest_file"
+    shutil.copy2(link, dest_file, follow_symlinks=False)
+    assert dest_file.is_symlink(), "copy2 followed symlink instead of preserving it!"

@@ -24,6 +24,7 @@ class TestIsValidSkillName:
         assert _is_valid_skill_name("my--skill") is False  # consecutive hyphens
         assert _is_valid_skill_name("-skill") is False  # starts with hyphen
         assert _is_valid_skill_name("my-skill-") is False  # ends with hyphen
+        assert _is_valid_skill_name("my-skill\n") is False  # newline injection
 
 
 class TestDiscoverLocalSkills:
