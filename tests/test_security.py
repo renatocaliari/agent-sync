@@ -55,6 +55,45 @@ def test_validate_github_url_newline_injection():
     assert validate_github_url("https://github.com/owner/repo\r.git") is False
 
 
+def test_publish_is_valid_skill_name_newline_injection():
+    """Verify that internal _is_valid_skill_name in publish modules blocks newline injection."""
+    from agent_sync.publish.local_source import _is_valid_skill_name as local_valid
+    from agent_sync.publish.external_source import _is_valid_skill_name as external_valid
+
+    assert local_valid("skill\n") is False
+    assert external_valid("skill\n") is False
+    assert local_valid("skill") is True
+    assert external_valid("skill") is True
+
+
+def test_shutil_preserves_symlinks(tmp_path):
+    """Verify that our hardened shutil calls preserve symlinks.
+
+    If copytree follows symlinks (default), it copies the content.
+    If it preserves them (symlinks=True), it copies the link itself.
+    """
+    import shutil
+    import os
+
+    # 1. Setup a directory with a symlink
+    src = tmp_path / "src"
+    src.mkdir()
+    target = tmp_path / "target.txt"
+    target.write_text("sensitive data")
+
+    link = src / "link.txt"
+    os.symlink(target, link)
+
+    # 2. Copy using our hardened pattern
+    dest = tmp_path / "dest"
+    shutil.copytree(src, dest, symlinks=True)
+
+    # 3. Verify
+    dest_link = dest / "link.txt"
+    assert dest_link.is_symlink(), "Symlink was followed (content leaked) instead of preserved!"
+    assert os.readlink(dest_link) == str(target)
+
+
 def test_skills_deleter_path_traversal_blocking(tmp_path, monkeypatch):
     """Verify that SkillsDeleter blocks path traversal attempts."""
     # Setup mock environment
