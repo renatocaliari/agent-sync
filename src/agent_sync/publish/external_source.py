@@ -204,7 +204,7 @@ def _is_valid_skill_name(name: str) -> bool:
     """
     import re
     # Match: starts with letter, then letters/numbers/hyphens, ends with letter/number
-    pattern = r'^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+    pattern = r'^[a-z][a-z0-9]*(-[a-z0-9]+)*\Z'
     return bool(re.match(pattern, name))
 
 
