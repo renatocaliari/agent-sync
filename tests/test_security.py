@@ -55,6 +55,22 @@ def test_validate_github_url_newline_injection():
     assert validate_github_url("https://github.com/owner/repo\r.git") is False
 
 
+def test_internal_skill_name_newline_injection():
+    """Verify that internal _is_valid_skill_name functions block newline injection."""
+    from agent_sync.publish.external_source import _is_valid_skill_name as external_valid
+    from agent_sync.publish.local_source import _is_valid_skill_name as local_valid
+
+    # Valid name
+    assert local_valid("my-skill") is True
+    assert external_valid("my-skill") is True
+
+    # Newline injection
+    assert local_valid("my-skill\n") is False
+    assert external_valid("my-skill\n") is False
+    assert local_valid("my-skill\r") is False
+    assert external_valid("my-skill\r") is False
+
+
 def test_skills_deleter_path_traversal_blocking(tmp_path, monkeypatch):
     """Verify that SkillsDeleter blocks path traversal attempts."""
     # Setup mock environment
