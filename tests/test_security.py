@@ -178,3 +178,45 @@ def test_run_git_sanitizes_stderr_on_failure(tmp_path):
             assert "***" in e.stderr, (
                 "Sanitization marker missing — stderr was not sanitized"
             )
+
+
+def test_shutil_preserves_symlinks(tmp_path):
+    """Verify that file copy operations preserve symbolic links rather than following them.
+
+    This is a critical defense against content leakage where a symlink in a user-controlled
+    directory (like a skill or agent config) points to a sensitive file outside that scope.
+    """
+    import shutil
+    from pathlib import Path
+
+    # 1. Setup sensitive source and a symlink to it
+    outside_dir = tmp_path / "outside"
+    outside_dir.mkdir()
+    secret_file = outside_dir / "secret.txt"
+    secret_file.write_text("private info")
+
+    user_dir = tmp_path / "user_data"
+    user_dir.mkdir()
+    link_path = user_dir / "link_to_secret"
+    link_path.symlink_to(secret_file)
+
+    # 2. Setup destination
+    dest_dir = tmp_path / "destination"
+    dest_dir.mkdir()
+
+    # 3. Test shutil.copy2 with follow_symlinks=False
+    # This matches the pattern used for single files
+    dest_file = dest_dir / "copied_link"
+    shutil.copy2(link_path, dest_file, follow_symlinks=False)
+
+    assert dest_file.is_symlink(), "shutil.copy2 should preserve symlink with follow_symlinks=False"
+    assert dest_file.readlink() == secret_file, "Preserved symlink should point to original target"
+
+    # 4. Test shutil.copytree with symlinks=True
+    # This matches the pattern used for directories (skills, agent configs)
+    dest_tree = tmp_path / "dest_tree"
+    shutil.copytree(user_dir, dest_tree, symlinks=True)
+
+    copied_link_in_tree = dest_tree / "link_to_secret"
+    assert copied_link_in_tree.is_symlink(), "shutil.copytree should preserve symlinks with symlinks=True"
+    assert copied_link_in_tree.readlink() == secret_file, "Preserved symlink in tree should point to original target"
