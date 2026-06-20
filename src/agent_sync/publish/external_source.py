@@ -199,12 +199,13 @@ def _find_skills_in_repo(cache_path: Path, source: SourceConfig) -> list[SkillSo
 
 def _is_valid_skill_name(name: str) -> bool:
     """Check if skill name is valid.
-    
+
     Valid: lowercase, numbers, hyphens. No leading/trailing/consecutive hyphens.
     """
     import re
+
     # Match: starts with letter, then letters/numbers/hyphens, ends with letter/number
-    pattern = r'^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+    pattern = r"^[a-z][a-z0-9]*(-[a-z0-9]+)*\Z"
     return bool(re.match(pattern, name))
 
 
