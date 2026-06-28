@@ -29,20 +29,21 @@ DEFAULT_IGNORE_PATTERNS = [
 
 
 def _ignore_func(*patterns):
-    """Create a callable that returns a list of filenames to ignore."""
+    """Create a callable that returns a list of filenames to ignore.
+
+    Uses fnmatch for robust pattern matching.
+    """
+    import fnmatch
+
     def _ignore(path, names):
         ignored = []
-        for name in names:
-            for pattern in patterns:
-                if pattern.startswith('*.'):
-                    if name.endswith(pattern[1:]):
-                        ignored.append(name)
-                        break
-                elif pattern.startswith('.'):
-                    if name == pattern or name.startswith(pattern.rstrip('/') + '/'):
-                        ignored.append(name)
-                        break
-        return ignored
+        for pattern in patterns:
+            # Use fnmatch.filter to get all names matching the pattern
+            # This handles glob patterns like *.log and exact matches like sessions
+            matches = fnmatch.filter(names, pattern)
+            ignored.extend(matches)
+        return list(set(ignored))  # Deduplicate
+
     return _ignore
 
 from rich.console import Console
