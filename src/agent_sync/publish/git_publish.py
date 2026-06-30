@@ -30,19 +30,16 @@ DEFAULT_IGNORE_PATTERNS = [
 
 def _ignore_func(*patterns):
     """Create a callable that returns a list of filenames to ignore."""
+    import fnmatch
+
     def _ignore(path, names):
         ignored = []
-        for name in names:
-            for pattern in patterns:
-                if pattern.startswith('*.'):
-                    if name.endswith(pattern[1:]):
-                        ignored.append(name)
-                        break
-                elif pattern.startswith('.'):
-                    if name == pattern or name.startswith(pattern.rstrip('/') + '/'):
-                        ignored.append(name)
-                        break
-        return ignored
+        for pattern in patterns:
+            # Use fnmatch.filter to robustly match patterns against names
+            matches = fnmatch.filter(names, pattern)
+            ignored.extend(matches)
+        return list(set(ignored))
+
     return _ignore
 
 from rich.console import Console
@@ -91,11 +88,19 @@ def do_git_publish(
         for src_path, dest_name in items:
             dest = items_dir / dest_name
             if src_path.is_dir():
-                shutil.copytree(src_path, dest, dirs_exist_ok=True,
-                               ignore=_ignore_func(*DEFAULT_IGNORE_PATTERNS))
+                # Preserve symlinks as links instead of following them (security)
+                shutil.copytree(
+                    src_path,
+                    dest,
+                    dirs_exist_ok=True,
+                    symlinks=True,
+                    ignore=_ignore_func(*DEFAULT_IGNORE_PATTERNS),
+                )
             else:
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(src_path, dest)
+                # copy2 follows symlinks by default; we must use follow_symlinks=False
+                # to prevent leaking content from outside the skill directory.
+                shutil.copy2(src_path, dest, follow_symlinks=False)
         
         # Generate README
         readme_generator(items_dir, items, repo)
@@ -162,11 +167,17 @@ def publish_all(
                             dest_name = f"{source_id}/{skill_name}"
                             dest = skills_dir / dest_name
                             if skill.path.is_dir():
-                                shutil.copytree(skill.path, dest, dirs_exist_ok=True,
-                                               ignore=_ignore_func(*DEFAULT_IGNORE_PATTERNS))
+                                # Preserve symlinks (security)
+                                shutil.copytree(
+                                    skill.path,
+                                    dest,
+                                    dirs_exist_ok=True,
+                                    symlinks=True,
+                                    ignore=_ignore_func(*DEFAULT_IGNORE_PATTERNS),
+                                )
                             else:
                                 dest.parent.mkdir(parents=True, exist_ok=True)
-                                shutil.copy2(skill.path, dest)
+                                shutil.copy2(skill.path, dest, follow_symlinks=False)
                             skills_to_publish.append((skill.path, dest_name))
                             break
             
