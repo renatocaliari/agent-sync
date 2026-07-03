@@ -50,6 +50,17 @@ def _sanitize_git_output(text: str) -> str:
     return text
 
 
+def _sanitize_git_args(args: list[str] | str) -> list[str] | str:
+    """Redact tokens from git command arguments.
+
+    Prevents token leakage in CalledProcessError.cmd which is often
+    printed or logged.
+    """
+    if isinstance(args, str):
+        return _sanitize_git_output(args)
+    return [_sanitize_git_output(arg) for arg in args]
+
+
 # =============================================================================
 # DATA CLASSES
 # =============================================================================
@@ -245,7 +256,7 @@ class SyncManager:
         if result.returncode != 0:
             raise subprocess.CalledProcessError(
                 result.returncode,
-                cmd,
+                _sanitize_git_args(cmd),
                 _sanitize_git_output(result.stdout),
                 _sanitize_git_output(result.stderr),
             )
@@ -351,7 +362,7 @@ class SyncManager:
                 if result.returncode != 0:
                     raise subprocess.CalledProcessError(
                         result.returncode,
-                        result.args,
+                        _sanitize_git_args(result.args),
                         _sanitize_git_output(result.stdout),
                         _sanitize_git_output(result.stderr),
                     )
@@ -408,7 +419,7 @@ class SyncManager:
             if alt_result.returncode != 0:
                 raise subprocess.CalledProcessError(
                     alt_result.returncode,
-                    alt_result.args,
+                    _sanitize_git_args(alt_result.args),
                     _sanitize_git_output(alt_result.stdout),
                     _sanitize_git_output(alt_result.stderr),
                 )
@@ -461,7 +472,7 @@ class SyncManager:
             if result.returncode != 0:
                 raise subprocess.CalledProcessError(
                     result.returncode,
-                    result.args,
+                    _sanitize_git_args(result.args),
                     _sanitize_git_output(result.stdout),
                     _sanitize_git_output(result.stderr),
                 )
@@ -3293,7 +3304,7 @@ All skills are centralized in `~/.agents/skills/` and synced via `skills/`.
         if result.returncode != 0:
             raise subprocess.CalledProcessError(
                 result.returncode,
-                result.args,
+                _sanitize_git_args(result.args),
                 _sanitize_git_output(result.stdout),
                 _sanitize_git_output(result.stderr),
             )

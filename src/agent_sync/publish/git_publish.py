@@ -7,8 +7,9 @@ SoC: Git operations separated from discovery and UI logic.
 DRY: Single _do_git_publish() used by both skills and agents.
 """
 
-import shutil
+import fnmatch
 import re
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -17,36 +18,45 @@ from typing import Callable, Optional
 
 # Default patterns to exclude from publish (private data)
 DEFAULT_IGNORE_PATTERNS = [
-    '.git', '.gitignore', '.github',
+    ".git",
+    ".gitignore",
+    ".github",
     # Session and cache data
-    'sessions', 'blob', 'cache', '.cache',
-    '*.jsonl', '*.log', '*.sqlite', '*.db',
+    "sessions",
+    "cache",
+    ".cache",
+    "blob",
+    "*.jsonl",
+    "*.log",
+    "*.sqlite",
+    "*.db",
     # Configuration with personal data
-    'models.json', 'models.yaml', 'config_local.json',
+    "models.json",
+    "models.yaml",
+    "config_local.json",
     # Environment files
-    '.env', '.env.*', '*.pem', '*.key',
+    ".env",
+    ".env.*",
+    "*.pem",
+    "*.key",
 ]
 
 
 def _ignore_func(*patterns):
     """Create a callable that returns a list of filenames to ignore."""
+
     def _ignore(path, names):
         ignored = []
-        for name in names:
-            for pattern in patterns:
-                if pattern.startswith('*.'):
-                    if name.endswith(pattern[1:]):
-                        ignored.append(name)
-                        break
-                elif pattern.startswith('.'):
-                    if name == pattern or name.startswith(pattern.rstrip('/') + '/'):
-                        ignored.append(name)
-                        break
-        return ignored
+        for pattern in patterns:
+            # Use fnmatch to support robust globbing and literal matches
+            ignored.extend(fnmatch.filter(names, pattern))
+        return set(ignored)
+
     return _ignore
 
 from rich.console import Console
 
+from ..sync import _sanitize_git_args, _sanitize_git_output
 from .base import SourceWithSkills
 
 
@@ -91,11 +101,18 @@ def do_git_publish(
         for src_path, dest_name in items:
             dest = items_dir / dest_name
             if src_path.is_dir():
-                shutil.copytree(src_path, dest, dirs_exist_ok=True,
-                               ignore=_ignore_func(*DEFAULT_IGNORE_PATTERNS))
+                # Preserve symlinks as links to avoid leaking content from outside the directory
+                shutil.copytree(
+                    src_path,
+                    dest,
+                    dirs_exist_ok=True,
+                    symlinks=True,
+                    ignore=_ignore_func(*DEFAULT_IGNORE_PATTERNS),
+                )
             else:
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(src_path, dest)
+                # Don't follow symlinks for single files either
+                shutil.copy2(src_path, dest, follow_symlinks=False)
         
         # Generate README
         readme_generator(items_dir, items, repo)
@@ -162,11 +179,16 @@ def publish_all(
                             dest_name = f"{source_id}/{skill_name}"
                             dest = skills_dir / dest_name
                             if skill.path.is_dir():
-                                shutil.copytree(skill.path, dest, dirs_exist_ok=True,
-                                               ignore=_ignore_func(*DEFAULT_IGNORE_PATTERNS))
+                                shutil.copytree(
+                                    skill.path,
+                                    dest,
+                                    dirs_exist_ok=True,
+                                    symlinks=True,
+                                    ignore=_ignore_func(*DEFAULT_IGNORE_PATTERNS),
+                                )
                             else:
                                 dest.parent.mkdir(parents=True, exist_ok=True)
-                                shutil.copy2(skill.path, dest)
+                                shutil.copy2(skill.path, dest, follow_symlinks=False)
                             skills_to_publish.append((skill.path, dest_name))
                             break
             
@@ -188,7 +210,7 @@ def publish_all(
                 agent = all_agents.get(agent_name)
                 if agent:
                     dest = agents_dir / f"{agent_name}.md"
-                    shutil.copy2(Path(agent.path), dest)
+                    shutil.copy2(Path(agent.path), dest, follow_symlinks=False)
                     agents_to_publish.append((Path(agent.path), f"agents/{agent_name}.md"))
             
             if agents_to_publish:
@@ -249,18 +271,29 @@ def git_commit_and_push(tmp_dir: Path, repo_url: str, count: int) -> None:
     )
     if commit_result.returncode != 0:
         raise subprocess.CalledProcessError(
-            commit_result.returncode, "git commit",
-            commit_result.stdout, commit_result.stderr
+            commit_result.returncode,
+            "git commit",
+            _sanitize_git_output(commit_result.stdout),
+            _sanitize_git_output(commit_result.stderr),
         )
-    
+
     # Push
-    subprocess.run(
-        ["git", "remote", "add", "origin", repo_url],
-        cwd=tmp_dir,
-        check=True,
-        capture_output=True,
-        timeout=10,
-    )
+    try:
+        subprocess.run(
+            ["git", "remote", "add", "origin", repo_url],
+            cwd=tmp_dir,
+            check=True,
+            capture_output=True,
+            timeout=10,
+        )
+    except subprocess.CalledProcessError as e:
+        raise subprocess.CalledProcessError(
+            e.returncode,
+            _sanitize_git_args(e.cmd),
+            _sanitize_git_output(e.stdout),
+            _sanitize_git_output(e.stderr),
+        ) from None
+
     push_result = subprocess.run(
         ["git", "push", "-u", "origin", "main", "--force"],
         cwd=tmp_dir,
@@ -270,8 +303,10 @@ def git_commit_and_push(tmp_dir: Path, repo_url: str, count: int) -> None:
     )
     if push_result.returncode != 0:
         raise subprocess.CalledProcessError(
-            push_result.returncode, "git push",
-            push_result.stdout, push_result.stderr
+            push_result.returncode,
+            _sanitize_git_args(push_result.args),
+            _sanitize_git_output(push_result.stdout),
+            _sanitize_git_output(push_result.stderr),
         )
 
 

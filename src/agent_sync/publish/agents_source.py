@@ -17,6 +17,7 @@ from rich.prompt import Prompt
 from .config import get_published_repo, load_config, save_selected_skills
 from .tui import MultiSelectTUI, SourceInfo
 from ..agent_discovery import AgentInstructionFile, discover_agent_instructions
+from ..sync import _sanitize_git_args, _sanitize_git_output
 
 
 console = Console()
@@ -183,7 +184,7 @@ def publish_agents(
                 # Use the name as filename, sanitized
                 safe_name = agent_name.replace("/", "_").replace(" ", "_")
                 dest = agents_dir / f"{safe_name}.md"
-                shutil.copy2(Path(agent.path), dest)
+                shutil.copy2(Path(agent.path), dest, follow_symlinks=False)
                 published_count += 1
             else:
                 console.print(f"[dim]  ⚠ Not found: {agent_name}[/dim]")
@@ -193,27 +194,34 @@ def publish_agents(
             return False
 
         # Git operations
-        subprocess.run(["git", "init"], cwd=tmp_dir, capture_output=True, timeout=10)
-        subprocess.run(["git", "branch", "-M", "main"], cwd=tmp_dir, capture_output=True, timeout=10)
-        subprocess.run(["git", "add", "."], cwd=tmp_dir, capture_output=True, timeout=30)
-        subprocess.run(
+        def _run_git_check(*args, **kwargs):
+            try:
+                subprocess.run(*args, check=True, capture_output=True, text=True, **kwargs)
+            except subprocess.CalledProcessError as e:
+                raise subprocess.CalledProcessError(
+                    e.returncode,
+                    _sanitize_git_args(e.cmd),
+                    _sanitize_git_output(e.stdout),
+                    _sanitize_git_output(e.stderr),
+                ) from None
+
+        _run_git_check(["git", "init"], cwd=tmp_dir, timeout=10)
+        _run_git_check(["git", "branch", "-M", "main"], cwd=tmp_dir, timeout=10)
+        _run_git_check(["git", "add", "."], cwd=tmp_dir, timeout=30)
+        _run_git_check(
             ["git", "commit", "-m", f"feat: publish {published_count} agents"],
             cwd=tmp_dir,
-            capture_output=True,
             timeout=30,
         )
 
-        subprocess.run(
+        _run_git_check(
             ["git", "remote", "add", "origin", published_repo],
             cwd=tmp_dir,
-            capture_output=True,
             timeout=10,
         )
-        subprocess.run(
+        _run_git_check(
             ["git", "push", "-u", "origin", "main", "--force"],
             cwd=tmp_dir,
-            check=True,
-            capture_output=True,
             timeout=120,
         )
 
