@@ -9,6 +9,7 @@ DRY: Single _do_git_publish() used by both skills and agents.
 
 import shutil
 import re
+import fnmatch
 import subprocess
 import tempfile
 from pathlib import Path
@@ -29,20 +30,16 @@ DEFAULT_IGNORE_PATTERNS = [
 
 
 def _ignore_func(*patterns):
-    """Create a callable that returns a list of filenames to ignore."""
+    """Create a callable that returns a list of filenames to ignore.
+
+    Security: Uses fnmatch.filter to correctly handle all exclusion patterns.
+    """
     def _ignore(path, names):
-        ignored = []
-        for name in names:
-            for pattern in patterns:
-                if pattern.startswith('*.'):
-                    if name.endswith(pattern[1:]):
-                        ignored.append(name)
-                        break
-                elif pattern.startswith('.'):
-                    if name == pattern or name.startswith(pattern.rstrip('/') + '/'):
-                        ignored.append(name)
-                        break
-        return ignored
+        ignored = set()
+        for pattern in patterns:
+            matches = fnmatch.filter(names, pattern)
+            ignored.update(matches)
+        return list(ignored)
     return _ignore
 
 from rich.console import Console
@@ -91,11 +88,14 @@ def do_git_publish(
         for src_path, dest_name in items:
             dest = items_dir / dest_name
             if src_path.is_dir():
+                # Security: preserve symlinks as links to prevent content leakage
                 shutil.copytree(src_path, dest, dirs_exist_ok=True,
+                               symlinks=True,
                                ignore=_ignore_func(*DEFAULT_IGNORE_PATTERNS))
             else:
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(src_path, dest)
+                # Security: do not follow symlinks to prevent content leakage
+                shutil.copy2(src_path, dest, follow_symlinks=False)
         
         # Generate README
         readme_generator(items_dir, items, repo)
@@ -162,11 +162,14 @@ def publish_all(
                             dest_name = f"{source_id}/{skill_name}"
                             dest = skills_dir / dest_name
                             if skill.path.is_dir():
+                                # Security: preserve symlinks as links to prevent content leakage
                                 shutil.copytree(skill.path, dest, dirs_exist_ok=True,
+                                               symlinks=True,
                                                ignore=_ignore_func(*DEFAULT_IGNORE_PATTERNS))
                             else:
                                 dest.parent.mkdir(parents=True, exist_ok=True)
-                                shutil.copy2(skill.path, dest)
+                                # Security: do not follow symlinks to prevent content leakage
+                                shutil.copy2(skill.path, dest, follow_symlinks=False)
                             skills_to_publish.append((skill.path, dest_name))
                             break
             
@@ -188,7 +191,8 @@ def publish_all(
                 agent = all_agents.get(agent_name)
                 if agent:
                     dest = agents_dir / f"{agent_name}.md"
-                    shutil.copy2(Path(agent.path), dest)
+                    # Security: do not follow symlinks to prevent content leakage
+                    shutil.copy2(Path(agent.path), dest, follow_symlinks=False)
                     agents_to_publish.append((Path(agent.path), f"agents/{agent_name}.md"))
             
             if agents_to_publish:
