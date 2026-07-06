@@ -9,6 +9,7 @@ DRY: Single _do_git_publish() used by both skills and agents.
 
 import shutil
 import re
+import fnmatch
 import subprocess
 import tempfile
 from pathlib import Path
@@ -31,18 +32,10 @@ DEFAULT_IGNORE_PATTERNS = [
 def _ignore_func(*patterns):
     """Create a callable that returns a list of filenames to ignore."""
     def _ignore(path, names):
-        ignored = []
-        for name in names:
-            for pattern in patterns:
-                if pattern.startswith('*.'):
-                    if name.endswith(pattern[1:]):
-                        ignored.append(name)
-                        break
-                elif pattern.startswith('.'):
-                    if name == pattern or name.startswith(pattern.rstrip('/') + '/'):
-                        ignored.append(name)
-                        break
-        return ignored
+        ignored = set()
+        for pattern in patterns:
+            ignored.update(fnmatch.filter(names, pattern))
+        return list(ignored)
     return _ignore
 
 from rich.console import Console
