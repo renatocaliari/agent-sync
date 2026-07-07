@@ -178,3 +178,43 @@ def test_run_git_sanitizes_stderr_on_failure(tmp_path):
             assert "***" in e.stderr, (
                 "Sanitization marker missing — stderr was not sanitized"
             )
+
+def test_run_git_sanitizes_args_on_failure(tmp_path):
+    """Integration: _run_git must sanitize CalledProcessError arguments.
+
+    The string representation of CalledProcessError includes the command
+    arguments, which may contain tokens. These must be sanitized.
+    """
+    from agent_sync.sync import SyncManager
+
+    # Create a fake repo
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init"], cwd=repo, capture_output=True)
+
+    sm = SyncManager.__new__(SyncManager)
+    sm.repo_dir = repo
+    sm.config = MagicMock()
+    sm.state_file = tmp_path / "state.json"
+
+    token = "ghp_SECRET_TOKEN_XXXXXXXXXXXXXXXX"
+    repo_url = f"https://{token}@github.com/u/r.git"
+    cmd = ["git", "remote", "add", "origin", repo_url]
+
+    # Mock subprocess.run to simulate git failure with token in arguments
+    fake_result = MagicMock()
+    fake_result.returncode = 1
+    fake_result.stdout = ""
+    fake_result.stderr = "error"
+    fake_result.args = cmd
+
+    with patch("agent_sync.sync.subprocess.run", return_value=fake_result):
+        try:
+            sm._run_git(*cmd[1:])
+            assert False, "Should have raised CalledProcessError"
+        except subprocess.CalledProcessError as e:
+            # Check string representation which is what usually leaks in logs
+            assert token not in str(e), "Token leaked through CalledProcessError string representation!"
+            # Also check the .cmd attribute
+            for arg in e.cmd:
+                assert token not in str(arg), "Token leaked through e.cmd attribute!"
